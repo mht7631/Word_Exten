@@ -35,14 +35,31 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-execution-en
  */
 function woosmart_automation_init() {
 
+    /*
+     * Core plugin services.
+     */
     new WooSmart_Core();
     new WooSmart_Admin();
-    new WooSmart_Automation();
-    new WooSmart_Condition_Engine();
-    new WooSmart_Execution_Engine();
-    new WooSmart_Triggers();
     new WooSmart_Post_Types();
     new WooSmart_Automation_Manager();
+
+    /*
+     * Automation engines.
+     *
+     * Execution Engine creates and manages
+     * the Condition and Action engines internally.
+     */
+    new WooSmart_Execution_Engine();
+
+    /*
+     * Trigger system.
+     */
+    new WooSmart_Triggers();
+
+    /*
+     * Main automation class.
+     */
+    new WooSmart_Automation();
 }
 
 add_action(
@@ -62,9 +79,37 @@ function woosmart_automation_activate() {
         'woosmart_automation_status',
         'Plugin activated successfully'
     );
+
+    /*
+     * Register custom post types before flushing rewrite rules.
+     */
+    if ( class_exists( 'WooSmart_Post_Types' ) ) {
+
+        $post_types = new WooSmart_Post_Types();
+
+        $post_types->register_automation_post_type();
+    }
+
+    flush_rewrite_rules();
 }
 
 register_activation_hook(
     __FILE__,
     'woosmart_automation_activate'
+);
+
+
+/**
+ * Runs when the plugin is deactivated.
+ *
+ * @return void
+ */
+function woosmart_automation_deactivate() {
+
+    flush_rewrite_rules();
+}
+
+register_deactivation_hook(
+    __FILE__,
+    'woosmart_automation_deactivate'
 );
