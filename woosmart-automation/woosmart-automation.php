@@ -44,17 +44,16 @@ function woosmart_automation_init() {
     new WooSmart_Automation_Manager();
 
     /*
-     * Automation engines.
-     *
-     * Execution Engine creates and manages
-     * the Condition and Action engines internally.
+     * Create one shared execution engine.
      */
-    new WooSmart_Execution_Engine();
+    $execution_engine = new WooSmart_Execution_Engine();
 
     /*
-     * Trigger system.
+     * Pass the shared execution engine to the trigger system.
      */
-    new WooSmart_Triggers();
+    new WooSmart_Triggers(
+        $execution_engine
+    );
 
     /*
      * Main automation class.
