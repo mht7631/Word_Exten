@@ -77,7 +77,20 @@ class WooSmart_Automation_Manager {
 
         if ( empty( $name ) || empty( $trigger ) ) {
             wp_die(
-                'Automation name and trigger are required.'
+                'نام اتوماسیون و رویداد الزامی است.'
+            );
+        }
+
+        $trigger_error =
+            $this->validate_trigger(
+                $trigger
+            );
+
+        if ( is_wp_error( $trigger_error ) ) {
+            wp_die(
+                esc_html(
+                    $trigger_error->get_error_message()
+                )
             );
         }
 
@@ -86,6 +99,32 @@ class WooSmart_Automation_Manager {
 
         $actions =
             $this->get_actions_from_request();
+
+        $conditions_error =
+            $this->validate_conditions(
+                $conditions
+            );
+
+        if ( is_wp_error( $conditions_error ) ) {
+            wp_die(
+                esc_html(
+                    $conditions_error->get_error_message()
+                )
+            );
+        }
+
+        $actions_error =
+            $this->validate_actions(
+                $actions
+            );
+
+        if ( is_wp_error( $actions_error ) ) {
+            wp_die(
+                esc_html(
+                    $actions_error->get_error_message()
+                )
+            );
+        }
 
         $automation_id = wp_insert_post(
             array(
@@ -167,14 +206,14 @@ class WooSmart_Automation_Manager {
             : 0;
 
         if ( ! $automation_id ) {
-            wp_die( 'Invalid automation ID.' );
+            wp_die( 'شناسه اتوماسیون نامعتبر است.' );
         }
 
         if (
             'woosmart_automation' !==
             get_post_type( $automation_id )
         ) {
-            wp_die( 'Invalid automation.' );
+            wp_die( 'اتوماسیون نامعتبر است.' );
         }
 
         $name = isset( $_POST['automation_name'] )
@@ -191,7 +230,20 @@ class WooSmart_Automation_Manager {
 
         if ( empty( $name ) || empty( $trigger ) ) {
             wp_die(
-                'Automation name and trigger are required.'
+                'نام اتوماسیون و رویداد الزامی است.'
+            );
+        }
+
+        $trigger_error =
+            $this->validate_trigger(
+                $trigger
+            );
+
+        if ( is_wp_error( $trigger_error ) ) {
+            wp_die(
+                esc_html(
+                    $trigger_error->get_error_message()
+                )
             );
         }
 
@@ -201,12 +253,47 @@ class WooSmart_Automation_Manager {
         $actions =
             $this->get_actions_from_request();
 
-        wp_update_post(
+        $conditions_error =
+            $this->validate_conditions(
+                $conditions
+            );
+
+        if ( is_wp_error( $conditions_error ) ) {
+            wp_die(
+                esc_html(
+                    $conditions_error->get_error_message()
+                )
+            );
+        }
+
+        $actions_error =
+            $this->validate_actions(
+                $actions
+            );
+
+        if ( is_wp_error( $actions_error ) ) {
+            wp_die(
+                esc_html(
+                    $actions_error->get_error_message()
+                )
+            );
+        }
+
+        $update_result = wp_update_post(
             array(
                 'ID'         => $automation_id,
                 'post_title' => $name,
-            )
+            ),
+            true
         );
+
+        if ( is_wp_error( $update_result ) ) {
+            wp_die(
+                esc_html(
+                    $update_result->get_error_message()
+                )
+            );
+        }
 
         update_post_meta(
             $automation_id,
@@ -260,7 +347,7 @@ class WooSmart_Automation_Manager {
             : 0;
 
         if ( ! $automation_id ) {
-            wp_die( 'Invalid automation ID.' );
+            wp_die( 'شناسه اتوماسیون نامعتبر است.' );
         }
 
         check_admin_referer(
@@ -272,7 +359,7 @@ class WooSmart_Automation_Manager {
             'woosmart_automation' !==
             get_post_type( $automation_id )
         ) {
-            wp_die( 'Invalid automation.' );
+            wp_die( 'اتوماسیون نامعتبر است.' );
         }
 
         $current_status = get_post_meta(
@@ -285,6 +372,81 @@ class WooSmart_Automation_Manager {
             ( 'active' === $current_status )
                 ? 'inactive'
                 : 'active';
+
+        /*
+         * Before activating an automation,
+         * validate its existing configuration.
+         */
+        if ( 'active' === $new_status ) {
+
+            $trigger = get_post_meta(
+                $automation_id,
+                '_woosmart_trigger',
+                true
+            );
+
+            $conditions = get_post_meta(
+                $automation_id,
+                '_woosmart_conditions',
+                true
+            );
+
+            $actions = get_post_meta(
+                $automation_id,
+                '_woosmart_actions',
+                true
+            );
+
+            if ( ! is_array( $conditions ) ) {
+                $conditions = array();
+            }
+
+            if ( ! is_array( $actions ) ) {
+                $actions = array();
+            }
+
+            $trigger_error =
+                $this->validate_trigger(
+                    $trigger
+                );
+
+            if ( is_wp_error( $trigger_error ) ) {
+                wp_die(
+                    esc_html(
+                        'امکان فعال‌سازی اتوماسیون وجود ندارد: ' .
+                        $trigger_error->get_error_message()
+                    )
+                );
+            }
+
+            $conditions_error =
+                $this->validate_conditions(
+                    $conditions
+                );
+
+            if ( is_wp_error( $conditions_error ) ) {
+                wp_die(
+                    esc_html(
+                        'امکان فعال‌سازی اتوماسیون وجود ندارد: ' .
+                        $conditions_error->get_error_message()
+                    )
+                );
+            }
+
+            $actions_error =
+                $this->validate_actions(
+                    $actions
+                );
+
+            if ( is_wp_error( $actions_error ) ) {
+                wp_die(
+                    esc_html(
+                        'امکان فعال‌سازی اتوماسیون وجود ندارد: ' .
+                        $actions_error->get_error_message()
+                    )
+                );
+            }
+        }
 
         update_post_meta(
             $automation_id,
@@ -324,7 +486,7 @@ class WooSmart_Automation_Manager {
             : 0;
 
         if ( ! $automation_id ) {
-            wp_die( 'Invalid automation ID.' );
+            wp_die( 'شناسه اتوماسیون نامعتبر است.' );
         }
 
         check_admin_referer(
@@ -336,7 +498,7 @@ class WooSmart_Automation_Manager {
             'woosmart_automation' !==
             get_post_type( $automation_id )
         ) {
-            wp_die( 'Invalid automation.' );
+            wp_die( 'اتوماسیون نامعتبر است.' );
         }
 
         wp_trash_post( $automation_id );
@@ -372,7 +534,7 @@ class WooSmart_Automation_Manager {
             : 0;
 
         if ( ! $automation_id ) {
-            wp_die( 'Invalid automation ID.' );
+            wp_die( 'شناسه اتوماسیون نامعتبر است.' );
         }
 
         check_admin_referer(
@@ -384,7 +546,7 @@ class WooSmart_Automation_Manager {
             'woosmart_automation' !==
             get_post_type( $automation_id )
         ) {
-            wp_die( 'Invalid automation.' );
+            wp_die( 'اتوماسیون نامعتبر است.' );
         }
 
         $automation = get_post(
@@ -392,7 +554,7 @@ class WooSmart_Automation_Manager {
         );
 
         if ( ! $automation ) {
-            wp_die( 'Automation not found.' );
+            wp_die( 'اتوماسیون پیدا نشد.' );
         }
 
         $new_automation_id = wp_insert_post(
@@ -514,6 +676,12 @@ class WooSmart_Automation_Manager {
                 )
             );
 
+            $value = str_replace(
+                ',',
+                '',
+                $value
+            );
+
             if (
                 ! empty( $field ) &&
                 ! empty( $operator ) &&
@@ -575,6 +743,306 @@ class WooSmart_Automation_Manager {
     }
 
     /**
+     * Validate trigger.
+     *
+     * @param string $trigger Trigger key.
+     *
+     * @return true|WP_Error
+     */
+    private function validate_trigger( $trigger ) {
+
+        $allowed_triggers = array(
+            'order_created',
+        );
+
+        if (
+            ! in_array(
+                $trigger,
+                $allowed_triggers,
+                true
+            )
+        ) {
+            return new WP_Error(
+                'invalid_trigger',
+                'رویداد انتخاب‌شده معتبر نیست.'
+            );
+        }
+
+        return true;
+    }
+
+    /**
+     * Validate conditions.
+     *
+     * @param array $conditions Conditions.
+     *
+     * @return true|WP_Error
+     */
+    private function validate_conditions(
+        $conditions
+    ) {
+
+        if ( ! is_array( $conditions ) ) {
+            return new WP_Error(
+                'invalid_conditions',
+                'ساختار شرایط نامعتبر است.'
+            );
+        }
+
+        /*
+         * Empty conditions are allowed.
+         */
+        if ( empty( $conditions ) ) {
+            return true;
+        }
+
+        $allowed_fields = array(
+            'order_total',
+        );
+
+        $allowed_operators = array(
+            'is_equal',
+            'is_not_equal',
+            'greater_than',
+            'greater_than_or_equal',
+            'less_than',
+            'less_than_or_equal',
+        );
+
+        foreach ( $conditions as $condition ) {
+
+            if ( ! is_array( $condition ) ) {
+                return new WP_Error(
+                    'invalid_condition',
+                    'یکی از شرایط ساختار نامعتبر دارد.'
+                );
+            }
+
+            $field = isset(
+                $condition['field']
+            )
+                ? sanitize_key(
+                    $condition['field']
+                )
+                : '';
+
+            $operator = isset(
+                $condition['operator']
+            )
+                ? sanitize_key(
+                    $condition['operator']
+                )
+                : '';
+
+            $value = isset(
+                $condition['value']
+            )
+                ? $condition['value']
+                : '';
+
+            if (
+                ! in_array(
+                    $field,
+                    $allowed_fields,
+                    true
+                )
+            ) {
+                return new WP_Error(
+                    'invalid_condition_field',
+                    'فیلد شرط انتخاب‌شده معتبر نیست.'
+                );
+            }
+
+            if (
+                ! in_array(
+                    $operator,
+                    $allowed_operators,
+                    true
+                )
+            ) {
+                return new WP_Error(
+                    'invalid_condition_operator',
+                    'عملگر شرط انتخاب‌شده معتبر نیست.'
+                );
+            }
+
+            $value = str_replace(
+                ',',
+                '',
+                (string) $value
+            );
+
+            if (
+                '' === $value ||
+                ! is_numeric( $value )
+            ) {
+                return new WP_Error(
+                    'invalid_condition_value',
+                    'مقدار شرط باید یک عدد معتبر باشد.'
+                );
+            }
+
+            if ( (float) $value < 0 ) {
+                return new WP_Error(
+                    'negative_condition_value',
+                    'مقدار شرط نمی‌تواند منفی باشد.'
+                );
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Validate actions.
+     *
+     * @param array $actions Actions.
+     *
+     * @return true|WP_Error
+     */
+    private function validate_actions(
+        $actions
+    ) {
+
+        if ( ! is_array( $actions ) ) {
+            return new WP_Error(
+                'invalid_actions',
+                'ساختار عملیات نامعتبر است.'
+            );
+        }
+
+        /*
+         * An automation must have at least one action.
+         */
+        if ( empty( $actions ) ) {
+            return new WP_Error(
+                'missing_action',
+                'اتوماسیون باید حداقل یک عملیات داشته باشد.'
+            );
+        }
+
+        $allowed_action_types = array(
+            'change_order_status',
+        );
+
+        foreach ( $actions as $action ) {
+
+            if ( ! is_array( $action ) ) {
+                return new WP_Error(
+                    'invalid_action',
+                    'یکی از عملیات‌ها ساختار نامعتبر دارد.'
+                );
+            }
+
+            $action_type = isset(
+                $action['type']
+            )
+                ? sanitize_key(
+                    $action['type']
+                )
+                : '';
+
+            if (
+                ! in_array(
+                    $action_type,
+                    $allowed_action_types,
+                    true
+                )
+            ) {
+                return new WP_Error(
+                    'invalid_action_type',
+                    'نوع عملیات انتخاب‌شده معتبر نیست.'
+                );
+            }
+
+            if (
+                'change_order_status' ===
+                $action_type
+            ) {
+
+                $status = isset(
+                    $action['status']
+                )
+                    ? sanitize_key(
+                        $action['status']
+                    )
+                    : '';
+
+                if ( empty( $status ) ) {
+                    return new WP_Error(
+                        'missing_order_status',
+                        'وضعیت سفارش برای عملیات الزامی است.'
+                    );
+                }
+
+                if (
+                    ! $this->is_valid_order_status(
+                        $status
+                    )
+                ) {
+                    return new WP_Error(
+                        'invalid_order_status',
+                        'وضعیت سفارش انتخاب‌شده معتبر نیست.'
+                    );
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Check whether an order status is valid.
+     *
+     * @param string $status Order status slug.
+     *
+     * @return bool
+     */
+    private function is_valid_order_status(
+        $status
+    ) {
+
+        if (
+            function_exists(
+                'wc_get_order_statuses'
+            )
+        ) {
+
+            $statuses =
+                wc_get_order_statuses();
+
+            $status_key = 'wc-' . $status;
+
+            if (
+                isset(
+                    $statuses[ $status_key ]
+                )
+            ) {
+                return true;
+            }
+        }
+
+        /*
+         * Fallback for the standard WooCommerce statuses.
+         */
+        $standard_statuses = array(
+            'pending',
+            'processing',
+            'on-hold',
+            'completed',
+            'cancelled',
+            'refunded',
+            'failed',
+        );
+
+        return in_array(
+            $status,
+            $standard_statuses,
+            true
+        );
+    }
+
+    /**
      * Verify administrator access.
      *
      * @return void
@@ -584,7 +1052,7 @@ class WooSmart_Automation_Manager {
         if ( ! current_user_can( 'manage_options' ) ) {
 
             wp_die(
-                'You do not have permission to perform this action.'
+                'شما اجازه انجام این عملیات را ندارید.'
             );
         }
     }
