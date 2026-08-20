@@ -44,12 +44,23 @@ function woosmart_automation_init() {
     new WooSmart_Automation_Manager();
 
     /*
-     * Create one shared execution engine.
+     * Create shared automation services.
      */
-    $execution_engine = new WooSmart_Execution_Engine();
+    $condition_engine = new WooSmart_Condition_Engine();
+    $action_engine    = new WooSmart_Action_Engine();
 
     /*
-     * Pass the shared execution engine to the trigger system.
+     * Create one execution engine using
+     * the shared condition and action engines.
+     */
+    $execution_engine = new WooSmart_Execution_Engine(
+        $condition_engine,
+        $action_engine
+    );
+
+    /*
+     * Pass the shared execution engine to
+     * the trigger system.
      */
     new WooSmart_Triggers(
         $execution_engine
