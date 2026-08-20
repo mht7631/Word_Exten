@@ -37,8 +37,8 @@ class WooSmart_Admin {
     public function add_admin_menu() {
 
         add_menu_page(
-            'اتوماسیون وو اسمارت',
-            'وو اسمارت',
+            'WooSmart Automation',
+            'WooSmart',
             'manage_options',
             'woosmart-automation',
             array( $this, 'render_dashboard_page' ),
@@ -102,7 +102,7 @@ class WooSmart_Admin {
         >
 
             <h1>
-                وو اسمارت اتوماسیون
+                WooSmart Automation
             </h1>
 
             <p>
@@ -396,7 +396,7 @@ class WooSmart_Admin {
                                                 ) {
 
                                                     echo wp_kses_post(
-                                                        $this->format_currency(
+                                                        $this->format_irr_value(
                                                             $value
                                                         )
                                                     );
@@ -712,6 +712,20 @@ class WooSmart_Admin {
             );
         }
 
+        $condition_value_numeric = $this->normalize_irr_input(
+            $condition_value
+        );
+
+        $condition_value_display = '';
+
+        if ( '' !== $condition_value_numeric ) {
+
+            $condition_value_display =
+                $this->format_irr_input(
+                    $condition_value_numeric
+                );
+        }
+
         ?>
 
         <div
@@ -972,7 +986,7 @@ class WooSmart_Admin {
 
                         <th scope="row">
 
-                            <label for="condition_value">
+                            <label for="condition_value_display">
                                 مقدار
                             </label>
 
@@ -980,20 +994,66 @@ class WooSmart_Admin {
 
                         <td>
 
+                            <div
+                                style="
+                                    display:flex;
+                                    align-items:center;
+                                    gap:8px;
+                                    max-width:420px;
+                                "
+                            >
+
+                                <div
+                                    style="
+                                        position:relative;
+                                        flex:1;
+                                    "
+                                >
+
+                                    <input
+                                        type="text"
+                                        inputmode="numeric"
+                                        autocomplete="off"
+                                        id="condition_value_display"
+                                        class="regular-text"
+                                        value="<?php echo esc_attr( $condition_value_display ); ?>"
+                                        placeholder="1,000,000"
+                                        style="
+                                            width:100%;
+                                            padding-left:70px;
+                                            direction:ltr;
+                                            text-align:left;
+                                        "
+                                    >
+
+                                    <span
+                                        style="
+                                            position:absolute;
+                                            left:12px;
+                                            top:50%;
+                                            transform:translateY(-50%);
+                                            color:#646970;
+                                            pointer-events:none;
+                                            font-size:13px;
+                                            font-weight:600;
+                                        "
+                                    >
+                                        ریال
+                                    </span>
+
+                                </div>
+
+                            </div>
+
                             <input
-                                type="number"
-                                step="0.01"
-                                min="0"
+                                type="hidden"
                                 id="condition_value"
                                 name="condition_value"
-                                class="regular-text"
-                                value="<?php echo esc_attr( $condition_value ); ?>"
-                                placeholder="1000000"
+                                value="<?php echo esc_attr( $condition_value_numeric ); ?>"
                             >
 
                             <p class="description">
-                                واحد پول مطابق تنظیمات WooCommerce است.
-                                برای فروشگاه ریالی، ارز فروشگاه را روی ریال تنظیم کنید.
+                                مبلغ را به ریال وارد کنید؛ جداکننده هزارگان به‌صورت خودکار اضافه می‌شود.
                             </p>
 
                         </td>
@@ -1099,6 +1159,178 @@ class WooSmart_Admin {
             </form>
 
         </div>
+
+        <script>
+            document.addEventListener(
+                'DOMContentLoaded',
+                function() {
+
+                    const displayInput =
+                        document.getElementById(
+                            'condition_value_display'
+                        );
+
+                    const hiddenInput =
+                        document.getElementById(
+                            'condition_value'
+                        );
+
+                    if ( ! displayInput || ! hiddenInput ) {
+                        return;
+                    }
+
+                    function normalizeNumber(value) {
+
+                        value = String(value || '');
+
+                        value = value.replace(/,/g, '');
+
+                        value = value.replace(/[^\d.]/g, '');
+
+                        const firstDot =
+                            value.indexOf('.');
+
+                        if ( firstDot !== -1 ) {
+
+                            value =
+                                value.substring(
+                                    0,
+                                    firstDot + 1
+                                ) +
+                                value.substring(
+                                    firstDot + 1
+                                ).replace(/\./g, '');
+                        }
+
+                        return value;
+                    }
+
+                    function formatNumber(value) {
+
+                        value = normalizeNumber(value);
+
+                        if ( value === '' ) {
+                            return '';
+                        }
+
+                        const parts = value.split('.');
+
+                        const integerPart =
+                            parts[0].replace(
+                                /\B(?=(\d{3})+(?!\d))/g,
+                                ','
+                            );
+
+                        if ( parts.length > 1 ) {
+
+                            return (
+                                integerPart +
+                                '.' +
+                                parts[1]
+                            );
+                        }
+
+                        return integerPart;
+                    }
+
+                    function syncValues() {
+
+                        const rawValue =
+                            normalizeNumber(
+                                displayInput.value
+                            );
+
+                        hiddenInput.value =
+                            rawValue;
+
+                        displayInput.value =
+                            formatNumber(rawValue);
+                    }
+
+                    displayInput.addEventListener(
+                        'input',
+                        function() {
+
+                            const cursorPosition =
+                                displayInput.selectionStart;
+
+                            const oldValue =
+                                displayInput.value;
+
+                            const rawValue =
+                                normalizeNumber(
+                                    oldValue
+                                );
+
+                            const formattedValue =
+                                formatNumber(
+                                    rawValue
+                                );
+
+                            displayInput.value =
+                                formattedValue;
+
+                            hiddenInput.value =
+                                rawValue;
+
+                            let newCursorPosition =
+                                cursorPosition;
+
+                            if (
+                                formattedValue.length >
+                                oldValue.length
+                            ) {
+
+                                newCursorPosition +=
+                                    formattedValue.length -
+                                    oldValue.length;
+                            }
+
+                            if (
+                                newCursorPosition >
+                                formattedValue.length
+                            ) {
+
+                                newCursorPosition =
+                                    formattedValue.length;
+                            }
+
+                            try {
+
+                                displayInput.setSelectionRange(
+                                    newCursorPosition,
+                                    newCursorPosition
+                                );
+
+                            } catch ( error ) {
+                                // Ignore cursor positioning errors.
+                            }
+                        }
+                    );
+
+                    displayInput.addEventListener(
+                        'blur',
+                        function() {
+
+                            syncValues();
+                        }
+                    );
+
+                    displayInput.form.addEventListener(
+                        'submit',
+                        function() {
+
+                            hiddenInput.value =
+                                normalizeNumber(
+                                    displayInput.value
+                                );
+                        }
+                    );
+
+                    syncValues();
+                }
+            );
+        </script>
 
         <?php
     }
@@ -1286,12 +1518,12 @@ class WooSmart_Admin {
     private function get_operator_label( $operator ) {
 
         $labels = array(
-            'is_equal'               => 'برابر با',
-            'is_not_equal'           => 'نابرابر با',
-            'greater_than'           => 'بیشتر از',
-            'greater_than_or_equal'  => 'بیشتر یا مساوی',
-            'less_than'              => 'کمتر از',
-            'less_than_or_equal'     => 'کمتر یا مساوی',
+            'is_equal'              => 'برابر با',
+            'is_not_equal'          => 'نابرابر با',
+            'greater_than'          => 'بیشتر از',
+            'greater_than_or_equal' => 'بیشتر یا مساوی',
+            'less_than'             => 'کمتر از',
+            'less_than_or_equal'    => 'کمتر یا مساوی',
         );
 
         return isset( $labels[ $operator ] )
@@ -1352,30 +1584,118 @@ class WooSmart_Admin {
     }
 
     /**
-     * Format monetary value using WooCommerce currency.
+     * Format an IRR monetary value for the admin UI.
      *
      * @param mixed $value Monetary value.
      *
      * @return string
      */
-    private function format_currency( $value ) {
+    private function format_irr_value( $value ) {
 
-        $value = (float) $value;
+        $value = $this->normalize_irr_input(
+            $value
+        );
 
-        if ( function_exists( 'wc_price' ) ) {
-
-            return wc_price(
-                $value,
-                array(
-                    'decimals' => 0,
-                )
-            );
+        if ( '' === $value ) {
+            return '';
         }
 
-        return number_format_i18n(
-            $value,
-            0
+        return esc_html(
+            $this->format_irr_input(
+                $value
+            )
+        ) . ' ریال';
+    }
+
+    /**
+     * Format a numeric value for the amount field.
+     *
+     * @param mixed $value Numeric value.
+     *
+     * @return string
+     */
+    private function format_irr_input( $value ) {
+
+        $value = $this->normalize_irr_input(
+            $value
         );
+
+        if ( '' === $value ) {
+            return '';
+        }
+
+        $parts = explode(
+            '.',
+            $value,
+            2
+        );
+
+        $integer_part = number_format(
+            (float) $parts[0],
+            0,
+            '.',
+            ','
+        );
+
+        if ( isset( $parts[1] ) && '' !== $parts[1] ) {
+
+            return $integer_part . '.' . $parts[1];
+        }
+
+        return $integer_part;
+    }
+
+    /**
+     * Normalize amount input.
+     *
+     * @param mixed $value Amount value.
+     *
+     * @return string
+     */
+    private function normalize_irr_input( $value ) {
+
+        $value = (string) $value;
+
+        $value = str_replace(
+            ',',
+            '',
+            $value
+        );
+
+        $value = preg_replace(
+            '/[^\d.]/',
+            '',
+            $value
+        );
+
+        if ( null === $value ) {
+            return '';
+        }
+
+        $first_dot = strpos(
+            $value,
+            '.'
+        );
+
+        if ( false !== $first_dot ) {
+
+            $value =
+                substr(
+                    $value,
+                    0,
+                    $first_dot + 1
+                ) .
+                str_replace(
+                    '.',
+                    '',
+                    substr(
+                        $value,
+                        $first_dot + 1
+                    )
+                );
+        }
+
+        return $value;
     }
 
     /**
@@ -1388,17 +1708,17 @@ class WooSmart_Admin {
     private function get_event_label( $event ) {
 
         $labels = array(
-            'order_created'                 => 'ایجاد سفارش',
-            'automation_created'            => 'ایجاد اتوماسیون',
-            'automation_updated'            => 'ویرایش اتوماسیون',
-            'automation_status_changed'     => 'تغییر وضعیت اتوماسیون',
-            'automation_deleted'            => 'حذف اتوماسیون',
-            'automation_duplicated'         => 'کپی اتوماسیون',
-            'automation_skipped'            => 'رد شدن اتوماسیون',
-            'automation_conditions_failed'  => 'شرایط برقرار نبود',
-            'automation_executed'           => 'اجرای اتوماسیون',
-            'action_failed'                 => 'خطا در عملیات',
-            'action_executed'               => 'اجرای عملیات',
+            'order_created'                => 'ایجاد سفارش',
+            'automation_created'           => 'ایجاد اتوماسیون',
+            'automation_updated'           => 'ویرایش اتوماسیون',
+            'automation_status_changed'    => 'تغییر وضعیت اتوماسیون',
+            'automation_deleted'           => 'حذف اتوماسیون',
+            'automation_duplicated'        => 'کپی اتوماسیون',
+            'automation_skipped'           => 'رد شدن اتوماسیون',
+            'automation_conditions_failed' => 'شرایط برقرار نبود',
+            'automation_executed'          => 'اجرای اتوماسیون',
+            'action_failed'                => 'خطا در عملیات',
+            'action_executed'              => 'اجرای عملیات',
         );
 
         return isset( $labels[ $event ] )
@@ -1420,7 +1740,8 @@ class WooSmart_Admin {
     ) {
 
         $messages = array(
-            'order_created' => 'یک سفارش جدید ایجاد شد.',
+            'order_created' =>
+                'یک سفارش جدید ایجاد شد.',
 
             'automation_created' =>
                 'یک اتوماسیون جدید ایجاد شد.',
