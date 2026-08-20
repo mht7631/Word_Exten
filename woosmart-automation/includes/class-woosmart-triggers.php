@@ -25,12 +25,16 @@ class WooSmart_Triggers {
 
     /**
      * Initialize trigger system.
+     *
+     * @param WooSmart_Execution_Engine $engine Shared execution engine.
      */
-    public function __construct() {
+    public function __construct(
+        WooSmart_Execution_Engine $engine
+    ) {
 
         $this->logger = new WooSmart_Logger();
 
-        $this->engine = new WooSmart_Execution_Engine();
+        $this->engine = $engine;
 
         $this->register_hooks();
     }
