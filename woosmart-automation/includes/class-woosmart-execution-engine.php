@@ -68,16 +68,13 @@ class WooSmart_Execution_Engine {
                 'post_type'      => 'woosmart_automation',
                 'post_status'    => 'publish',
                 'posts_per_page' => -1,
-
                 'meta_query'     => array(
                     'relation' => 'AND',
-
                     array(
                         'key'     => '_woosmart_status',
                         'value'   => 'active',
                         'compare' => '=',
                     ),
-
                     array(
                         'key'     => '_woosmart_trigger',
                         'value'   => $trigger,
@@ -116,9 +113,7 @@ class WooSmart_Execution_Engine {
         $context
     ) {
 
-        $automation_id = absint(
-            $automation_id
-        );
+        $automation_id = absint( $automation_id );
 
         if ( ! $automation_id ) {
             return;
@@ -163,11 +158,10 @@ class WooSmart_Execution_Engine {
         /*
          * Evaluate conditions.
          */
-        $conditions_passed =
-            $this->condition_engine->evaluate(
-                $conditions,
-                $context
-            );
+        $conditions_passed = $this->condition_engine->evaluate(
+            $conditions,
+            $context
+        );
 
         if ( ! $conditions_passed ) {
 
@@ -200,11 +194,10 @@ class WooSmart_Execution_Engine {
         /*
          * Execute actions.
          */
-        $actions_successful =
-            $this->action_engine->execute(
-                $actions,
-                $context
-            );
+        $actions_successful = $this->action_engine->execute(
+            $actions,
+            $context
+        );
 
         /*
          * Log automation execution.
