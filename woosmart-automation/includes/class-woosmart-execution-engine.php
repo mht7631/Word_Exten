@@ -32,16 +32,19 @@ class WooSmart_Execution_Engine {
 
     /**
      * Initialize execution engine.
+     *
+     * @param WooSmart_Condition_Engine $condition_engine Condition engine.
+     * @param WooSmart_Action_Engine    $action_engine    Action engine.
      */
-    public function __construct() {
+    public function __construct(
+        WooSmart_Condition_Engine $condition_engine,
+        WooSmart_Action_Engine $action_engine
+    ) {
 
         $this->logger = new WooSmart_Logger();
 
-        $this->condition_engine =
-            new WooSmart_Condition_Engine();
-
-        $this->action_engine =
-            new WooSmart_Action_Engine();
+        $this->condition_engine = $condition_engine;
+        $this->action_engine    = $action_engine;
     }
 
     /**
@@ -210,9 +213,9 @@ class WooSmart_Execution_Engine {
             'automation_executed',
             'Automation was triggered successfully.',
             array(
-                'automation_id'     => $automation_id,
-                'trigger'           => $trigger,
-                'context'           => $context,
+                'automation_id'      => $automation_id,
+                'trigger'            => $trigger,
+                'context'            => $context,
                 'actions_successful' => $actions_successful,
             )
         );
