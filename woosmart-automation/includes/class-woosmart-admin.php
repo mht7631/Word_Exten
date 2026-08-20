@@ -37,8 +37,8 @@ class WooSmart_Admin {
     public function add_admin_menu() {
 
         add_menu_page(
-            'WooSmart Automation',
-            'WooSmart',
+            'اتوماسیون وو اسمارت',
+            'وو اسمارت',
             'manage_options',
             'woosmart-automation',
             array( $this, 'render_dashboard_page' ),
@@ -48,8 +48,8 @@ class WooSmart_Admin {
 
         add_submenu_page(
             'woosmart-automation',
-            'Dashboard',
-            'Dashboard',
+            'داشبورد',
+            'داشبورد',
             'manage_options',
             'woosmart-automation',
             array( $this, 'render_dashboard_page' )
@@ -57,8 +57,8 @@ class WooSmart_Admin {
 
         add_submenu_page(
             'woosmart-automation',
-            'Automations',
-            'Automations',
+            'اتوماسیون‌ها',
+            'اتوماسیون‌ها',
             'manage_options',
             'woosmart-automations',
             array( $this, 'render_automations_page' )
@@ -66,8 +66,8 @@ class WooSmart_Admin {
 
         add_submenu_page(
             'woosmart-automation',
-            'Add Automation',
-            'Add Automation',
+            'افزودن اتوماسیون',
+            'افزودن اتوماسیون',
             'manage_options',
             'woosmart-add-automation',
             array( $this, 'render_add_automation_page' )
@@ -75,8 +75,8 @@ class WooSmart_Admin {
 
         add_submenu_page(
             'woosmart-automation',
-            'Logs',
-            'Logs',
+            'گزارش‌ها',
+            'گزارش‌ها',
             'manage_options',
             'woosmart-automation-logs',
             array( $this, 'render_logs_page' )
@@ -92,13 +92,18 @@ class WooSmart_Admin {
 
         $status = get_option(
             'woosmart_automation_status',
-            'No status found'
+            'وضعیتی ثبت نشده است'
         );
         ?>
 
-        <div class="wrap">
+        <div
+            class="wrap"
+            dir="rtl"
+        >
 
-            <h1>WooSmart Automation</h1>
+            <h1>
+                وو اسمارت اتوماسیون
+            </h1>
 
             <p>
                 افزونه WooSmart Automation با موفقیت اجرا شده است.
@@ -106,7 +111,9 @@ class WooSmart_Admin {
 
             <hr>
 
-            <h2>Plugin Status</h2>
+            <h2>
+                وضعیت افزونه
+            </h2>
 
             <p>
                 <strong>
@@ -137,17 +144,20 @@ class WooSmart_Admin {
         );
         ?>
 
-        <div class="wrap">
+        <div
+            class="wrap"
+            dir="rtl"
+        >
 
             <h1 class="wp-heading-inline">
-                Automations
+                اتوماسیون‌ها
             </h1>
 
             <a
                 href="<?php echo esc_url( admin_url( 'admin.php?page=woosmart-add-automation' ) ); ?>"
                 class="page-title-action"
             >
-                Add Automation
+                افزودن اتوماسیون
             </a>
 
             <hr class="wp-header-end">
@@ -157,7 +167,7 @@ class WooSmart_Admin {
                 <div class="notice notice-info">
 
                     <p>
-                        هنوز هیچ Automationای ساخته نشده است.
+                        هنوز هیچ اتوماسیونی ساخته نشده است.
                     </p>
 
                 </div>
@@ -170,21 +180,37 @@ class WooSmart_Admin {
 
                         <tr>
 
-                            <th>ID</th>
+                            <th>
+                                شناسه
+                            </th>
 
-                            <th>Name</th>
+                            <th>
+                                نام
+                            </th>
 
-                            <th>Trigger</th>
+                            <th>
+                                رویداد
+                            </th>
 
-                            <th>Conditions</th>
+                            <th>
+                                شرایط
+                            </th>
 
-                            <th>Actions</th>
+                            <th>
+                                عملیات
+                            </th>
 
-                            <th>Status</th>
+                            <th>
+                                وضعیت
+                            </th>
 
-                            <th>Manage</th>
+                            <th>
+                                مدیریت
+                            </th>
 
-                            <th>Date</th>
+                            <th>
+                                تاریخ
+                            </th>
 
                         </tr>
 
@@ -232,15 +258,15 @@ class WooSmart_Admin {
 
                             if ( 'active' === $status ) {
 
-                                $status_label = 'Active';
+                                $status_label = 'فعال';
                                 $status_class = 'notice-success';
-                                $toggle_label = 'Disable';
+                                $toggle_label = 'غیرفعال کردن';
 
                             } else {
 
-                                $status_label = 'Inactive';
+                                $status_label = 'غیرفعال';
                                 $status_class = 'notice-warning';
-                                $toggle_label = 'Enable';
+                                $toggle_label = 'فعال کردن';
                             }
 
                             $toggle_url = wp_nonce_url(
@@ -302,7 +328,9 @@ class WooSmart_Admin {
                                 <td>
                                     <?php
                                     echo esc_html(
-                                        $trigger
+                                        $this->get_trigger_label(
+                                            $trigger
+                                        )
                                     );
                                     ?>
                                 </td>
@@ -312,7 +340,7 @@ class WooSmart_Admin {
                                     <?php if ( empty( $conditions ) ) : ?>
 
                                         <span>
-                                            None
+                                            بدون شرط
                                         </span>
 
                                     <?php else : ?>
@@ -341,26 +369,44 @@ class WooSmart_Admin {
 
                                             ?>
 
-                                            <div>
-
-                                                <?php
-                                                echo esc_html(
-                                                    $field
-                                                );
-                                                ?>
+                                            <div style="margin-bottom:6px;">
 
                                                 <strong>
                                                     <?php
                                                     echo esc_html(
-                                                        $operator
+                                                        $this->get_condition_field_label(
+                                                            $field
+                                                        )
                                                     );
                                                     ?>
                                                 </strong>
 
                                                 <?php
                                                 echo esc_html(
-                                                    $value
+                                                    $this->get_operator_label(
+                                                        $operator
+                                                    )
                                                 );
+                                                ?>
+
+                                                <?php
+                                                if (
+                                                    'order_total' ===
+                                                    $field
+                                                ) {
+
+                                                    echo wp_kses_post(
+                                                        $this->format_currency(
+                                                            $value
+                                                        )
+                                                    );
+
+                                                } else {
+
+                                                    echo esc_html(
+                                                        $value
+                                                    );
+                                                }
                                                 ?>
 
                                             </div>
@@ -376,7 +422,7 @@ class WooSmart_Admin {
                                     <?php if ( empty( $actions ) ) : ?>
 
                                         <span>
-                                            None
+                                            بدون عملیات
                                         </span>
 
                                     <?php else : ?>
@@ -401,52 +447,23 @@ class WooSmart_Admin {
 
                                             <?php if ( 'change_order_status' === $action_type ) : ?>
 
-                                                <?php
-
-                                                $status_label_text = $action_status;
-
-                                                if (
-                                                    function_exists(
-                                                        'wc_get_order_statuses'
-                                                    )
-                                                ) {
-
-                                                    $order_statuses =
-                                                        wc_get_order_statuses();
-
-                                                    $status_key =
-                                                        'wc-' . $action_status;
-
-                                                    if (
-                                                        isset(
-                                                            $order_statuses[
-                                                                $status_key
-                                                            ]
-                                                        )
-                                                    ) {
-
-                                                        $status_label_text =
-                                                            $order_statuses[
-                                                                $status_key
-                                                            ];
-                                                    }
-                                                }
-
-                                                ?>
-
-                                                <div>
+                                                <div style="margin-bottom:6px;">
 
                                                     <strong>
-                                                        Change Order Status
+                                                        تغییر وضعیت سفارش
                                                     </strong>
 
                                                     <br>
 
-                                                    <?php
-                                                    echo esc_html(
-                                                        $status_label_text
-                                                    );
-                                                    ?>
+                                                    <span>
+                                                        <?php
+                                                        echo esc_html(
+                                                            $this->get_order_status_label(
+                                                                $action_status
+                                                            )
+                                                        );
+                                                        ?>
+                                                    </span>
 
                                                 </div>
 
@@ -455,7 +472,9 @@ class WooSmart_Admin {
                                                 <div>
                                                     <?php
                                                     echo esc_html(
-                                                        $action_type
+                                                        $this->get_action_label(
+                                                            $action_type
+                                                        )
                                                     );
                                                     ?>
                                                 </div>
@@ -504,22 +523,22 @@ class WooSmart_Admin {
                                         href="<?php echo esc_url( $edit_url ); ?>"
                                         class="button"
                                     >
-                                        Edit
+                                        ویرایش
                                     </a>
 
                                     <a
                                         href="<?php echo esc_url( $duplicate_url ); ?>"
                                         class="button"
                                     >
-                                        Duplicate
+                                        کپی
                                     </a>
 
                                     <a
                                         href="<?php echo esc_url( $delete_url ); ?>"
                                         class="button"
-                                        onclick="return confirm('Are you sure you want to move this automation to trash?');"
+                                        onclick="return confirm('آیا مطمئن هستید که می‌خواهید این اتوماسیون را به زباله‌دان منتقل کنید؟');"
                                     >
-                                        Delete
+                                        حذف
                                     </a>
 
                                 </td>
@@ -673,33 +692,39 @@ class WooSmart_Admin {
                 );
 
                 $order_statuses[ $status_slug ] =
-                    $status_label;
+                    $this->get_order_status_label(
+                        $status_slug,
+                        $status_label
+                    );
             }
         }
 
         if ( empty( $order_statuses ) ) {
 
             $order_statuses = array(
-                'pending'    => 'Pending payment',
-                'processing' => 'Processing',
-                'on-hold'    => 'On hold',
-                'completed'  => 'Completed',
-                'cancelled'  => 'Cancelled',
-                'refunded'   => 'Refunded',
-                'failed'     => 'Failed',
+                'pending'    => 'در انتظار پرداخت',
+                'processing' => 'در حال پردازش',
+                'on-hold'    => 'در انتظار',
+                'completed'  => 'تکمیل‌شده',
+                'cancelled'  => 'لغوشده',
+                'refunded'   => 'مستردشده',
+                'failed'     => 'ناموفق',
             );
         }
 
         ?>
 
-        <div class="wrap">
+        <div
+            class="wrap"
+            dir="rtl"
+        >
 
             <h1>
 
                 <?php
                 echo $is_edit
-                    ? 'Edit Automation'
-                    : 'Create Automation';
+                    ? 'ویرایش اتوماسیون'
+                    : 'ایجاد اتوماسیون';
                 ?>
 
             </h1>
@@ -761,7 +786,7 @@ class WooSmart_Admin {
                         <th scope="row">
 
                             <label for="automation_name">
-                                Automation Name
+                                نام اتوماسیون
                             </label>
 
                         </th>
@@ -787,7 +812,7 @@ class WooSmart_Admin {
                         <th scope="row">
 
                             <label for="automation_trigger">
-                                Trigger
+                                رویداد
                             </label>
 
                         </th>
@@ -806,7 +831,7 @@ class WooSmart_Admin {
                                         'order_created'
                                     ); ?>
                                 >
-                                    Order Created
+                                    ایجاد سفارش
                                 </option>
 
                             </select>
@@ -817,10 +842,12 @@ class WooSmart_Admin {
 
                 </table>
 
-                <h2>Conditions</h2>
+                <h2>
+                    شرایط
+                </h2>
 
                 <p>
-                    Automation فقط زمانی اجرا می‌شود که شرط برقرار باشد.
+                    اتوماسیون فقط زمانی اجرا می‌شود که شرط برقرار باشد.
                 </p>
 
                 <table class="form-table">
@@ -830,7 +857,7 @@ class WooSmart_Admin {
                         <th scope="row">
 
                             <label for="condition_field">
-                                Field
+                                فیلد
                             </label>
 
                         </th>
@@ -849,7 +876,7 @@ class WooSmart_Admin {
                                         'order_total'
                                     ); ?>
                                 >
-                                    Order Total
+                                    مبلغ سفارش
                                 </option>
 
                             </select>
@@ -863,7 +890,7 @@ class WooSmart_Admin {
                         <th scope="row">
 
                             <label for="condition_operator">
-                                Operator
+                                مقایسه
                             </label>
 
                         </th>
@@ -882,7 +909,7 @@ class WooSmart_Admin {
                                         'is_equal'
                                     ); ?>
                                 >
-                                    Is Equal
+                                    برابر با
                                 </option>
 
                                 <option
@@ -892,7 +919,7 @@ class WooSmart_Admin {
                                         'is_not_equal'
                                     ); ?>
                                 >
-                                    Is Not Equal
+                                    نابرابر با
                                 </option>
 
                                 <option
@@ -902,7 +929,7 @@ class WooSmart_Admin {
                                         'greater_than'
                                     ); ?>
                                 >
-                                    Greater Than
+                                    بیشتر از
                                 </option>
 
                                 <option
@@ -912,7 +939,7 @@ class WooSmart_Admin {
                                         'greater_than_or_equal'
                                     ); ?>
                                 >
-                                    Greater Than or Equal
+                                    بیشتر یا مساوی
                                 </option>
 
                                 <option
@@ -922,7 +949,7 @@ class WooSmart_Admin {
                                         'less_than'
                                     ); ?>
                                 >
-                                    Less Than
+                                    کمتر از
                                 </option>
 
                                 <option
@@ -932,7 +959,7 @@ class WooSmart_Admin {
                                         'less_than_or_equal'
                                     ); ?>
                                 >
-                                    Less Than or Equal
+                                    کمتر یا مساوی
                                 </option>
 
                             </select>
@@ -946,7 +973,7 @@ class WooSmart_Admin {
                         <th scope="row">
 
                             <label for="condition_value">
-                                Value
+                                مقدار
                             </label>
 
                         </th>
@@ -956,6 +983,7 @@ class WooSmart_Admin {
                             <input
                                 type="number"
                                 step="0.01"
+                                min="0"
                                 id="condition_value"
                                 name="condition_value"
                                 class="regular-text"
@@ -963,16 +991,23 @@ class WooSmart_Admin {
                                 placeholder="1000000"
                             >
 
+                            <p class="description">
+                                واحد پول مطابق تنظیمات WooCommerce است.
+                                برای فروشگاه ریالی، ارز فروشگاه را روی ریال تنظیم کنید.
+                            </p>
+
                         </td>
 
                     </tr>
 
                 </table>
 
-                <h2>Actions</h2>
+                <h2>
+                    عملیات
+                </h2>
 
                 <p>
-                    بعد از برقرار شدن تمام شرایط، Action اجرا می‌شود.
+                    پس از برقرار شدن شرایط، عملیات انتخاب‌شده اجرا می‌شود.
                 </p>
 
                 <table class="form-table">
@@ -982,7 +1017,7 @@ class WooSmart_Admin {
                         <th scope="row">
 
                             <label for="action_type">
-                                Action
+                                نوع عملیات
                             </label>
 
                         </th>
@@ -1001,7 +1036,7 @@ class WooSmart_Admin {
                                         'change_order_status'
                                     ); ?>
                                 >
-                                    Change Order Status
+                                    تغییر وضعیت سفارش
                                 </option>
 
                             </select>
@@ -1015,7 +1050,7 @@ class WooSmart_Admin {
                         <th scope="row">
 
                             <label for="action_order_status">
-                                Order Status
+                                وضعیت سفارش
                             </label>
 
                         </th>
@@ -1056,8 +1091,8 @@ class WooSmart_Admin {
                 <?php
                 submit_button(
                     $is_edit
-                        ? 'Update Automation'
-                        : 'Save Automation'
+                        ? 'ذخیره تغییرات'
+                        : 'ذخیره اتوماسیون'
                 );
                 ?>
 
@@ -1078,12 +1113,17 @@ class WooSmart_Admin {
         $logs = $this->logger->get_logs();
         ?>
 
-        <div class="wrap">
+        <div
+            class="wrap"
+            dir="rtl"
+        >
 
-            <h1>WooSmart Logs</h1>
+            <h1>
+                گزارش‌های WooSmart
+            </h1>
 
             <p>
-                رویدادهای ثبت‌شده توسط WooSmart Automation.
+                رویدادهای ثبت‌شده توسط سیستم اتوماسیون.
             </p>
 
             <hr>
@@ -1093,7 +1133,7 @@ class WooSmart_Admin {
                 <div class="notice notice-info">
 
                     <p>
-                        هنوز هیچ لاگی ثبت نشده است.
+                        هنوز هیچ گزارشی ثبت نشده است.
                     </p>
 
                 </div>
@@ -1105,10 +1145,23 @@ class WooSmart_Admin {
                     <thead>
 
                         <tr>
-                            <th>Time</th>
-                            <th>Event</th>
-                            <th>Message</th>
-                            <th>Context</th>
+
+                            <th>
+                                زمان
+                            </th>
+
+                            <th>
+                                رویداد
+                            </th>
+
+                            <th>
+                                پیام
+                            </th>
+
+                            <th>
+                                اطلاعات
+                            </th>
+
                         </tr>
 
                     </thead>
@@ -1132,9 +1185,11 @@ class WooSmart_Admin {
                                 <td>
                                     <?php
                                     echo esc_html(
-                                        isset( $log['event'] )
-                                            ? $log['event']
-                                            : ''
+                                        $this->get_event_label(
+                                            isset( $log['event'] )
+                                                ? $log['event']
+                                                : ''
+                                        )
                                     );
                                     ?>
                                 </td>
@@ -1142,9 +1197,14 @@ class WooSmart_Admin {
                                 <td>
                                     <?php
                                     echo esc_html(
-                                        isset( $log['message'] )
-                                            ? $log['message']
-                                            : ''
+                                        $this->get_event_message(
+                                            isset( $log['event'] )
+                                                ? $log['event']
+                                                : '',
+                                            isset( $log['message'] )
+                                                ? $log['message']
+                                                : ''
+                                        )
                                     );
                                     ?>
                                 </td>
@@ -1178,5 +1238,223 @@ class WooSmart_Admin {
         </div>
 
         <?php
+    }
+
+    /**
+     * Get trigger label.
+     *
+     * @param string $trigger Trigger key.
+     *
+     * @return string
+     */
+    private function get_trigger_label( $trigger ) {
+
+        $labels = array(
+            'order_created' => 'ایجاد سفارش',
+        );
+
+        return isset( $labels[ $trigger ] )
+            ? $labels[ $trigger ]
+            : $trigger;
+    }
+
+    /**
+     * Get condition field label.
+     *
+     * @param string $field Field key.
+     *
+     * @return string
+     */
+    private function get_condition_field_label( $field ) {
+
+        $labels = array(
+            'order_total' => 'مبلغ سفارش',
+        );
+
+        return isset( $labels[ $field ] )
+            ? $labels[ $field ]
+            : $field;
+    }
+
+    /**
+     * Get comparison operator label.
+     *
+     * @param string $operator Operator key.
+     *
+     * @return string
+     */
+    private function get_operator_label( $operator ) {
+
+        $labels = array(
+            'is_equal'               => 'برابر با',
+            'is_not_equal'           => 'نابرابر با',
+            'greater_than'           => 'بیشتر از',
+            'greater_than_or_equal'  => 'بیشتر یا مساوی',
+            'less_than'              => 'کمتر از',
+            'less_than_or_equal'     => 'کمتر یا مساوی',
+        );
+
+        return isset( $labels[ $operator ] )
+            ? $labels[ $operator ]
+            : $operator;
+    }
+
+    /**
+     * Get action label.
+     *
+     * @param string $action_type Action key.
+     *
+     * @return string
+     */
+    private function get_action_label( $action_type ) {
+
+        $labels = array(
+            'change_order_status' => 'تغییر وضعیت سفارش',
+        );
+
+        return isset( $labels[ $action_type ] )
+            ? $labels[ $action_type ]
+            : $action_type;
+    }
+
+    /**
+     * Get order status label.
+     *
+     * @param string      $status_slug   Status slug.
+     * @param string|null $default_label Default WooCommerce label.
+     *
+     * @return string
+     */
+    private function get_order_status_label(
+        $status_slug,
+        $default_label = null
+    ) {
+
+        $labels = array(
+            'pending'    => 'در انتظار پرداخت',
+            'processing' => 'در حال پردازش',
+            'on-hold'    => 'در انتظار',
+            'completed'  => 'تکمیل‌شده',
+            'cancelled'  => 'لغوشده',
+            'refunded'   => 'مستردشده',
+            'failed'     => 'ناموفق',
+        );
+
+        if ( isset( $labels[ $status_slug ] ) ) {
+            return $labels[ $status_slug ];
+        }
+
+        if ( null !== $default_label ) {
+            return $default_label;
+        }
+
+        return $status_slug;
+    }
+
+    /**
+     * Format monetary value using WooCommerce currency.
+     *
+     * @param mixed $value Monetary value.
+     *
+     * @return string
+     */
+    private function format_currency( $value ) {
+
+        $value = (float) $value;
+
+        if ( function_exists( 'wc_price' ) ) {
+
+            return wc_price(
+                $value,
+                array(
+                    'decimals' => 0,
+                )
+            );
+        }
+
+        return number_format_i18n(
+            $value,
+            0
+        );
+    }
+
+    /**
+     * Get localized event label.
+     *
+     * @param string $event Event key.
+     *
+     * @return string
+     */
+    private function get_event_label( $event ) {
+
+        $labels = array(
+            'order_created'                 => 'ایجاد سفارش',
+            'automation_created'            => 'ایجاد اتوماسیون',
+            'automation_updated'            => 'ویرایش اتوماسیون',
+            'automation_status_changed'     => 'تغییر وضعیت اتوماسیون',
+            'automation_deleted'            => 'حذف اتوماسیون',
+            'automation_duplicated'         => 'کپی اتوماسیون',
+            'automation_skipped'            => 'رد شدن اتوماسیون',
+            'automation_conditions_failed'  => 'شرایط برقرار نبود',
+            'automation_executed'           => 'اجرای اتوماسیون',
+            'action_failed'                 => 'خطا در عملیات',
+            'action_executed'               => 'اجرای عملیات',
+        );
+
+        return isset( $labels[ $event ] )
+            ? $labels[ $event ]
+            : $event;
+    }
+
+    /**
+     * Get localized event message.
+     *
+     * @param string $event   Event key.
+     * @param string $message Original message.
+     *
+     * @return string
+     */
+    private function get_event_message(
+        $event,
+        $message
+    ) {
+
+        $messages = array(
+            'order_created' => 'یک سفارش جدید ایجاد شد.',
+
+            'automation_created' =>
+                'یک اتوماسیون جدید ایجاد شد.',
+
+            'automation_updated' =>
+                'اتوماسیون ویرایش شد.',
+
+            'automation_status_changed' =>
+                'وضعیت اتوماسیون تغییر کرد.',
+
+            'automation_deleted' =>
+                'اتوماسیون به زباله‌دان منتقل شد.',
+
+            'automation_duplicated' =>
+                'اتوماسیون کپی شد.',
+
+            'automation_skipped' =>
+                'اتوماسیون به دلیل غیرفعال بودن اجرا نشد.',
+
+            'automation_conditions_failed' =>
+                'شرایط اتوماسیون برقرار نبود.',
+
+            'automation_executed' =>
+                'اتوماسیون با موفقیت پردازش شد.',
+
+            'action_failed' =>
+                'اجرای عملیات با خطا مواجه شد.',
+
+            'action_executed' =>
+                'عملیات با موفقیت اجرا شد.',
+        );
+
+        return isset( $messages[ $event ] )
+            ? $messages[ $event ]
+            : $message;
     }
 }
