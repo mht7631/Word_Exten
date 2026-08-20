@@ -178,9 +178,11 @@ class WooSmart_Admin {
 
                             <th>Conditions</th>
 
+                            <th>Actions</th>
+
                             <th>Status</th>
 
-                            <th>Actions</th>
+                            <th>Manage</th>
 
                             <th>Date</th>
 
@@ -214,21 +216,31 @@ class WooSmart_Admin {
                                 true
                             );
 
+                            $actions = get_post_meta(
+                                $automation_id,
+                                '_woosmart_actions',
+                                true
+                            );
+
                             if ( ! is_array( $conditions ) ) {
                                 $conditions = array();
+                            }
+
+                            if ( ! is_array( $actions ) ) {
+                                $actions = array();
                             }
 
                             if ( 'active' === $status ) {
 
                                 $status_label = 'Active';
                                 $status_class = 'notice-success';
-                                $toggle_label  = 'Disable';
+                                $toggle_label = 'Disable';
 
                             } else {
 
                                 $status_label = 'Inactive';
                                 $status_class = 'notice-warning';
-                                $toggle_label  = 'Enable';
+                                $toggle_label = 'Enable';
                             }
 
                             $toggle_url = wp_nonce_url(
@@ -361,6 +373,103 @@ class WooSmart_Admin {
 
                                 <td>
 
+                                    <?php if ( empty( $actions ) ) : ?>
+
+                                        <span>
+                                            None
+                                        </span>
+
+                                    <?php else : ?>
+
+                                        <?php foreach ( $actions as $action ) : ?>
+
+                                            <?php
+
+                                            $action_type = isset(
+                                                $action['type']
+                                            )
+                                                ? $action['type']
+                                                : '';
+
+                                            $action_status = isset(
+                                                $action['status']
+                                            )
+                                                ? $action['status']
+                                                : '';
+
+                                            ?>
+
+                                            <?php if ( 'change_order_status' === $action_type ) : ?>
+
+                                                <?php
+
+                                                $status_label_text = $action_status;
+
+                                                if (
+                                                    function_exists(
+                                                        'wc_get_order_statuses'
+                                                    )
+                                                ) {
+
+                                                    $order_statuses =
+                                                        wc_get_order_statuses();
+
+                                                    $status_key =
+                                                        'wc-' . $action_status;
+
+                                                    if (
+                                                        isset(
+                                                            $order_statuses[
+                                                                $status_key
+                                                            ]
+                                                        )
+                                                    ) {
+
+                                                        $status_label_text =
+                                                            $order_statuses[
+                                                                $status_key
+                                                            ];
+                                                    }
+                                                }
+
+                                                ?>
+
+                                                <div>
+
+                                                    <strong>
+                                                        Change Order Status
+                                                    </strong>
+
+                                                    <br>
+
+                                                    <?php
+                                                    echo esc_html(
+                                                        $status_label_text
+                                                    );
+                                                    ?>
+
+                                                </div>
+
+                                            <?php else : ?>
+
+                                                <div>
+                                                    <?php
+                                                    echo esc_html(
+                                                        $action_type
+                                                    );
+                                                    ?>
+                                                </div>
+
+                                            <?php endif; ?>
+
+                                        <?php endforeach; ?>
+
+                                    <?php endif; ?>
+
+                                </td>
+
+                                <td>
+
                                     <span
                                         class="notice <?php echo esc_attr( $status_class ); ?>"
                                         style="
@@ -455,10 +564,15 @@ class WooSmart_Admin {
         $is_edit = false;
 
         $name = '';
+
         $trigger = 'order_created';
+
         $condition_field = 'order_total';
         $condition_operator = 'greater_than';
         $condition_value = '';
+
+        $action_type = 'change_order_status';
+        $action_order_status = 'processing';
 
         if ( $edit_id ) {
 
@@ -473,46 +587,107 @@ class WooSmart_Admin {
                     $edit_id
                 );
 
-                $name = $automation->post_title;
+                if ( $automation ) {
 
-                $trigger = get_post_meta(
-                    $edit_id,
-                    '_woosmart_trigger',
-                    true
-                );
+                    $name = $automation->post_title;
 
-                $conditions = get_post_meta(
-                    $edit_id,
-                    '_woosmart_conditions',
-                    true
-                );
+                    $trigger = get_post_meta(
+                        $edit_id,
+                        '_woosmart_trigger',
+                        true
+                    );
 
-                if (
-                    is_array( $conditions ) &&
-                    ! empty( $conditions )
-                ) {
+                    $conditions = get_post_meta(
+                        $edit_id,
+                        '_woosmart_conditions',
+                        true
+                    );
 
-                    $condition = $conditions[0];
+                    $actions = get_post_meta(
+                        $edit_id,
+                        '_woosmart_actions',
+                        true
+                    );
 
-                    $condition_field = isset(
-                        $condition['field']
-                    )
-                        ? $condition['field']
-                        : 'order_total';
+                    if (
+                        is_array( $conditions ) &&
+                        ! empty( $conditions )
+                    ) {
 
-                    $condition_operator = isset(
-                        $condition['operator']
-                    )
-                        ? $condition['operator']
-                        : 'greater_than';
+                        $condition = $conditions[0];
 
-                    $condition_value = isset(
-                        $condition['value']
-                    )
-                        ? $condition['value']
-                        : '';
+                        $condition_field = isset(
+                            $condition['field']
+                        )
+                            ? $condition['field']
+                            : 'order_total';
+
+                        $condition_operator = isset(
+                            $condition['operator']
+                        )
+                            ? $condition['operator']
+                            : 'greater_than';
+
+                        $condition_value = isset(
+                            $condition['value']
+                        )
+                            ? $condition['value']
+                            : '';
+                    }
+
+                    if (
+                        is_array( $actions ) &&
+                        ! empty( $actions )
+                    ) {
+
+                        $action = $actions[0];
+
+                        $action_type = isset(
+                            $action['type']
+                        )
+                            ? $action['type']
+                            : 'change_order_status';
+
+                        $action_order_status = isset(
+                            $action['status']
+                        )
+                            ? $action['status']
+                            : 'processing';
+                    }
                 }
             }
+        }
+
+        $order_statuses = array();
+
+        if ( function_exists( 'wc_get_order_statuses' ) ) {
+
+            $wc_statuses = wc_get_order_statuses();
+
+            foreach ( $wc_statuses as $status_key => $status_label ) {
+
+                $status_slug = str_replace(
+                    'wc-',
+                    '',
+                    $status_key
+                );
+
+                $order_statuses[ $status_slug ] =
+                    $status_label;
+            }
+        }
+
+        if ( empty( $order_statuses ) ) {
+
+            $order_statuses = array(
+                'pending'    => 'Pending payment',
+                'processing' => 'Processing',
+                'on-hold'    => 'On hold',
+                'completed'  => 'Completed',
+                'cancelled'  => 'Cancelled',
+                'refunded'   => 'Refunded',
+                'failed'     => 'Failed',
+            );
         }
 
         ?>
@@ -787,6 +962,90 @@ class WooSmart_Admin {
                                 value="<?php echo esc_attr( $condition_value ); ?>"
                                 placeholder="1000000"
                             >
+
+                        </td>
+
+                    </tr>
+
+                </table>
+
+                <h2>Actions</h2>
+
+                <p>
+                    بعد از برقرار شدن تمام شرایط، Action اجرا می‌شود.
+                </p>
+
+                <table class="form-table">
+
+                    <tr>
+
+                        <th scope="row">
+
+                            <label for="action_type">
+                                Action
+                            </label>
+
+                        </th>
+
+                        <td>
+
+                            <select
+                                id="action_type"
+                                name="action_type"
+                            >
+
+                                <option
+                                    value="change_order_status"
+                                    <?php selected(
+                                        $action_type,
+                                        'change_order_status'
+                                    ); ?>
+                                >
+                                    Change Order Status
+                                </option>
+
+                            </select>
+
+                        </td>
+
+                    </tr>
+
+                    <tr>
+
+                        <th scope="row">
+
+                            <label for="action_order_status">
+                                Order Status
+                            </label>
+
+                        </th>
+
+                        <td>
+
+                            <select
+                                id="action_order_status"
+                                name="action_order_status"
+                            >
+
+                                <?php foreach ( $order_statuses as $status_slug => $status_label ) : ?>
+
+                                    <option
+                                        value="<?php echo esc_attr( $status_slug ); ?>"
+                                        <?php selected(
+                                            $action_order_status,
+                                            $status_slug
+                                        ); ?>
+                                    >
+                                        <?php
+                                        echo esc_html(
+                                            $status_label
+                                        );
+                                        ?>
+                                    </option>
+
+                                <?php endforeach; ?>
+
+                            </select>
 
                         </td>
 
