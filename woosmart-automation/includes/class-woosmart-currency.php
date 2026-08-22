@@ -5,61 +5,24 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Currency service for WooSmart Automation.
+ * Currency helper for WooSmart Automation.
  *
- * WooCommerce remains the source of truth for monetary values.
+ * WooCommerce remains the source of truth for currency and monetary values.
  *
- * For IRR stores:
+ * This class does NOT convert Rial to Toman, does NOT modify WooCommerce
+ * prices, and does NOT change the store currency.
  *
- * Storage:
- *     Rial
- *
- * WooSmart display:
- *     Toman
- *
- * Conversion:
- *     1 Toman = 10 Rial
+ * Its only responsibility is to expose the current WooCommerce currency
+ * information to the WooSmart administration layer when needed.
  */
 class WooSmart_Currency {
 
     /**
-     * Rial-to-Toman conversion factor.
-     *
-     * @var int
-     */
-    private $irr_to_toman = 10;
-
-    /**
-     * Check whether the current WooCommerce currency is IRR.
-     *
-     * @return bool
-     */
-    public function is_irr_currency() {
-
-        if (
-            ! function_exists(
-                'get_woocommerce_currency'
-            )
-        ) {
-            return false;
-        }
-
-        return 'IRR' ===
-            get_woocommerce_currency();
-    }
-
-    /**
-     * Get the internal storage currency label.
+     * Get the current WooCommerce currency code.
      *
      * @return string
      */
-    public function get_storage_unit() {
-
-        if (
-            $this->is_irr_currency()
-        ) {
-            return 'ریال';
-        }
+    public function get_currency_code() {
 
         if (
             function_exists(
@@ -67,24 +30,45 @@ class WooSmart_Currency {
             )
         ) {
 
-            return get_woocommerce_currency();
+            return (string)
+                get_woocommerce_currency();
         }
 
         return '';
     }
 
     /**
-     * Get the WooSmart display unit.
+     * Check whether WooCommerce is currently using IRR.
+     *
+     * This method is informational only and does not alter anything.
+     *
+     * @return bool
+     */
+    public function is_irr_currency() {
+
+        return 'IRR' ===
+            $this->get_currency_code();
+    }
+
+    /**
+     * Check whether WooCommerce is currently using IRT.
+     *
+     * This method is informational only and does not alter anything.
+     *
+     * @return bool
+     */
+    public function is_irt_currency() {
+
+        return 'IRT' ===
+            $this->get_currency_code();
+    }
+
+    /**
+     * Get the current WooCommerce currency symbol.
      *
      * @return string
      */
-    public function get_display_unit() {
-
-        if (
-            $this->is_irr_currency()
-        ) {
-            return 'تومان';
-        }
+    public function get_currency_symbol() {
 
         if (
             function_exists(
@@ -93,146 +77,65 @@ class WooSmart_Currency {
         ) {
 
             $symbol =
-                get_woocommerce_currency_symbol();
+                get_woocommerce_currency_symbol(
+                    $this->get_currency_code()
+                );
 
             if (
                 ! empty( $symbol )
             ) {
-                return $symbol;
+
+                return (string) $symbol;
             }
         }
 
-        return $this->get_storage_unit();
+        return $this->get_currency_code();
     }
 
     /**
-     * Convert an internal WooCommerce amount to
-     * the value displayed to the WooSmart user.
+     * Get a user-facing currency label.
      *
-     * @param mixed $internal_amount Internal amount.
+     * For the current project, IRT is shown as تومان and IRR as ریال.
+     * Other currencies use the WooCommerce currency symbol when available.
      *
-     * @return float
-     */
-    public function to_display_value(
-        $internal_amount
-    ) {
-
-        $amount =
-            $this->normalize_numeric_value(
-                $internal_amount
-            );
-
-        if (
-            '' === $amount
-        ) {
-            return 0;
-        }
-
-        if (
-            ! $this->is_irr_currency()
-        ) {
-            return (float) $amount;
-        }
-
-        return (
-            (float) $amount /
-            $this->irr_to_toman
-        );
-    }
-
-    /**
-     * Convert a WooSmart display amount back to
-     * the internal WooCommerce amount.
-     *
-     * @param mixed $display_amount Display amount.
-     *
-     * @return float
-     */
-    public function to_storage_value(
-        $display_amount
-    ) {
-
-        $amount =
-            $this->normalize_numeric_value(
-                $display_amount
-            );
-
-        if (
-            '' === $amount
-        ) {
-            return 0;
-        }
-
-        if (
-            ! $this->is_irr_currency()
-        ) {
-            return (float) $amount;
-        }
-
-        return (
-            (float) $amount *
-            $this->irr_to_toman
-        );
-    }
-
-    /**
-     * Format an internal amount for WooSmart display.
-     *
-     * @param mixed $internal_amount Internal amount.
-     * @param int   $decimals        Decimal count.
+     * This is display-only. It does not convert monetary values.
      *
      * @return string
      */
-    public function format_display_value(
-        $internal_amount,
-        $decimals = 0
-    ) {
+    public function get_display_unit() {
 
-        $display_value =
-            $this->to_display_value(
-                $internal_amount
-            );
+        $currency =
+            $this->get_currency_code();
 
-        return number_format(
-            $display_value,
-            $decimals,
-            '.',
-            ','
-        );
+        if (
+            'IRT' === $currency
+        ) {
+
+            return 'تومان';
+        }
+
+        if (
+            'IRR' === $currency
+        ) {
+
+            return 'ریال';
+        }
+
+        return $this->get_currency_symbol();
     }
 
     /**
-     * Format an internal amount together with
-     * the WooSmart display unit.
-     *
-     * @param mixed $internal_amount Internal amount.
+     * Get the current display unit used by WooSmart.
      *
      * @return string
      */
-    public function format_display_money(
-        $internal_amount
-    ) {
+    public function get_storage_unit() {
 
-        $value =
-            $this->format_display_value(
-                $internal_amount,
-                0
-            );
-
-        $unit =
-            $this->get_display_unit();
-
-        if (
-            '' === $unit
-        ) {
-            return $value;
-        }
-
-        return $value . ' ' . $unit;
+        return $this->get_display_unit();
     }
 
     /**
-     * Normalize a numeric value.
+     * Normalize a numeric value without changing its currency unit.
      *
      * @param mixed $value Numeric value.
      *
@@ -245,9 +148,6 @@ class WooSmart_Currency {
         $value =
             (string) $value;
 
-        /*
-         * Remove thousands separators.
-         */
         $value =
             str_replace(
                 ',',
@@ -255,9 +155,6 @@ class WooSmart_Currency {
                 $value
             );
 
-        /*
-         * Remove anything except digits and decimal point.
-         */
         $value =
             preg_replace(
                 '/[^\d.]/',
@@ -268,12 +165,10 @@ class WooSmart_Currency {
         if (
             null === $value
         ) {
+
             return '';
         }
 
-        /*
-         * Keep only the first decimal point.
-         */
         $first_dot =
             strpos(
                 $value,
@@ -304,50 +199,146 @@ class WooSmart_Currency {
     }
 
     /**
-     * Convert a display input string to its
-     * internal storage representation.
+     * Return the amount exactly as WooCommerce represents it internally.
      *
-     * @param mixed $display_amount Display amount.
+     * No currency conversion is performed.
+     *
+     * @param mixed $amount Amount.
+     *
+     * @return float
+     */
+    public function to_storage_value(
+        $amount
+    ) {
+
+        $normalized =
+            $this->normalize_numeric_value(
+                $amount
+            );
+
+        if (
+            '' === $normalized
+        ) {
+
+            return 0;
+        }
+
+        return (float) $normalized;
+    }
+
+    /**
+     * Return the amount exactly as supplied, for display-only use.
+     *
+     * No currency conversion is performed.
+     *
+     * @param mixed $amount Amount.
+     *
+     * @return float
+     */
+    public function to_display_value(
+        $amount
+    ) {
+
+        return $this->to_storage_value(
+            $amount
+        );
+    }
+
+    /**
+     * Format an amount for WooSmart display.
+     *
+     * No currency conversion is performed.
+     *
+     * @param mixed $amount   Amount.
+     * @param int   $decimals Decimal count.
+     *
+     * @return string
+     */
+    public function format_display_value(
+        $amount,
+        $decimals = 0
+    ) {
+
+        $value =
+            $this->to_display_value(
+                $amount
+            );
+
+        return number_format(
+            $value,
+            $decimals,
+            '.',
+            ','
+        );
+    }
+
+    /**
+     * Format an amount with the current WooCommerce display unit.
+     *
+     * @param mixed $amount Amount.
+     *
+     * @return string
+     */
+    public function format_display_money(
+        $amount
+    ) {
+
+        $value =
+            $this->format_display_value(
+                $amount,
+                0
+            );
+
+        $unit =
+            $this->get_display_unit();
+
+        if (
+            '' === $unit
+        ) {
+
+            return $value;
+        }
+
+        return $value . ' ' . $unit;
+    }
+
+    /**
+     * Normalize an amount for storage without currency conversion.
+     *
+     * @param mixed $amount Amount.
      *
      * @return string
      */
     public function normalize_for_storage(
-        $display_amount
+        $amount
     ) {
 
-        $storage_value =
-            $this->to_storage_value(
-                $display_amount
+        $normalized =
+            $this->normalize_numeric_value(
+                $amount
             );
 
-        /*
-         * WooCommerce IRR values are stored as the
-         * smallest configured monetary unit.
-         *
-         * For the current project this means an integer.
-         */
         if (
-            $this->is_irr_currency()
+            '' === $normalized
         ) {
 
-            return (string)
-                (int)
-                round(
-                    $storage_value
-                );
+            return '';
         }
 
-        return (string)
-            $storage_value;
+        return $normalized;
     }
 
     /**
-     * Get the conversion factor.
+     * Get the currency conversion factor.
+     *
+     * No conversion is performed by this class.
+     * This method exists only for backward compatibility with the
+     * previous helper interface and always returns 1.
      *
      * @return int
      */
     public function get_conversion_factor() {
 
-        return $this->irr_to_toman;
+        return 1;
     }
 }
