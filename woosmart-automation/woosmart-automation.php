@@ -17,6 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Load plugin classes.
  */
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-logger.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-currency.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-core.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-admin.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-automation.php';
@@ -48,17 +49,21 @@ function woosmart_automation_init() {
     /*
      * Create shared automation services.
      */
-    $condition_engine = new WooSmart_Condition_Engine();
-    $action_engine    = new WooSmart_Action_Engine();
+    $condition_engine =
+        new WooSmart_Condition_Engine();
+
+    $action_engine =
+        new WooSmart_Action_Engine();
 
     /*
      * Create one execution engine using
      * the shared condition and action engines.
      */
-    $execution_engine = new WooSmart_Execution_Engine(
-        $condition_engine,
-        $action_engine
-    );
+    $execution_engine =
+        new WooSmart_Execution_Engine(
+            $condition_engine,
+            $action_engine
+        );
 
     /*
      * Pass the shared execution engine to
