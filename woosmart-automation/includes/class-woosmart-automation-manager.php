@@ -17,11 +17,21 @@ class WooSmart_Automation_Manager {
     private $logger;
 
     /**
+     * Condition Registry instance.
+     *
+     * @var WooSmart_Condition_Registry
+     */
+    private $condition_registry;
+
+    /**
      * Initialize Automation Manager.
      */
     public function __construct() {
 
         $this->logger = new WooSmart_Logger();
+
+        $this->condition_registry =
+            new WooSmart_Condition_Registry();
 
         add_action(
             'admin_post_woosmart_save_automation',
@@ -937,6 +947,9 @@ class WooSmart_Automation_Manager {
     /**
      * Validate conditions.
      *
+     * Condition definitions and operators are resolved
+     * through the Condition Registry.
+     *
      * @param array $conditions Conditions.
      *
      * @return true|WP_Error
@@ -955,19 +968,6 @@ class WooSmart_Automation_Manager {
         if ( empty( $conditions ) ) {
             return true;
         }
-
-        $allowed_fields = array(
-            'order_total',
-        );
-
-        $allowed_operators = array(
-            'is_equal',
-            'is_not_equal',
-            'greater_than',
-            'greater_than_or_equal',
-            'less_than',
-            'less_than_or_equal',
-        );
 
         foreach ( $conditions as $condition ) {
 
@@ -1000,11 +1000,13 @@ class WooSmart_Automation_Manager {
                 ? $condition['value']
                 : '';
 
+            /*
+             * Condition must exist in the Registry.
+             */
             if (
-                ! in_array(
-                    $field,
-                    $allowed_fields,
-                    true
+                empty( $field ) ||
+                ! $this->condition_registry->has(
+                    $field
                 )
             ) {
                 return new WP_Error(
@@ -1013,12 +1015,17 @@ class WooSmart_Automation_Manager {
                 );
             }
 
+            /*
+             * Operator must exist for the selected condition.
+             */
+            $operators =
+                $this->condition_registry->get_operators(
+                    $field
+                );
+
             if (
-                ! in_array(
-                    $operator,
-                    $allowed_operators,
-                    true
-                )
+                empty( $operator ) ||
+                ! isset( $operators[ $operator ] )
             ) {
                 return new WP_Error(
                     'invalid_condition_operator',
@@ -1026,27 +1033,69 @@ class WooSmart_Automation_Manager {
                 );
             }
 
-            $value = str_replace(
-                ',',
-                '',
-                (string) $value
-            );
+            /*
+             * Read condition metadata from the Registry.
+             */
+            $definition =
+                $this->condition_registry->get(
+                    $field
+                );
 
-            if (
-                '' === $value ||
-                ! is_numeric( $value )
-            ) {
+            if ( ! is_array( $definition ) ) {
                 return new WP_Error(
-                    'invalid_condition_value',
-                    'مقدار شرط باید یک عدد معتبر باشد.'
+                    'invalid_condition_definition',
+                    'تعریف شرط انتخاب‌شده معتبر نیست.'
                 );
             }
 
-            if ( (float) $value < 0 ) {
-                return new WP_Error(
-                    'negative_condition_value',
-                    'مقدار شرط نمی‌تواند منفی باشد.'
+            /*
+             * Validate the value according to the
+             * registered condition value type.
+             */
+            $value_type = isset(
+                $definition['value_type']
+            )
+                ? sanitize_key(
+                    $definition['value_type']
+                )
+                : 'text';
+
+            if ( 'number' === $value_type ) {
+
+                $value = str_replace(
+                    ',',
+                    '',
+                    (string) $value
                 );
+
+                if (
+                    '' === $value ||
+                    ! is_numeric( $value )
+                ) {
+                    return new WP_Error(
+                        'invalid_condition_value',
+                        'مقدار شرط باید یک عدد معتبر باشد.'
+                    );
+                }
+
+                if ( (float) $value < 0 ) {
+                    return new WP_Error(
+                        'negative_condition_value',
+                        'مقدار شرط نمی‌تواند منفی باشد.'
+                    );
+                }
+            } else {
+
+                $value = trim(
+                    (string) $value
+                );
+
+                if ( '' === $value ) {
+                    return new WP_Error(
+                        'invalid_condition_value',
+                        'مقدار شرط نمی‌تواند خالی باشد.'
+                    );
+                }
             }
         }
 
