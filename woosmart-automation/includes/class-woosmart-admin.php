@@ -24,6 +24,13 @@ class WooSmart_Admin {
     private $condition_registry;
 
     /**
+     * Currency service instance.
+     *
+     * @var WooSmart_Currency
+     */
+    private $currency;
+
+    /**
      * Initialize admin functionality.
      */
     public function __construct() {
@@ -33,6 +40,9 @@ class WooSmart_Admin {
 
         $this->condition_registry =
             new WooSmart_Condition_Registry();
+
+        $this->currency =
+            new WooSmart_Currency();
 
         add_action(
             'admin_menu',
@@ -447,7 +457,7 @@ class WooSmart_Admin {
                                                 ) {
 
                                                     echo wp_kses_post(
-                                                        $this->format_irr_value(
+                                                        $this->format_currency_value(
                                                             $value
                                                         )
                                                     );
@@ -667,6 +677,12 @@ class WooSmart_Admin {
          */
         $condition_definitions =
             $this->condition_registry->get_all();
+
+        /*
+         * Get the current WooCommerce / WooSmart display unit.
+         */
+        $currency_unit =
+            $this->currency->get_display_unit();
 
         /*
          * If the default condition does not exist,
@@ -925,8 +941,16 @@ class WooSmart_Admin {
                 )
                 : 'text';
 
+        /*
+         * IMPORTANT:
+         *
+         * This value is already stored in the same monetary
+         * unit used by WooCommerce.
+         *
+         * No Rial/Toman conversion is performed here.
+         */
         $condition_value_numeric =
-            $this->normalize_irr_input(
+            $this->normalize_numeric_input(
                 $condition_value
             );
 
@@ -939,7 +963,7 @@ class WooSmart_Admin {
         ) {
 
             $condition_value_display =
-                $this->format_irr_input(
+                $this->format_currency_input(
                     $condition_value_numeric
                 );
 
@@ -1259,7 +1283,11 @@ class WooSmart_Admin {
                                             font-weight:600;
                                         "
                                     >
-                                        ریال
+                                        <?php
+                                        echo esc_html(
+                                            $currency_unit
+                                        );
+                                        ?>
                                     </span>
 
                                 </div>
@@ -1306,7 +1334,7 @@ class WooSmart_Admin {
                                     $current_condition_value_type
                                 ) {
                                     echo esc_html(
-                                        'مبلغ را به ریال وارد کنید؛ جداکننده هزارگان به‌صورت خودکار اضافه می‌شود.'
+                                        'مبلغ را به واحد پول فروشگاه وارد کنید؛ جداکننده هزارگان به‌صورت خودکار اضافه می‌شود.'
                                     );
                                 } else {
                                     echo esc_html(
@@ -1393,6 +1421,15 @@ class WooSmart_Admin {
                         );
                         ?>;
 
+                    const currencyUnit =
+                        <?php
+                        echo wp_json_encode(
+                            $currency_unit,
+                            JSON_UNESCAPED_UNICODE |
+                            JSON_UNESCAPED_SLASHES
+                        );
+                        ?>;
+
                     const conditionField =
                         document.getElementById(
                             'condition_field'
@@ -1431,6 +1468,11 @@ class WooSmart_Admin {
                     const valueDescription =
                         document.getElementById(
                             'condition-value-description'
+                        );
+
+                    const valueUnit =
+                        document.getElementById(
+                            'condition-value-unit'
                         );
 
                     function normalizeNumber(
@@ -1662,7 +1704,15 @@ class WooSmart_Admin {
                             ) {
 
                                 valueDescription.textContent =
-                                    'مبلغ را به ریال وارد کنید؛ جداکننده هزارگان به‌صورت خودکار اضافه می‌شود.';
+                                    'مبلغ را به واحد پول فروشگاه وارد کنید؛ جداکننده هزارگان به‌صورت خودکار اضافه می‌شود.';
+                            }
+
+                            if (
+                                valueUnit
+                            ) {
+
+                                valueUnit.textContent =
+                                    currencyUnit;
                             }
 
                         } else {
@@ -1797,7 +1847,7 @@ class WooSmart_Admin {
 
                                 amountDisplay.value =
                                     formatNumber(
-                                        conditionValue.value
+                                        amountDisplay.value
                                     );
                             }
                         );
@@ -2847,18 +2897,22 @@ class WooSmart_Admin {
     }
 
     /**
-     * Format an IRR monetary value for the admin UI.
+     * Format a monetary value using the current
+     * WooCommerce / WooSmart display currency.
+     *
+     * IMPORTANT:
+     * No numerical conversion is performed.
      *
      * @param mixed $value Monetary value.
      *
      * @return string
      */
-    private function format_irr_value(
+    private function format_currency_value(
         $value
     ) {
 
         $value =
-            $this->normalize_irr_input(
+            $this->normalize_numeric_input(
                 $value
             );
 
@@ -2867,25 +2921,28 @@ class WooSmart_Admin {
         }
 
         return esc_html(
-            $this->format_irr_input(
+            $this->format_currency_input(
                 $value
             )
-        ) . ' ریال';
+        ) . ' ' .
+        esc_html(
+            $this->currency->get_display_unit()
+        );
     }
 
     /**
-     * Format a numeric value for the amount field.
+     * Format a numeric value for the currency input.
      *
      * @param mixed $value Numeric value.
      *
      * @return string
      */
-    private function format_irr_input(
+    private function format_currency_input(
         $value
     ) {
 
         $value =
-            $this->normalize_irr_input(
+            $this->normalize_numeric_input(
                 $value
             );
 
@@ -2924,13 +2981,13 @@ class WooSmart_Admin {
     }
 
     /**
-     * Normalize amount input.
+     * Normalize numeric input.
      *
-     * @param mixed $value Amount value.
+     * @param mixed $value Numeric value.
      *
      * @return string
      */
-    private function normalize_irr_input(
+    private function normalize_numeric_input(
         $value
     ) {
 
