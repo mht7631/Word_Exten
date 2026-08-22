@@ -41,10 +41,14 @@ class WooSmart_Execution_Engine {
         WooSmart_Action_Engine $action_engine
     ) {
 
-        $this->logger = new WooSmart_Logger();
+        $this->logger =
+            new WooSmart_Logger();
 
-        $this->condition_engine = $condition_engine;
-        $this->action_engine    = $action_engine;
+        $this->condition_engine =
+            $condition_engine;
+
+        $this->action_engine =
+            $action_engine;
     }
 
     /**
@@ -55,40 +59,139 @@ class WooSmart_Execution_Engine {
      *
      * @return void
      */
-    public function execute( $trigger, $context = array() ) {
+    public function execute(
+        $trigger,
+        $context = array()
+    ) {
 
-        $trigger = sanitize_key( $trigger );
+        $trigger =
+            sanitize_key(
+                $trigger
+            );
 
-        if ( empty( $trigger ) ) {
+        if (
+            empty( $trigger )
+        ) {
             return;
         }
 
-        $automations = get_posts(
+        /*
+         * Find all active, published Automations
+         * that use the received Trigger.
+         */
+        $automations =
+            get_posts(
+                array(
+                    'post_type' =>
+                        'woosmart_automation',
+
+                    'post_status' =>
+                        'publish',
+
+                    'posts_per_page' =>
+                        -1,
+
+                    'meta_query' =>
+                        array(
+                            'relation' =>
+                                'AND',
+
+                            array(
+                                'key' =>
+                                    '_woosmart_status',
+
+                                'value' =>
+                                    'active',
+
+                                'compare' =>
+                                    '=',
+                            ),
+
+                            array(
+                                'key' =>
+                                    '_woosmart_trigger',
+
+                                'value' =>
+                                    $trigger,
+
+                                'compare' =>
+                                    '=',
+                            ),
+                        ),
+                )
+            );
+
+        /*
+         * Diagnostic logging:
+         * record exactly how many Automations were found
+         * and which Automation IDs were returned.
+         *
+         * This is temporary and will be removed after
+         * the query problem is identified.
+         */
+        $automation_ids =
+            array();
+
+        if (
+            is_array(
+                $automations
+            )
+        ) {
+
+            foreach (
+                $automations
+                as $automation
+            ) {
+
+                if (
+                    isset(
+                        $automation->ID
+                    )
+                ) {
+
+                    $automation_ids[] =
+                        absint(
+                            $automation->ID
+                        );
+                }
+            }
+        }
+
+        $this->logger->log(
+            'automation_scan',
+            'بررسی اتوماسیون‌های فعال برای رویداد انجام شد.',
             array(
-                'post_type'      => 'woosmart_automation',
-                'post_status'    => 'publish',
-                'posts_per_page' => -1,
-                'meta_query'     => array(
-                    'relation' => 'AND',
-                    array(
-                        'key'     => '_woosmart_status',
-                        'value'   => 'active',
-                        'compare' => '=',
+                'trigger' =>
+                    $trigger,
+
+                'context' =>
+                    $context,
+
+                'found_count' =>
+                    count(
+                        $automation_ids
                     ),
-                    array(
-                        'key'     => '_woosmart_trigger',
-                        'value'   => $trigger,
-                        'compare' => '=',
-                    ),
-                ),
+
+                'automation_ids' =>
+                    $automation_ids,
             )
         );
 
-        if ( empty( $automations ) ) {
+        if (
+            empty(
+                $automations
+            )
+        ) {
             return;
         }
 
-        foreach ( $automations as $automation ) {
+        /*
+         * Execute every matching Automation.
+         */
+        foreach (
+            $automations
+            as $automation
+        ) {
 
             $this->execute_automation(
                 $automation->ID,
@@ -113,29 +216,40 @@ class WooSmart_Execution_Engine {
         $context
     ) {
 
-        $automation_id = absint( $automation_id );
+        $automation_id =
+            absint(
+                $automation_id
+            );
 
-        if ( ! $automation_id ) {
+        if (
+            ! $automation_id
+        ) {
             return;
         }
 
-        $status = get_post_meta(
-            $automation_id,
-            '_woosmart_status',
-            true
-        );
+        $status =
+            get_post_meta(
+                $automation_id,
+                '_woosmart_status',
+                true
+            );
 
         /*
          * Safety check.
          */
-        if ( 'active' !== $status ) {
+        if (
+            'active' !== $status
+        ) {
 
             $this->logger->log(
                 'automation_skipped',
-                'Automation was skipped because it is inactive.',
+                'اتوماسیون به دلیل غیرفعال بودن اجرا نشد.',
                 array(
-                    'automation_id' => $automation_id,
-                    'trigger'       => $trigger,
+                    'automation_id' =>
+                        $automation_id,
+
+                    'trigger' =>
+                        $trigger,
                 )
             );
 
@@ -145,14 +259,21 @@ class WooSmart_Execution_Engine {
         /*
          * Get conditions.
          */
-        $conditions = get_post_meta(
-            $automation_id,
-            '_woosmart_conditions',
-            true
-        );
+        $conditions =
+            get_post_meta(
+                $automation_id,
+                '_woosmart_conditions',
+                true
+            );
 
-        if ( ! is_array( $conditions ) ) {
-            $conditions = array();
+        if (
+            ! is_array(
+                $conditions
+            )
+        ) {
+
+            $conditions =
+                array();
         }
 
         /*
@@ -164,15 +285,22 @@ class WooSmart_Execution_Engine {
                 $context
             );
 
-        if ( ! $conditions_passed ) {
+        if (
+            ! $conditions_passed
+        ) {
 
             $this->logger->log(
                 'automation_conditions_failed',
-                'Automation conditions were not satisfied.',
+                'شرایط اتوماسیون برقرار نبود.',
                 array(
-                    'automation_id' => $automation_id,
-                    'trigger'       => $trigger,
-                    'context'       => $context,
+                    'automation_id' =>
+                        $automation_id,
+
+                    'trigger' =>
+                        $trigger,
+
+                    'context' =>
+                        $context,
                 )
             );
 
@@ -182,14 +310,21 @@ class WooSmart_Execution_Engine {
         /*
          * Get actions.
          */
-        $actions = get_post_meta(
-            $automation_id,
-            '_woosmart_actions',
-            true
-        );
+        $actions =
+            get_post_meta(
+                $automation_id,
+                '_woosmart_actions',
+                true
+            );
 
-        if ( ! is_array( $actions ) ) {
-            $actions = array();
+        if (
+            ! is_array(
+                $actions
+            )
+        ) {
+
+            $actions =
+                array();
         }
 
         /*
@@ -204,16 +339,25 @@ class WooSmart_Execution_Engine {
         /*
          * Log execution result.
          */
-        if ( $actions_successful ) {
+        if (
+            $actions_successful
+        ) {
 
             $this->logger->log(
                 'automation_executed',
-                'Automation was executed successfully.',
+                'اتوماسیون با موفقیت اجرا شد.',
                 array(
-                    'automation_id'      => $automation_id,
-                    'trigger'            => $trigger,
-                    'context'            => $context,
-                    'actions_successful' => true,
+                    'automation_id' =>
+                        $automation_id,
+
+                    'trigger' =>
+                        $trigger,
+
+                    'context' =>
+                        $context,
+
+                    'actions_successful' =>
+                        true,
                 )
             );
 
@@ -221,12 +365,19 @@ class WooSmart_Execution_Engine {
 
             $this->logger->log(
                 'automation_failed',
-                'Automation execution failed because one or more actions could not be executed.',
+                'اجرای اتوماسیون با شکست مواجه شد.',
                 array(
-                    'automation_id'      => $automation_id,
-                    'trigger'            => $trigger,
-                    'context'            => $context,
-                    'actions_successful' => false,
+                    'automation_id' =>
+                        $automation_id,
+
+                    'trigger' =>
+                        $trigger,
+
+                    'context' =>
+                        $context,
+
+                    'actions_successful' =>
+                        false,
                 )
             );
         }
