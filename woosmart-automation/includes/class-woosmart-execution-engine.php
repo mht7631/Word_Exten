@@ -158,10 +158,11 @@ class WooSmart_Execution_Engine {
         /*
          * Evaluate conditions.
          */
-        $conditions_passed = $this->condition_engine->evaluate(
-            $conditions,
-            $context
-        );
+        $conditions_passed =
+            $this->condition_engine->evaluate(
+                $conditions,
+                $context
+            );
 
         if ( ! $conditions_passed ) {
 
@@ -194,23 +195,40 @@ class WooSmart_Execution_Engine {
         /*
          * Execute actions.
          */
-        $actions_successful = $this->action_engine->execute(
-            $actions,
-            $context
-        );
+        $actions_successful =
+            $this->action_engine->execute(
+                $actions,
+                $context
+            );
 
         /*
-         * Log automation execution.
+         * Log execution result.
          */
-        $this->logger->log(
-            'automation_executed',
-            'Automation was triggered successfully.',
-            array(
-                'automation_id'      => $automation_id,
-                'trigger'            => $trigger,
-                'context'            => $context,
-                'actions_successful' => $actions_successful,
-            )
-        );
+        if ( $actions_successful ) {
+
+            $this->logger->log(
+                'automation_executed',
+                'Automation was executed successfully.',
+                array(
+                    'automation_id'      => $automation_id,
+                    'trigger'            => $trigger,
+                    'context'            => $context,
+                    'actions_successful' => true,
+                )
+            );
+
+        } else {
+
+            $this->logger->log(
+                'automation_failed',
+                'Automation execution failed because one or more actions could not be executed.',
+                array(
+                    'automation_id'      => $automation_id,
+                    'trigger'            => $trigger,
+                    'context'            => $context,
+                    'actions_successful' => false,
+                )
+            );
+        }
     }
 }
