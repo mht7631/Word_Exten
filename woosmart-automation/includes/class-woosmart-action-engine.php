@@ -24,6 +24,20 @@ class WooSmart_Action_Engine {
     private $action_registry;
 
     /**
+     * Whether the engine is currently capturing a mail error.
+     *
+     * @var bool
+     */
+    private $capturing_mail_error = false;
+
+    /**
+     * Last captured WordPress mail error.
+     *
+     * @var WP_Error|null
+     */
+    private $last_mail_error = null;
+
+    /**
      * Initialize Action Engine.
      */
     public function __construct() {
@@ -33,6 +47,58 @@ class WooSmart_Action_Engine {
 
         $this->action_registry =
             new WooSmart_Action_Registry();
+
+        /*
+         * Capture the real PHPMailer error when wp_mail()
+         * fails. WordPress provides this through wp_mail_failed.
+         */
+        add_action(
+            'wp_mail_failed',
+            array(
+                $this,
+                'capture_mail_error',
+            ),
+            10,
+            1
+        );
+    }
+
+    /**
+     * Capture wp_mail() failure details.
+     *
+     * @param WP_Error $error WordPress mail error.
+     *
+     * @return void
+     */
+    public function capture_mail_error(
+        $error
+    ) {
+
+        /*
+         * Only capture the error when this Action Engine
+         * is actively sending its own administrator notification.
+         */
+        if (
+            ! $this->capturing_mail_error
+        ) {
+            return;
+        }
+
+        if (
+            $error instanceof WP_Error
+        ) {
+
+            $this->last_mail_error =
+                $error;
+
+            return;
+        }
+
+        $this->last_mail_error =
+            new WP_Error(
+                'wp_mail_failed',
+                'خطای نامشخص در سیستم ارسال ایمیل.'
+            );
     }
 
     /**
@@ -442,6 +508,19 @@ class WooSmart_Action_Engine {
                 $context
             );
 
+        /*
+         * Reset the previous mail error before each attempt.
+         */
+        $this->last_mail_error =
+            null;
+
+        /*
+         * Tell the mail-error callback that this particular
+         * wp_mail() call belongs to WooSmart.
+         */
+        $this->capturing_mail_error =
+            true;
+
         $mail_sent =
             wp_mail(
                 $recipient,
@@ -449,27 +528,99 @@ class WooSmart_Action_Engine {
                 $message
             );
 
+        $this->capturing_mail_error =
+            false;
+
         if (
             ! $mail_sent
         ) {
 
-            $this->logger->log(
-                'action_failed',
-                'Failed to send administrator notification email.',
-                array(
-                    'action_type' =>
-                        'notify_admin',
-                    'recipient' =>
-                        $recipient,
-                    'order_id' =>
-                        isset(
+            $error_context = array(
+                'action_type' =>
+                    'notify_admin',
+
+                'recipient' =>
+                    $recipient,
+
+                'order_id' =>
+                    isset(
+                        $context['order_id']
+                    )
+                        ? absint(
                             $context['order_id']
                         )
-                            ? absint(
-                                $context['order_id']
-                            )
-                            : 0,
-                )
+                        : 0,
+            );
+
+            /*
+             * Add the real PHPMailer error when WordPress
+             * provides it through wp_mail_failed.
+             */
+            if (
+                $this->last_mail_error
+                instanceof WP_Error
+            ) {
+
+                $error_message =
+                    $this->last_mail_error
+                        ->get_error_message();
+
+                if (
+                    ! empty(
+                        $error_message
+                    )
+                ) {
+
+                    $error_context[
+                        'mail_error'
+                    ] =
+                        $error_message;
+                }
+
+                $error_data =
+                    $this->last_mail_error
+                        ->get_error_data();
+
+                if (
+                    is_array(
+                        $error_data
+                    )
+                ) {
+
+                    if (
+                        isset(
+                            $error_data[
+                                'phpmailer_exception_code'
+                            ]
+                        )
+                    ) {
+
+                        $error_context[
+                            'mail_error_code'
+                        ] =
+                            $error_data[
+                                'phpmailer_exception_code'
+                            ];
+                    }
+                }
+            } else {
+
+                /*
+                 * wp_mail() can also return false without
+                 * exposing a PHPMailer error through the hook,
+                 * for example when another component preempts
+                 * the mail request.
+                 */
+                $error_context[
+                    'mail_error'
+                ] =
+                    'wp_mail() بدون ارائه خطای دقیق، مقدار false برگرداند.';
+            }
+
+            $this->logger->log(
+                'action_failed',
+                'ارسال اعلان ایمیل با خطا مواجه شد.',
+                $error_context
             );
 
             return false;
@@ -477,12 +628,14 @@ class WooSmart_Action_Engine {
 
         $this->logger->log(
             'action_executed',
-            'Administrator notification email was sent successfully.',
+            'اعلان ایمیل مدیر فروشگاه با موفقیت ارسال شد.',
             array(
                 'action_type' =>
                     'notify_admin',
+
                 'recipient' =>
                     $recipient,
+
                 'order_id' =>
                     isset(
                         $context['order_id']
