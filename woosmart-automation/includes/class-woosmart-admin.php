@@ -306,15 +306,10 @@ class WooSmart_Admin {
                             <tr>
 
                                 <td>
-                                    <?php
-                                    echo esc_html(
-                                        $automation_id
-                                    );
-                                    ?>
+                                    <?php echo esc_html( $automation_id ); ?>
                                 </td>
 
                                 <td>
-
                                     <strong>
                                         <?php
                                         echo esc_html(
@@ -322,7 +317,6 @@ class WooSmart_Admin {
                                         );
                                         ?>
                                     </strong>
-
                                 </td>
 
                                 <td>
@@ -427,7 +421,7 @@ class WooSmart_Admin {
 
                                     <?php else : ?>
 
-                                        <?php foreach ( $actions as $action ) : ?>
+                                        <?php foreach ( $actions as $index => $action ) : ?>
 
                                             <?php
 
@@ -437,21 +431,26 @@ class WooSmart_Admin {
                                                 ? $action['type']
                                                 : '';
 
-                                            $action_status = isset(
-                                                $action['status']
-                                            )
-                                                ? $action['status']
-                                                : '';
-
                                             ?>
 
-                                            <?php if ( 'change_order_status' === $action_type ) : ?>
+                                            <div
+                                                style="
+                                                    margin-bottom:8px;
+                                                    padding-bottom:8px;
+                                                    border-bottom:1px solid #eee;
+                                                "
+                                            >
 
-                                                <div style="margin-bottom:6px;">
+                                                <strong>
+                                                    عملیات
+                                                    <?php echo esc_html( $index + 1 ); ?>:
+                                                </strong>
 
-                                                    <strong>
+                                                <?php if ( 'change_order_status' === $action_type ) : ?>
+
+                                                    <span>
                                                         تغییر وضعیت سفارش
-                                                    </strong>
+                                                    </span>
 
                                                     <br>
 
@@ -459,43 +458,37 @@ class WooSmart_Admin {
                                                         <?php
                                                         echo esc_html(
                                                             $this->get_order_status_label(
-                                                                $action_status
+                                                                isset(
+                                                                    $action['status']
+                                                                )
+                                                                    ? $action['status']
+                                                                    : ''
                                                             )
                                                         );
                                                         ?>
                                                     </span>
 
-                                                </div>
-
-                                            <?php elseif ( 'notify_admin' === $action_type ) : ?>
-
-                                                <div style="margin-bottom:6px;">
-
-                                                    <strong>
-                                                        ارسال اعلان به مدیر فروشگاه
-                                                    </strong>
-
-                                                    <br>
+                                                <?php elseif ( 'notify_admin' === $action_type ) : ?>
 
                                                     <span>
-                                                        ایمیل مدیر فروشگاه
+                                                        ارسال اعلان به مدیر فروشگاه
                                                     </span>
 
-                                                </div>
+                                                <?php else : ?>
 
-                                            <?php else : ?>
+                                                    <span>
+                                                        <?php
+                                                        echo esc_html(
+                                                            $this->get_action_label(
+                                                                $action_type
+                                                            )
+                                                        );
+                                                        ?>
+                                                    </span>
 
-                                                <div>
-                                                    <?php
-                                                    echo esc_html(
-                                                        $this->get_action_label(
-                                                            $action_type
-                                                        )
-                                                    );
-                                                    ?>
-                                                </div>
+                                                <?php endif; ?>
 
-                                            <?php endif; ?>
+                                            </div>
 
                                         <?php endforeach; ?>
 
@@ -606,18 +599,7 @@ class WooSmart_Admin {
         $condition_operator = 'greater_than';
         $condition_value = '';
 
-        $action_type = 'notify_admin';
-        $action_order_status = 'processing';
-
-        $action_email_subject =
-            'اعلان سفارش جدید در WooSmart';
-
-        $action_email_message =
-            "یک سفارش جدید با شرایط اتوماسیون مطابقت دارد.\n\n" .
-            "شناسه سفارش: {order_id}\n" .
-            "مبلغ سفارش: {order_total}\n" .
-            "وضعیت سفارش: {order_status}\n" .
-            "نام مشتری: {customer_name}";
+        $actions = array();
 
         if ( $edit_id ) {
 
@@ -648,7 +630,7 @@ class WooSmart_Admin {
                         true
                     );
 
-                    $actions = get_post_meta(
+                    $stored_actions = get_post_meta(
                         $edit_id,
                         '_woosmart_actions',
                         true
@@ -681,38 +663,34 @@ class WooSmart_Admin {
                     }
 
                     if (
-                        is_array( $actions ) &&
-                        ! empty( $actions )
+                        is_array( $stored_actions ) &&
+                        ! empty( $stored_actions )
                     ) {
 
-                        $action = $actions[0];
-
-                        $action_type = isset(
-                            $action['type']
-                        )
-                            ? $action['type']
-                            : 'notify_admin';
-
-                        $action_order_status = isset(
-                            $action['status']
-                        )
-                            ? $action['status']
-                            : 'processing';
-
-                        $action_email_subject = isset(
-                            $action['subject']
-                        )
-                            ? $action['subject']
-                            : $action_email_subject;
-
-                        $action_email_message = isset(
-                            $action['message']
-                        )
-                            ? $action['message']
-                            : $action_email_message;
+                        $actions =
+                            $stored_actions;
                     }
                 }
             }
+        }
+
+        /*
+         * New Automation default:
+         * start with one notification action.
+         */
+        if ( empty( $actions ) ) {
+
+            $actions[] = array(
+                'type'    => 'notify_admin',
+                'subject' =>
+                    'اعلان سفارش جدید در WooSmart',
+                'message' =>
+                    "یک سفارش جدید با شرایط اتوماسیون مطابقت دارد.\n\n" .
+                    "شناسه سفارش: {order_id}\n" .
+                    "مبلغ سفارش: {order_total}\n" .
+                    "وضعیت سفارش: {order_status}\n" .
+                    "نام مشتری: {customer_name}",
+            );
         }
 
         $order_statuses = array();
@@ -750,9 +728,10 @@ class WooSmart_Admin {
             );
         }
 
-        $condition_value_numeric = $this->normalize_irr_input(
-            $condition_value
-        );
+        $condition_value_numeric =
+            $this->normalize_irr_input(
+                $condition_value
+            );
 
         $condition_value_display = '';
 
@@ -772,13 +751,11 @@ class WooSmart_Admin {
         >
 
             <h1>
-
                 <?php
                 echo $is_edit
                     ? 'ویرایش اتوماسیون'
                     : 'ایجاد اتوماسیون';
                 ?>
-
             </h1>
 
             <hr>
@@ -851,7 +828,7 @@ class WooSmart_Admin {
                                 name="automation_name"
                                 class="regular-text"
                                 value="<?php echo esc_attr( $name ); ?>"
-                                placeholder="مثلاً اطلاع‌رسانی سفارش ویژه"
+                                placeholder="مثلاً سفارش مناسب"
                                 required
                             >
 
@@ -1105,175 +1082,43 @@ class WooSmart_Admin {
                 </h2>
 
                 <p>
-                    پس از برقرار شدن شرایط، عملیات انتخاب‌شده اجرا می‌شود.
+                    تمام عملیات انتخاب‌شده پس از برقرار شدن شرایط، به ترتیب اجرا می‌شوند.
                 </p>
 
-                <table class="form-table">
+                <div
+                    id="woosmart-actions-container"
+                    style="
+                        max-width:900px;
+                    "
+                >
 
-                    <tr>
+                    <?php foreach ( $actions as $index => $action ) : ?>
 
-                        <th scope="row">
-
-                            <label for="action_type">
-                                نوع عملیات
-                            </label>
-
-                        </th>
-
-                        <td>
-
-                            <select
-                                id="action_type"
-                                name="action_type"
-                            >
-
-                                <option
-                                    value="notify_admin"
-                                    <?php selected(
-                                        $action_type,
-                                        'notify_admin'
-                                    ); ?>
-                                >
-                                    ارسال اعلان به مدیر فروشگاه
-                                </option>
-
-                                <option
-                                    value="change_order_status"
-                                    <?php selected(
-                                        $action_type,
-                                        'change_order_status'
-                                    ); ?>
-                                >
-                                    تغییر وضعیت سفارش
-                                </option>
-
-                            </select>
-
-                        </td>
-
-                    </tr>
-
-                    <tr
-                        id="woosmart_order_status_row"
                         <?php
-                        echo 'change_order_status' === $action_type
-                            ? ''
-                            : 'style="display:none;"';
+                        $this->render_action_row(
+                            $index,
+                            $action,
+                            $order_statuses
+                        );
                         ?>
+
+                    <?php endforeach; ?>
+
+                </div>
+
+                <p>
+                    <button
+                        type="button"
+                        class="button"
+                        id="woosmart-add-action"
                     >
+                        + افزودن عملیات
+                    </button>
+                </p>
 
-                        <th scope="row">
-
-                            <label for="action_order_status">
-                                وضعیت سفارش
-                            </label>
-
-                        </th>
-
-                        <td>
-
-                            <select
-                                id="action_order_status"
-                                name="action_order_status"
-                            >
-
-                                <?php foreach ( $order_statuses as $status_slug => $status_label ) : ?>
-
-                                    <option
-                                        value="<?php echo esc_attr( $status_slug ); ?>"
-                                        <?php selected(
-                                            $action_order_status,
-                                            $status_slug
-                                        ); ?>
-                                    >
-                                        <?php
-                                        echo esc_html(
-                                            $status_label
-                                        );
-                                        ?>
-                                    </option>
-
-                                <?php endforeach; ?>
-
-                            </select>
-
-                        </td>
-
-                    </tr>
-
-                    <tr
-                        id="woosmart_email_subject_row"
-                        <?php
-                        echo 'notify_admin' === $action_type
-                            ? ''
-                            : 'style="display:none;"';
-                        ?>
-                    >
-
-                        <th scope="row">
-
-                            <label for="action_email_subject">
-                                موضوع اعلان
-                            </label>
-
-                        </th>
-
-                        <td>
-
-                            <input
-                                type="text"
-                                id="action_email_subject"
-                                name="action_email_subject"
-                                class="regular-text"
-                                value="<?php echo esc_attr( $action_email_subject ); ?>"
-                            >
-
-                        </td>
-
-                    </tr>
-
-                    <tr
-                        id="woosmart_email_message_row"
-                        <?php
-                        echo 'notify_admin' === $action_type
-                            ? ''
-                            : 'style="display:none;"';
-                        ?>
-                    >
-
-                        <th scope="row">
-
-                            <label for="action_email_message">
-                                متن اعلان
-                            </label>
-
-                        </th>
-
-                        <td>
-
-                            <textarea
-                                id="action_email_message"
-                                name="action_email_message"
-                                rows="8"
-                                class="large-text"
-                            ><?php echo esc_textarea( $action_email_message ); ?></textarea>
-
-                            <p class="description">
-
-                                مقادیر قابل استفاده:
-
-                                <code>{order_id}</code>
-                                <code>{order_total}</code>
-                                <code>{order_status}</code>
-                                <code>{customer_name}</code>
-
-                            </p>
-
-                        </td>
-
-                    </tr>
-
-                </table>
+                <p class="description">
+                    می‌توانید چند عملیات را برای یک اتوماسیون تعریف کنید.
+                </p>
 
                 <?php
                 submit_button(
@@ -1292,30 +1137,45 @@ class WooSmart_Admin {
                 'DOMContentLoaded',
                 function() {
 
-                    const displayInput =
+                    const amountDisplay =
                         document.getElementById(
                             'condition_value_display'
                         );
 
-                    const hiddenInput =
+                    const amountHidden =
                         document.getElementById(
                             'condition_value'
                         );
 
-                    if ( displayInput && hiddenInput ) {
+                    if (
+                        amountDisplay &&
+                        amountHidden
+                    ) {
 
                         function normalizeNumber(value) {
 
-                            value = String(value || '');
+                            value = String(
+                                value || ''
+                            );
 
-                            value = value.replace(/,/g, '');
+                            value =
+                                value.replace(
+                                    /,/g,
+                                    ''
+                                );
 
-                            value = value.replace(/[^\d.]/g, '');
+                            value =
+                                value.replace(
+                                    /[^\d.]/g,
+                                    ''
+                                );
 
                             const firstDot =
                                 value.indexOf('.');
 
-                            if ( firstDot !== -1 ) {
+                            if (
+                                firstDot !== -1
+                            ) {
 
                                 value =
                                     value.substring(
@@ -1324,7 +1184,10 @@ class WooSmart_Admin {
                                     ) +
                                     value.substring(
                                         firstDot + 1
-                                    ).replace(/\./g, '');
+                                    ).replace(
+                                        /\./g,
+                                        ''
+                                    );
                             }
 
                             return value;
@@ -1337,7 +1200,9 @@ class WooSmart_Admin {
                                     value
                                 );
 
-                            if ( value === '' ) {
+                            if (
+                                value === ''
+                            ) {
                                 return '';
                             }
 
@@ -1350,7 +1215,9 @@ class WooSmart_Admin {
                                     ','
                                 );
 
-                            if ( parts.length > 1 ) {
+                            if (
+                                parts.length > 1
+                            ) {
 
                                 return (
                                     integerPart +
@@ -1362,123 +1229,719 @@ class WooSmart_Admin {
                             return integerPart;
                         }
 
-                        function syncValues() {
+                        function syncAmount() {
 
                             const rawValue =
                                 normalizeNumber(
-                                    displayInput.value
+                                    amountDisplay.value
                                 );
 
-                            hiddenInput.value =
+                            amountHidden.value =
                                 rawValue;
 
-                            displayInput.value =
+                            amountDisplay.value =
                                 formatNumber(
                                     rawValue
                                 );
                         }
 
-                        displayInput.addEventListener(
+                        amountDisplay.addEventListener(
                             'input',
                             function() {
 
-                                syncValues();
+                                syncAmount();
 
-                                displayInput.setSelectionRange(
-                                    displayInput.value.length,
-                                    displayInput.value.length
+                                amountDisplay.setSelectionRange(
+                                    amountDisplay.value.length,
+                                    amountDisplay.value.length
                                 );
                             }
                         );
 
-                        displayInput.addEventListener(
+                        amountDisplay.addEventListener(
                             'blur',
                             function() {
 
-                                syncValues();
+                                syncAmount();
                             }
                         );
 
-                        displayInput.form.addEventListener(
+                        amountDisplay.form.addEventListener(
                             'submit',
                             function() {
 
-                                hiddenInput.value =
+                                amountHidden.value =
                                     normalizeNumber(
-                                        displayInput.value
+                                        amountDisplay.value
                                     );
                             }
                         );
 
-                        syncValues();
+                        syncAmount();
                     }
 
-                    const actionType =
+                    const actionsContainer =
                         document.getElementById(
-                            'action_type'
+                            'woosmart-actions-container'
                         );
 
-                    const statusRow =
+                    const addActionButton =
                         document.getElementById(
-                            'woosmart_order_status_row'
-                        );
-
-                    const subjectRow =
-                        document.getElementById(
-                            'woosmart_email_subject_row'
-                        );
-
-                    const messageRow =
-                        document.getElementById(
-                            'woosmart_email_message_row'
+                            'woosmart-add-action'
                         );
 
                     if (
-                        actionType &&
-                        statusRow &&
-                        subjectRow &&
-                        messageRow
+                        ! actionsContainer ||
+                        ! addActionButton
                     ) {
+                        return;
+                    }
 
-                        function updateActionFields() {
+                    function getNextIndex() {
 
-                            if (
-                                actionType.value ===
-                                'change_order_status'
-                            ) {
+                        const rows =
+                            actionsContainer.querySelectorAll(
+                                '.woosmart-action-row'
+                            );
 
-                                statusRow.style.display =
-                                    '';
+                        let maxIndex = -1;
 
-                                subjectRow.style.display =
-                                    'none';
+                        rows.forEach(
+                            function(row) {
 
-                                messageRow.style.display =
-                                    'none';
+                                const index =
+                                    parseInt(
+                                        row.getAttribute(
+                                            'data-index'
+                                        ),
+                                        10
+                                    );
 
-                            } else {
+                                if (
+                                    ! isNaN(index) &&
+                                    index > maxIndex
+                                ) {
 
-                                statusRow.style.display =
-                                    'none';
-
-                                subjectRow.style.display =
-                                    '';
-
-                                messageRow.style.display =
-                                    '';
+                                    maxIndex =
+                                        index;
+                                }
                             }
-                        }
-
-                        actionType.addEventListener(
-                            'change',
-                            updateActionFields
                         );
 
-                        updateActionFields();
+                        return maxIndex + 1;
                     }
+
+                    function createActionRow(
+                        index
+                    ) {
+
+                        const row =
+                            document.createElement(
+                                'div'
+                            );
+
+                        row.className =
+                            'woosmart-action-row';
+
+                        row.setAttribute(
+                            'data-index',
+                            index
+                        );
+
+                        row.style.cssText =
+                            'margin-bottom:16px;padding:18px;border:1px solid #ccd0d4;background:#fff;position:relative;';
+
+                        row.innerHTML =
+                            `
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+
+                                <strong>
+                                    عملیات ${index + 1}
+                                </strong>
+
+                                <button
+                                    type="button"
+                                    class="button-link-delete woosmart-remove-action"
+                                >
+                                    حذف عملیات
+                                </button>
+
+                            </div>
+
+                            <table class="form-table" style="margin:0;">
+
+                                <tr>
+
+                                    <th scope="row">
+                                        <label>
+                                            نوع عملیات
+                                        </label>
+                                    </th>
+
+                                    <td>
+
+                                        <select
+                                            class="woosmart-action-type"
+                                            name="actions[${index}][type]"
+                                            style="min-width:300px;"
+                                        >
+
+                                            <option value="notify_admin">
+                                                ارسال اعلان به مدیر فروشگاه
+                                            </option>
+
+                                            <option value="change_order_status">
+                                                تغییر وضعیت سفارش
+                                            </option>
+
+                                        </select>
+
+                                    </td>
+
+                                </tr>
+
+                                <tr class="woosmart-status-fields">
+
+                                    <th scope="row">
+                                        <label>
+                                            وضعیت سفارش
+                                        </label>
+                                    </th>
+
+                                    <td>
+
+                                        <select
+                                            name="actions[${index}][status]"
+                                            style="min-width:300px;"
+                                        >
+
+                                            <?php foreach ( $order_statuses as $status_slug => $status_label ) : ?>
+
+                                                <option
+                                                    value="<?php echo esc_attr( $status_slug ); ?>"
+                                                >
+                                                    <?php echo esc_html( $status_label ); ?>
+                                                </option>
+
+                                            <?php endforeach; ?>
+
+                                        </select>
+
+                                    </td>
+
+                                </tr>
+
+                                <tr class="woosmart-notify-fields">
+
+                                    <th scope="row">
+                                        <label>
+                                            موضوع اعلان
+                                        </label>
+                                    </th>
+
+                                    <td>
+
+                                        <input
+                                            type="text"
+                                            name="actions[${index}][subject]"
+                                            class="regular-text"
+                                            value="اعلان سفارش جدید در WooSmart"
+                                        >
+
+                                    </td>
+
+                                </tr>
+
+                                <tr class="woosmart-notify-fields">
+
+                                    <th scope="row">
+                                        <label>
+                                            متن اعلان
+                                        </label>
+                                    </th>
+
+                                    <td>
+
+                                        <textarea
+                                            name="actions[${index}][message]"
+                                            rows="7"
+                                            class="large-text"
+                                        >یک سفارش جدید با شرایط اتوماسیون مطابقت دارد.
+
+شناسه سفارش: {order_id}
+مبلغ سفارش: {order_total}
+وضعیت سفارش: {order_status}
+نام مشتری: {customer_name}</textarea>
+
+                                        <p class="description">
+                                            متغیرهای قابل استفاده:
+                                            <code>{order_id}</code>
+                                            <code>{order_total}</code>
+                                            <code>{order_status}</code>
+                                            <code>{customer_name}</code>
+                                        </p>
+
+                                    </td>
+
+                                </tr>
+
+                            </table>
+
+                            `;
+
+                        return row;
+                    }
+
+                    function updateActionFields(
+                        row
+                    ) {
+
+                        const typeSelect =
+                            row.querySelector(
+                                '.woosmart-action-type'
+                            );
+
+                        const statusFields =
+                            row.querySelector(
+                                '.woosmart-status-fields'
+                            );
+
+                        const notifyFields =
+                            row.querySelectorAll(
+                                '.woosmart-notify-fields'
+                            );
+
+                        if (
+                            ! typeSelect ||
+                            ! statusFields
+                        ) {
+                            return;
+                        }
+
+                        if (
+                            typeSelect.value ===
+                            'change_order_status'
+                        ) {
+
+                            statusFields.style.display =
+                                '';
+
+                            notifyFields.forEach(
+                                function(field) {
+
+                                    field.style.display =
+                                        'none';
+                                }
+                            );
+
+                        } else {
+
+                            statusFields.style.display =
+                                'none';
+
+                            notifyFields.forEach(
+                                function(field) {
+
+                                    field.style.display =
+                                        '';
+                                }
+                            );
+                        }
+                    }
+
+                    function bindActionRow(
+                        row
+                    ) {
+
+                        const typeSelect =
+                            row.querySelector(
+                                '.woosmart-action-type'
+                            );
+
+                        const removeButton =
+                            row.querySelector(
+                                '.woosmart-remove-action'
+                            );
+
+                        if ( typeSelect ) {
+
+                            typeSelect.addEventListener(
+                                'change',
+                                function() {
+
+                                    updateActionFields(
+                                        row
+                                    );
+                                }
+                            );
+                        }
+
+                        if ( removeButton ) {
+
+                            removeButton.addEventListener(
+                                'click',
+                                function() {
+
+                                    const rows =
+                                        actionsContainer.querySelectorAll(
+                                            '.woosmart-action-row'
+                                        );
+
+                                    if (
+                                        rows.length <= 1
+                                    ) {
+
+                                        alert(
+                                            'حداقل یک عملیات باید وجود داشته باشد.'
+                                        );
+
+                                        return;
+                                    }
+
+                                    row.remove();
+
+                                    renumberActionRows();
+                                }
+                            );
+                        }
+
+                        updateActionFields(
+                            row
+                        );
+                    }
+
+                    function renumberActionRows() {
+
+                        const rows =
+                            actionsContainer.querySelectorAll(
+                                '.woosmart-action-row'
+                            );
+
+                        rows.forEach(
+                            function(row, rowIndex) {
+
+                                row.setAttribute(
+                                    'data-index',
+                                    rowIndex
+                                );
+
+                                const title =
+                                    row.querySelector(
+                                        'strong'
+                                    );
+
+                                if ( title ) {
+
+                                    title.textContent =
+                                        'عملیات ' +
+                                        (
+                                            rowIndex + 1
+                                        );
+                                }
+
+                                row.querySelectorAll(
+                                    '[name]'
+                                ).forEach(
+                                    function(input) {
+
+                                        input.name =
+                                            input.name.replace(
+                                                /actions\[\d+\]/,
+                                                'actions[' +
+                                                rowIndex +
+                                                ']'
+                                            );
+                                    }
+                                );
+                            }
+                        );
+                    }
+
+                    actionsContainer.querySelectorAll(
+                        '.woosmart-action-row'
+                    ).forEach(
+                        function(row) {
+
+                            bindActionRow(
+                                row
+                            );
+                        }
+                    );
+
+                    addActionButton.addEventListener(
+                        'click',
+                        function() {
+
+                            const nextIndex =
+                                getNextIndex();
+
+                            const row =
+                                createActionRow(
+                                    nextIndex
+                                );
+
+                            actionsContainer.appendChild(
+                                row
+                            );
+
+                            bindActionRow(
+                                row
+                            );
+
+                            updateActionFields(
+                                row
+                            );
+                        }
+                    );
                 }
             );
         </script>
+
+        <?php
+    }
+
+    /**
+     * Render one action row.
+     *
+     * @param int   $index          Action index.
+     * @param array $action         Action configuration.
+     * @param array $order_statuses Order statuses.
+     *
+     * @return void
+     */
+    private function render_action_row(
+        $index,
+        $action,
+        $order_statuses
+    ) {
+
+        $action_type = isset(
+            $action['type']
+        )
+            ? sanitize_key(
+                $action['type']
+            )
+            : 'notify_admin';
+
+        $action_status = isset(
+            $action['status']
+        )
+            ? sanitize_key(
+                $action['status']
+            )
+            : 'processing';
+
+        $action_subject = isset(
+            $action['subject']
+        )
+            ? $action['subject']
+            : 'اعلان سفارش جدید در WooSmart';
+
+        $action_message = isset(
+            $action['message']
+        )
+            ? $action['message']
+            : "یک سفارش جدید با شرایط اتوماسیون مطابقت دارد.\n\n" .
+            "شناسه سفارش: {order_id}\n" .
+            "مبلغ سفارش: {order_total}\n" .
+            "وضعیت سفارش: {order_status}\n" .
+            "نام مشتری: {customer_name}";
+
+        ?>
+
+        <div
+            class="woosmart-action-row"
+            data-index="<?php echo esc_attr( $index ); ?>"
+            style="
+                margin-bottom:16px;
+                padding:18px;
+                border:1px solid #ccd0d4;
+                background:#fff;
+                position:relative;
+            "
+        >
+
+            <div
+                style="
+                    display:flex;
+                    justify-content:space-between;
+                    align-items:center;
+                    margin-bottom:15px;
+                "
+            >
+
+                <strong>
+                    عملیات <?php echo esc_html( $index + 1 ); ?>
+                </strong>
+
+                <button
+                    type="button"
+                    class="button-link-delete woosmart-remove-action"
+                >
+                    حذف عملیات
+                </button>
+
+            </div>
+
+            <table
+                class="form-table"
+                style="margin:0;"
+            >
+
+                <tr>
+
+                    <th scope="row">
+                        <label>
+                            نوع عملیات
+                        </label>
+                    </th>
+
+                    <td>
+
+                        <select
+                            class="woosmart-action-type"
+                            name="actions[<?php echo esc_attr( $index ); ?>][type]"
+                            style="min-width:300px;"
+                        >
+
+                            <option
+                                value="notify_admin"
+                                <?php selected(
+                                    $action_type,
+                                    'notify_admin'
+                                ); ?>
+                            >
+                                ارسال اعلان به مدیر فروشگاه
+                            </option>
+
+                            <option
+                                value="change_order_status"
+                                <?php selected(
+                                    $action_type,
+                                    'change_order_status'
+                                ); ?>
+                            >
+                                تغییر وضعیت سفارش
+                            </option>
+
+                        </select>
+
+                    </td>
+
+                </tr>
+
+                <tr
+                    class="woosmart-status-fields"
+                    <?php
+                    echo 'change_order_status' === $action_type
+                        ? ''
+                        : 'style="display:none;"';
+                    ?>
+                >
+
+                    <th scope="row">
+                        <label>
+                            وضعیت سفارش
+                        </label>
+                    </th>
+
+                    <td>
+
+                        <select
+                            name="actions[<?php echo esc_attr( $index ); ?>][status]"
+                            style="min-width:300px;"
+                        >
+
+                            <?php foreach ( $order_statuses as $status_slug => $status_label ) : ?>
+
+                                <option
+                                    value="<?php echo esc_attr( $status_slug ); ?>"
+                                    <?php selected(
+                                        $action_status,
+                                        $status_slug
+                                    ); ?>
+                                >
+                                    <?php
+                                    echo esc_html(
+                                        $status_label
+                                    );
+                                    ?>
+                                </option>
+
+                            <?php endforeach; ?>
+
+                        </select>
+
+                    </td>
+
+                </tr>
+
+                <tr
+                    class="woosmart-notify-fields"
+                    <?php
+                    echo 'notify_admin' === $action_type
+                        ? ''
+                        : 'style="display:none;"';
+                    ?>
+                >
+
+                    <th scope="row">
+                        <label>
+                            موضوع اعلان
+                        </label>
+                    </th>
+
+                    <td>
+
+                        <input
+                            type="text"
+                            name="actions[<?php echo esc_attr( $index ); ?>][subject]"
+                            class="regular-text"
+                            value="<?php echo esc_attr( $action_subject ); ?>"
+                        >
+
+                    </td>
+
+                </tr>
+
+                <tr
+                    class="woosmart-notify-fields"
+                    <?php
+                    echo 'notify_admin' === $action_type
+                        ? ''
+                        : 'style="display:none;"';
+                    ?>
+                >
+
+                    <th scope="row">
+                        <label>
+                            متن اعلان
+                        </label>
+                    </th>
+
+                    <td>
+
+                        <textarea
+                            name="actions[<?php echo esc_attr( $index ); ?>][message]"
+                            rows="7"
+                            class="large-text"
+                        ><?php echo esc_textarea( $action_message ); ?></textarea>
+
+                        <p class="description">
+                            متغیرهای قابل استفاده:
+                            <code>{order_id}</code>
+                            <code>{order_total}</code>
+                            <code>{order_status}</code>
+                            <code>{customer_name}</code>
+                        </p>
+
+                    </td>
+
+                </tr>
+
+            </table>
+
+        </div>
 
         <?php
     }
@@ -1869,6 +2332,7 @@ class WooSmart_Admin {
             'automation_skipped'           => 'رد شدن اتوماسیون',
             'automation_conditions_failed' => 'شرایط برقرار نبود',
             'automation_executed'          => 'اجرای اتوماسیون',
+            'automation_failed'            => 'خطای اجرای اتوماسیون',
             'action_failed'                => 'خطا در عملیات',
             'action_executed'              => 'اجرای عملیات',
         );
@@ -1917,7 +2381,10 @@ class WooSmart_Admin {
                 'شرایط اتوماسیون برقرار نبود.',
 
             'automation_executed' =>
-                'اتوماسیون با موفقیت پردازش شد.',
+                'اتوماسیون با موفقیت اجرا شد.',
+
+            'automation_failed' =>
+                'اجرای اتوماسیون با شکست مواجه شد.',
 
             'action_failed' =>
                 'اجرای عملیات با خطا مواجه شد.',
