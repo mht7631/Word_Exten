@@ -373,10 +373,6 @@ class WooSmart_Automation_Manager {
                 ? 'inactive'
                 : 'active';
 
-        /*
-         * Before activating an automation,
-         * validate its existing configuration.
-         */
         if ( 'active' === $new_status ) {
 
             $trigger = get_post_meta(
@@ -718,24 +714,58 @@ class WooSmart_Automation_Manager {
             )
             : '';
 
-        $action_status = isset(
-            $_POST['action_order_status']
-        )
-            ? sanitize_key(
-                wp_unslash(
-                    $_POST['action_order_status']
-                )
-            )
-            : '';
-
         if (
-            'change_order_status' === $action_type &&
-            ! empty( $action_status )
+            'change_order_status' ===
+            $action_type
         ) {
 
+            $action_status = isset(
+                $_POST['action_order_status']
+            )
+                ? sanitize_key(
+                    wp_unslash(
+                        $_POST['action_order_status']
+                    )
+                )
+                : '';
+
+            if ( ! empty( $action_status ) ) {
+
+                $actions[] = array(
+                    'type'   => 'change_order_status',
+                    'status' => $action_status,
+                );
+            }
+
+        } elseif (
+            'notify_admin' ===
+            $action_type
+        ) {
+
+            $subject = isset(
+                $_POST['action_email_subject']
+            )
+                ? sanitize_text_field(
+                    wp_unslash(
+                        $_POST['action_email_subject']
+                    )
+                )
+                : '';
+
+            $message = isset(
+                $_POST['action_email_message']
+            )
+                ? sanitize_textarea_field(
+                    wp_unslash(
+                        $_POST['action_email_message']
+                    )
+                )
+                : '';
+
             $actions[] = array(
-                'type'   => 'change_order_status',
-                'status' => $action_status,
+                'type'    => 'notify_admin',
+                'subject' => $subject,
+                'message' => $message,
             );
         }
 
@@ -789,9 +819,6 @@ class WooSmart_Automation_Manager {
             );
         }
 
-        /*
-         * Empty conditions are allowed.
-         */
         if ( empty( $conditions ) ) {
             return true;
         }
@@ -911,9 +938,6 @@ class WooSmart_Automation_Manager {
             );
         }
 
-        /*
-         * An automation must have at least one action.
-         */
         if ( empty( $actions ) ) {
             return new WP_Error(
                 'missing_action',
@@ -923,6 +947,7 @@ class WooSmart_Automation_Manager {
 
         $allowed_action_types = array(
             'change_order_status',
+            'notify_admin',
         );
 
         foreach ( $actions as $action ) {
@@ -986,6 +1011,59 @@ class WooSmart_Automation_Manager {
                     );
                 }
             }
+
+            if (
+                'notify_admin' ===
+                $action_type
+            ) {
+
+                $subject = isset(
+                    $action['subject']
+                )
+                    ? sanitize_text_field(
+                        $action['subject']
+                    )
+                    : '';
+
+                $message = isset(
+                    $action['message']
+                )
+                    ? sanitize_textarea_field(
+                        $action['message']
+                    )
+                    : '';
+
+                if ( empty( $subject ) ) {
+                    return new WP_Error(
+                        'missing_email_subject',
+                        'موضوع ایمیل اعلان الزامی است.'
+                    );
+                }
+
+                if ( empty( $message ) ) {
+                    return new WP_Error(
+                        'missing_email_message',
+                        'متن ایمیل اعلان الزامی است.'
+                    );
+                }
+
+                $admin_email = sanitize_email(
+                    get_option(
+                        'admin_email',
+                        ''
+                    )
+                );
+
+                if (
+                    empty( $admin_email ) ||
+                    ! is_email( $admin_email )
+                ) {
+                    return new WP_Error(
+                        'invalid_admin_email',
+                        'ایمیل مدیر فروشگاه در تنظیمات وردپرس معتبر نیست.'
+                    );
+                }
+            }
         }
 
         return true;
@@ -1022,9 +1100,6 @@ class WooSmart_Automation_Manager {
             }
         }
 
-        /*
-         * Fallback for the standard WooCommerce statuses.
-         */
         $standard_statuses = array(
             'pending',
             'processing',
