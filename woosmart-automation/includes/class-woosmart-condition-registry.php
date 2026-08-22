@@ -23,6 +23,7 @@ class WooSmart_Condition_Registry {
      * Initialize the condition registry.
      */
     public function __construct() {
+
         $this->register_default_conditions();
     }
 
@@ -34,25 +35,49 @@ class WooSmart_Condition_Registry {
      *
      * @return bool
      */
-    public function register( $key, $definition ) {
+    public function register(
+        $key,
+        $definition
+    ) {
 
-        $key = sanitize_key( $key );
+        $key =
+            sanitize_key(
+                $key
+            );
 
-        if ( empty( $key ) || ! is_array( $definition ) ) {
+        if (
+            empty( $key ) ||
+            ! is_array( $definition )
+        ) {
+
             return false;
         }
 
         if (
-            empty( $definition['label'] ) ||
-            empty( $definition['operators'] ) ||
-            ! is_array( $definition['operators'] ) ||
-            ! isset( $definition['evaluator'] ) ||
-            ! is_callable( $definition['evaluator'] )
+            empty(
+                $definition['label']
+            ) ||
+            empty(
+                $definition['operators']
+            ) ||
+            ! is_array(
+                $definition['operators']
+            ) ||
+            ! isset(
+                $definition['evaluator']
+            ) ||
+            ! is_callable(
+                $definition['evaluator']
+            )
         ) {
+
             return false;
         }
 
-        $this->conditions[ $key ] = $definition;
+        $this->conditions[
+            $key
+        ] =
+            $definition;
 
         return true;
     }
@@ -64,11 +89,20 @@ class WooSmart_Condition_Registry {
      *
      * @return bool
      */
-    public function has( $key ) {
+    public function has(
+        $key
+    ) {
 
-        $key = sanitize_key( $key );
+        $key =
+            sanitize_key(
+                $key
+            );
 
-        return isset( $this->conditions[ $key ] );
+        return isset(
+            $this->conditions[
+                $key
+            ]
+        );
     }
 
     /**
@@ -78,16 +112,28 @@ class WooSmart_Condition_Registry {
      *
      * @return array|null
      */
-    public function get( $key ) {
+    public function get(
+        $key
+    ) {
 
-        $key = sanitize_key( $key );
+        $key =
+            sanitize_key(
+                $key
+            );
 
-        if ( ! $this->has( $key ) ) {
+        if (
+            ! $this->has(
+                $key
+            )
+        ) {
+
             return null;
         }
 
         return $this->get_public_definition(
-            $this->conditions[ $key ]
+            $this->conditions[
+                $key
+            ]
         );
     }
 
@@ -98,12 +144,21 @@ class WooSmart_Condition_Registry {
      */
     public function get_all() {
 
-        $definitions = array();
+        $definitions =
+            array();
 
-        foreach ( $this->conditions as $key => $definition ) {
-            $definitions[ $key ] = $this->get_public_definition(
-                $definition
-            );
+        foreach (
+            $this->conditions
+            as $key =>
+            $definition
+        ) {
+
+            $definitions[
+                $key
+            ] =
+                $this->get_public_definition(
+                    $definition
+                );
         }
 
         return $definitions;
@@ -116,15 +171,27 @@ class WooSmart_Condition_Registry {
      *
      * @return array
      */
-    public function get_operators( $key ) {
+    public function get_operators(
+        $key
+    ) {
 
-        $key = sanitize_key( $key );
+        $key =
+            sanitize_key(
+                $key
+            );
 
-        if ( ! $this->has( $key ) ) {
+        if (
+            ! $this->has(
+                $key
+            )
+        ) {
+
             return array();
         }
 
-        return $this->conditions[ $key ]['operators'];
+        return $this->conditions[
+            $key
+        ]['operators'];
     }
 
     /**
@@ -144,28 +211,61 @@ class WooSmart_Condition_Registry {
         $context = array()
     ) {
 
-        $key = sanitize_key( $key );
-        $operator = sanitize_key( $operator );
+        $key =
+            sanitize_key(
+                $key
+            );
 
-        if ( ! $this->has( $key ) ) {
-            return false;
-        }
-
-        $definition = $this->conditions[ $key ];
+        $operator =
+            sanitize_key(
+                $operator
+            );
 
         if (
-            ! isset( $definition['operators'][ $operator ] ) ||
-            ! is_callable( $definition['evaluator'] )
+            ! $this->has(
+                $key
+            )
         ) {
+
             return false;
         }
 
-        return (bool) call_user_func(
-            $definition['evaluator'],
-            $operator,
-            $value,
-            is_array( $context ) ? $context : array()
-        );
+        $definition =
+            $this->conditions[
+                $key
+            ];
+
+        if (
+            ! isset(
+                $definition[
+                    'operators'
+                ][
+                    $operator
+                ]
+            ) ||
+            ! is_callable(
+                $definition[
+                    'evaluator'
+                ]
+            )
+        ) {
+
+            return false;
+        }
+
+        return (bool)
+            call_user_func(
+                $definition[
+                    'evaluator'
+                ],
+                $operator,
+                $value,
+                is_array(
+                    $context
+                )
+                    ? $context
+                    : array()
+            );
     }
 
     /**
@@ -178,27 +278,54 @@ class WooSmart_Condition_Registry {
         $this->register(
             'order_total',
             array(
-                'label'      => 'مبلغ سفارش',
-                'value_type' => 'number',
-                'operators'  => array(
-                    'is_equal' => 'برابر است با',
-                    'is_not_equal' => 'برابر نیست با',
-                    'greater_than' => 'بیشتر از',
-                    'greater_than_or_equal' => 'بیشتر یا مساوی با',
-                    'less_than' => 'کمتر از',
-                    'less_than_or_equal' => 'کمتر یا مساوی با',
-                ),
-                'evaluator' => function (
-                    $operator,
-                    $value,
-                    $context
-                ) {
-                    return $this->evaluate_order_total(
+                'label' =>
+                    'مبلغ سفارش',
+
+                'value_type' =>
+                    'number',
+
+                /*
+                 * The internal value remains Rial,
+                 * but WooSmart presents the value
+                 * to Iranian users in Toman.
+                 */
+                'value_unit' =>
+                    'toman',
+
+                'operators' =>
+                    array(
+                        'is_equal' =>
+                            'برابر است با',
+
+                        'is_not_equal' =>
+                            'برابر نیست با',
+
+                        'greater_than' =>
+                            'بیشتر از',
+
+                        'greater_than_or_equal' =>
+                            'بیشتر یا مساوی با',
+
+                        'less_than' =>
+                            'کمتر از',
+
+                        'less_than_or_equal' =>
+                            'کمتر یا مساوی با',
+                    ),
+
+                'evaluator' =>
+                    function (
                         $operator,
                         $value,
                         $context
-                    );
-                },
+                    ) {
+
+                        return $this->evaluate_order_total(
+                            $operator,
+                            $value,
+                            $context
+                        );
+                    },
             )
         );
     }
@@ -219,58 +346,123 @@ class WooSmart_Condition_Registry {
     ) {
 
         if (
-            ! function_exists( 'wc_get_order' ) ||
-            ! isset( $context['order_id'] )
+            ! function_exists(
+                'wc_get_order'
+            ) ||
+            ! isset(
+                $context['order_id']
+            )
         ) {
+
             return false;
         }
 
-        $order_id = absint( $context['order_id'] );
+        $order_id =
+            absint(
+                $context['order_id']
+            );
 
-        if ( ! $order_id ) {
+        if (
+            ! $order_id
+        ) {
+
             return false;
         }
 
-        $order = wc_get_order( $order_id );
+        $order =
+            wc_get_order(
+                $order_id
+            );
 
-        if ( ! $order ) {
+        if (
+            ! $order
+        ) {
+
             return false;
         }
 
-        $configured_value = str_replace(
-            ',',
-            '',
-            (string) $value
-        );
+        /*
+         * IMPORTANT:
+         *
+         * $value is already stored in the internal
+         * WooCommerce currency unit.
+         *
+         * The conversion from Toman to Rial happens
+         * in the Admin layer before the value is stored.
+         *
+         * Therefore the Condition Engine does not
+         * perform any currency conversion here.
+         */
+        $configured_value =
+            str_replace(
+                ',',
+                '',
+                (string) $value
+            );
 
         if (
             '' === $configured_value ||
-            ! is_numeric( $configured_value )
+            ! is_numeric(
+                $configured_value
+            )
         ) {
+
             return false;
         }
 
-        $order_total = (float) $order->get_total();
-        $condition_value = (float) $configured_value;
+        $order_total =
+            (float)
+            $order->get_total();
 
-        switch ( $operator ) {
+        $condition_value =
+            (float)
+            $configured_value;
+
+        switch (
+            $operator
+        ) {
+
             case 'is_equal':
-                return $order_total === $condition_value;
+
+                return (
+                    $order_total ===
+                    $condition_value
+                );
 
             case 'is_not_equal':
-                return $order_total !== $condition_value;
+
+                return (
+                    $order_total !==
+                    $condition_value
+                );
 
             case 'greater_than':
-                return $order_total > $condition_value;
+
+                return (
+                    $order_total >
+                    $condition_value
+                );
 
             case 'greater_than_or_equal':
-                return $order_total >= $condition_value;
+
+                return (
+                    $order_total >=
+                    $condition_value
+                );
 
             case 'less_than':
-                return $order_total < $condition_value;
+
+                return (
+                    $order_total <
+                    $condition_value
+                );
 
             case 'less_than_or_equal':
-                return $order_total <= $condition_value;
+
+                return (
+                    $order_total <=
+                    $condition_value
+                );
         }
 
         return false;
@@ -283,11 +475,18 @@ class WooSmart_Condition_Registry {
      *
      * @return array
      */
-    private function get_public_definition( $definition ) {
+    private function get_public_definition(
+        $definition
+    ) {
 
-        $public_definition = $definition;
+        $public_definition =
+            $definition;
 
-        unset( $public_definition['evaluator'] );
+        unset(
+            $public_definition[
+                'evaluator'
+            ]
+        );
 
         return $public_definition;
     }
