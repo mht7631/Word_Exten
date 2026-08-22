@@ -10,146 +10,248 @@ if ( ! defined( 'ABSPATH' ) ) {
 class WooSmart_Condition_Engine {
 
     /**
-     * Evaluate all conditions.
+     * Logger instance.
      *
-     * @param array $conditions Conditions.
-     * @param array $context    Trigger context.
+     * @var WooSmart_Logger
+     */
+    private $logger;
+
+    /**
+     * Condition Registry instance.
+     *
+     * @var WooSmart_Condition_Registry
+     */
+    private $registry;
+
+    /**
+     * Initialize Condition Engine.
+     */
+    public function __construct() {
+
+        $this->logger = new WooSmart_Logger();
+
+        $this->registry =
+            new WooSmart_Condition_Registry();
+    }
+
+    /**
+     * Evaluate all automation conditions.
+     *
+     * All conditions must pass.
+     *
+     * @param array $conditions Conditions configuration.
+     * @param array $context    Execution context.
      *
      * @return bool
      */
-    public function evaluate( $conditions, $context = array() ) {
+    public function evaluate(
+        $conditions,
+        $context = array()
+    ) {
 
-        if ( empty( $conditions ) ) {
+        if (
+            empty( $conditions ) ||
+            ! is_array( $conditions )
+        ) {
             return true;
         }
 
         foreach ( $conditions as $condition ) {
 
             if ( ! is_array( $condition ) ) {
+
+                $this->logger->log(
+                    'condition_failed',
+                    'Invalid condition configuration.',
+                    array(
+                        'condition' => $condition,
+                    )
+                );
+
                 return false;
             }
 
-            if ( ! $this->evaluate_condition( $condition, $context ) ) {
+            $field = isset( $condition['field'] )
+                ? sanitize_key( $condition['field'] )
+                : '';
+
+            $operator = isset( $condition['operator'] )
+                ? sanitize_key( $condition['operator'] )
+                : '';
+
+            $value = isset( $condition['value'] )
+                ? $condition['value']
+                : '';
+
+            if ( empty( $field ) ) {
+
+                $this->logger->log(
+                    'condition_failed',
+                    'Condition field is missing.',
+                    array(
+                        'condition' => $condition,
+                    )
+                );
+
                 return false;
             }
+
+            if ( empty( $operator ) ) {
+
+                $this->logger->log(
+                    'condition_failed',
+                    'Condition operator is missing.',
+                    array(
+                        'condition' => $condition,
+                    )
+                );
+
+                return false;
+            }
+
+            if ( ! $this->registry->has( $field ) ) {
+
+                $this->logger->log(
+                    'condition_failed',
+                    'Unknown condition field.',
+                    array(
+                        'field'     => $field,
+                        'operator'  => $operator,
+                        'value'     => $value,
+                    )
+                );
+
+                return false;
+            }
+
+            $result = $this->registry->evaluate(
+                $field,
+                $operator,
+                $value,
+                $context
+            );
+
+            if ( ! $result ) {
+
+                $this->logger->log(
+                    'condition_failed',
+                    'Automation condition was not satisfied.',
+                    array(
+                        'field'     => $field,
+                        'operator'  => $operator,
+                        'value'     => $value,
+                        'context'   => $this->get_safe_context(
+                            $context
+                        ),
+                    )
+                );
+
+                return false;
+            }
+
+            $this->logger->log(
+                'condition_passed',
+                'Automation condition was satisfied.',
+                array(
+                    'field'     => $field,
+                    'operator'  => $operator,
+                    'value'     => $value,
+                )
+            );
         }
 
         return true;
     }
 
     /**
-     * Evaluate a single condition.
+     * Get registered conditions.
      *
-     * @param array $condition Condition definition.
-     * @param array $context   Trigger context.
+     * Useful for admin UI and future API.
      *
-     * @return bool
+     * @return array
      */
-    private function evaluate_condition( $condition, $context ) {
+    public function get_conditions() {
 
-        $field = isset( $condition['field'] )
-            ? sanitize_key( $condition['field'] )
-            : '';
+        return $this->registry->get_all();
+    }
 
-        $operator = isset( $condition['operator'] )
-            ? sanitize_key( $condition['operator'] )
-            : '';
+    /**
+     * Get condition definition.
+     *
+     * @param string $field Condition field.
+     *
+     * @return array|null
+     */
+    public function get_condition( $field ) {
 
-        $expected_value = isset( $condition['value'] )
-            ? $condition['value']
-            : null;
-
-        if ( empty( $field ) || empty( $operator ) ) {
-            return false;
-        }
-
-        $actual_value = $this->get_field_value(
-            $field,
-            $context
-        );
-
-        if ( null === $actual_value ) {
-            return false;
-        }
-
-        return $this->compare(
-            $actual_value,
-            $operator,
-            $expected_value
+        return $this->registry->get(
+            $field
         );
     }
 
     /**
-     * Get field value from trigger context.
+     * Get condition operators.
      *
-     * @param string $field   Field name.
-     * @param array  $context Trigger context.
+     * @param string $field Condition field.
      *
-     * @return mixed
+     * @return array
      */
-    private function get_field_value( $field, $context ) {
+    public function get_operators( $field ) {
 
-        if ( 'order_total' !== $field ) {
-            return null;
-        }
-
-        if ( empty( $context['order_id'] ) ) {
-            return null;
-        }
-
-        $order_id = absint(
-            $context['order_id']
+        return $this->registry->get_operators(
+            $field
         );
-
-        $order = wc_get_order( $order_id );
-
-        if ( ! $order ) {
-            return null;
-        }
-
-        return (float) $order->get_total();
     }
 
     /**
-     * Compare actual and expected values.
+     * Return a safe version of execution context for logging.
      *
-     * @param mixed  $actual_value   Actual value.
-     * @param string $operator       Comparison operator.
-     * @param mixed  $expected_value  Expected value.
+     * Avoids logging large WooCommerce objects.
      *
-     * @return bool
+     * @param array $context Execution context.
+     *
+     * @return array
      */
-    private function compare(
-        $actual_value,
-        $operator,
-        $expected_value
+    private function get_safe_context(
+        $context
     ) {
 
-        $actual_value   = (float) $actual_value;
-        $expected_value = (float) $expected_value;
-
-        switch ( $operator ) {
-
-            case 'is_equal':
-                return $actual_value === $expected_value;
-
-            case 'is_not_equal':
-                return $actual_value !== $expected_value;
-
-            case 'greater_than':
-                return $actual_value > $expected_value;
-
-            case 'greater_than_or_equal':
-                return $actual_value >= $expected_value;
-
-            case 'less_than':
-                return $actual_value < $expected_value;
-
-            case 'less_than_or_equal':
-                return $actual_value <= $expected_value;
-
-            default:
-                return false;
+        if ( ! is_array( $context ) ) {
+            return array();
         }
+
+        $safe_context = array();
+
+        foreach ( $context as $key => $value ) {
+
+            if ( is_object( $value ) ) {
+
+                if (
+                    'order' === $key &&
+                    method_exists(
+                        $value,
+                        'get_id'
+                    )
+                ) {
+                    $safe_context['order_id'] =
+                        absint(
+                            $value->get_id()
+                        );
+                }
+
+                continue;
+            }
+
+            if ( is_array( $value ) ) {
+                continue;
+            }
+
+            $safe_context[ sanitize_key( $key ) ] =
+                is_scalar( $value )
+                    ? $value
+                    : '';
+        }
+
+        return $safe_context;
     }
 }
