@@ -23,6 +23,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-automation.p
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-triggers.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-post-types.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-automation-manager.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-condition-registry.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-condition-engine.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-action-engine.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-execution-engine.php';
