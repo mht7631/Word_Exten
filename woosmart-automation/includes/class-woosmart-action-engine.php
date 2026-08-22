@@ -116,23 +116,20 @@ class WooSmart_Action_Engine {
     }
 
     /**
-     * Configure the PHPMailer sender for WooSmart.
+     * Temporary filter for wp_mail_from.
      *
-     * This runs through the phpmailer_init hook immediately
-     * before the actual mail send.
+     * @param string $from_email Current From address.
      *
-     * @param object $phpmailer PHPMailer instance.
-     *
-     * @return void
+     * @return string
      */
-    public function configure_mailer_sender(
-        $phpmailer
+    public function filter_mail_from(
+        $from_email
     ) {
 
         if (
             ! $this->capturing_mail_error
         ) {
-            return;
+            return $from_email;
         }
 
         if (
@@ -140,46 +137,38 @@ class WooSmart_Action_Engine {
                 $this->current_mail_sender
             )
         ) {
-            return;
+            return $from_email;
+        }
+
+        return $this->current_mail_sender;
+    }
+
+    /**
+     * Temporary filter for wp_mail_from_name.
+     *
+     * @param string $from_name Current From name.
+     *
+     * @return string
+     */
+    public function filter_mail_from_name(
+        $from_name
+    ) {
+
+        if (
+            ! $this->capturing_mail_error
+        ) {
+            return $from_name;
         }
 
         if (
-            ! is_object(
-                $phpmailer
+            empty(
+                $this->current_mail_sender_name
             )
         ) {
-            return;
+            return $from_name;
         }
 
-        if (
-            ! method_exists(
-                $phpmailer,
-                'setFrom'
-            )
-        ) {
-            return;
-        }
-
-        try {
-
-            $phpmailer->setFrom(
-                $this->current_mail_sender,
-                $this->current_mail_sender_name,
-                false
-            );
-
-        } catch ( Exception $exception ) {
-
-            $this->last_mail_error =
-                new WP_Error(
-                    'woosmart_phpmailer_from_error',
-                    $exception->getMessage(),
-                    array(
-                        'phpmailer_exception_code' =>
-                            $exception->getCode(),
-                    )
-                );
-        }
+        return $this->current_mail_sender_name;
     }
 
     /**
@@ -592,11 +581,13 @@ class WooSmart_Action_Engine {
             );
 
         /*
-         * Use the WordPress administrator email as the
-         * sender for this temporary development setup.
+         * Temporary development sender.
          *
-         * A dedicated configurable sender will be introduced
-         * later in the Notification Settings layer.
+         * We currently use the WordPress administrator
+         * email address as the sender.
+         *
+         * A dedicated Notification Settings layer will
+         * later provide configurable sender information.
          */
         $this->current_mail_sender =
             $recipient;
@@ -611,25 +602,35 @@ class WooSmart_Action_Engine {
             null;
 
         /*
-         * Tell the mail-error callback and PHPMailer
-         * configuration callback that this specific
-         * wp_mail() request belongs to WooSmart.
+         * Enable the temporary mail filters before calling
+         * wp_mail().
+         *
+         * IMPORTANT:
+         * These filters run BEFORE WordPress calls PHPMailer
+         * setFrom(), so the invalid:
+         *
+         *     wordpress@localhost
+         *
+         * address is never passed to PHPMailer.
          */
         $this->capturing_mail_error =
             true;
 
-        /*
-         * Configure the From address at the final PHPMailer
-         * initialization stage.
-         *
-         * Priority 999 allows WooSmart to set the sender after
-         * normal WordPress/plugin mail configuration has run.
-         */
-        add_action(
-            'phpmailer_init',
+        add_filter(
+            'wp_mail_from',
             array(
                 $this,
-                'configure_mailer_sender',
+                'filter_mail_from',
+            ),
+            999,
+            1
+        );
+
+        add_filter(
+            'wp_mail_from_name',
+            array(
+                $this,
+                'filter_mail_from_name',
             ),
             999,
             1
@@ -649,14 +650,23 @@ class WooSmart_Action_Engine {
             );
 
         /*
-         * Remove the temporary PHPMailer hook immediately
-         * after this specific mail attempt.
+         * Remove the temporary filters immediately after
+         * this mail attempt.
          */
-        remove_action(
-            'phpmailer_init',
+        remove_filter(
+            'wp_mail_from',
             array(
                 $this,
-                'configure_mailer_sender',
+                'filter_mail_from',
+            ),
+            999
+        );
+
+        remove_filter(
+            'wp_mail_from_name',
+            array(
+                $this,
+                'filter_mail_from_name',
             ),
             999
         );
