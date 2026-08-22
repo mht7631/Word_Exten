@@ -43,6 +43,7 @@ class WooSmart_Action_Engine {
         foreach ( $actions as $action ) {
 
             if ( ! is_array( $action ) ) {
+                $all_successful = false;
                 continue;
             }
 
@@ -51,6 +52,7 @@ class WooSmart_Action_Engine {
                 : '';
 
             if ( empty( $type ) ) {
+                $all_successful = false;
                 continue;
             }
 
@@ -88,6 +90,13 @@ class WooSmart_Action_Engine {
             case 'change_order_status':
 
                 return $this->change_order_status(
+                    $action,
+                    $context
+                );
+
+            case 'notify_admin':
+
+                return $this->notify_admin(
                     $action,
                     $context
                 );
@@ -220,5 +229,200 @@ class WooSmart_Action_Engine {
         );
 
         return true;
+    }
+
+    /**
+     * Send an email notification to the store administrator.
+     *
+     * @param array $action  Action configuration.
+     * @param array $context Execution context.
+     *
+     * @return bool
+     */
+    private function notify_admin(
+        $action,
+        $context
+    ) {
+
+        if ( ! function_exists( 'wp_mail' ) ) {
+
+            $this->logger->log(
+                'action_failed',
+                'WordPress mail system is not available.',
+                array(
+                    'action_type' => 'notify_admin',
+                )
+            );
+
+            return false;
+        }
+
+        $recipient = sanitize_email(
+            get_option( 'admin_email', '' )
+        );
+
+        if (
+            empty( $recipient ) ||
+            ! is_email( $recipient )
+        ) {
+
+            $this->logger->log(
+                'action_failed',
+                'Store administrator email address is invalid.',
+                array(
+                    'action_type' => 'notify_admin',
+                )
+            );
+
+            return false;
+        }
+
+        $subject = isset(
+            $action['subject']
+        )
+            ? sanitize_text_field(
+                $action['subject']
+            )
+            : '';
+
+        $message = isset(
+            $action['message']
+        )
+            ? sanitize_textarea_field(
+                $action['message']
+            )
+            : '';
+
+        if ( empty( $subject ) ) {
+            $subject = 'اعلان WooSmart درباره سفارش';
+        }
+
+        if ( empty( $message ) ) {
+            $message =
+                "یک سفارش جدید با شرایط اتوماسیون مطابقت دارد.\n\n" .
+                "شناسه سفارش: {order_id}\n" .
+                "مبلغ سفارش: {order_total}\n" .
+                "وضعیت سفارش: {order_status}";
+        }
+
+        $message = $this->replace_order_placeholders(
+            $message,
+            $context
+        );
+
+        $mail_sent = wp_mail(
+            $recipient,
+            $subject,
+            $message
+        );
+
+        if ( ! $mail_sent ) {
+
+            $this->logger->log(
+                'action_failed',
+                'Failed to send administrator notification email.',
+                array(
+                    'action_type' => 'notify_admin',
+                    'recipient'   => $recipient,
+                    'order_id'    => isset( $context['order_id'] )
+                        ? absint( $context['order_id'] )
+                        : 0,
+                )
+            );
+
+            return false;
+        }
+
+        $this->logger->log(
+            'action_executed',
+            'Administrator notification email was sent successfully.',
+            array(
+                'action_type' => 'notify_admin',
+                'recipient'   => $recipient,
+                'order_id'    => isset( $context['order_id'] )
+                    ? absint( $context['order_id'] )
+                    : 0,
+            )
+        );
+
+        return true;
+    }
+
+    /**
+     * Replace order placeholders in notification message.
+     *
+     * Supported placeholders:
+     *
+     * {order_id}
+     * {order_total}
+     * {order_status}
+     * {customer_name}
+     *
+     * @param string $message Message template.
+     * @param array  $context Execution context.
+     *
+     * @return string
+     */
+    private function replace_order_placeholders(
+        $message,
+        $context
+    ) {
+
+        $order_id = isset(
+            $context['order_id']
+        )
+            ? absint(
+                $context['order_id']
+            )
+            : 0;
+
+        $order_total  = '';
+        $order_status = '';
+        $customer_name = '';
+
+        if (
+            $order_id &&
+            function_exists( 'wc_get_order' )
+        ) {
+
+            $order = wc_get_order(
+                $order_id
+            );
+
+            if ( $order ) {
+
+                $order_total =
+                    number_format_i18n(
+                        (float) $order->get_total(),
+                        0
+                    );
+
+                $order_status =
+                    $order->get_status();
+
+                if (
+                    method_exists(
+                        $order,
+                        'get_formatted_billing_full_name'
+                    )
+                ) {
+
+                    $customer_name =
+                        $order->get_formatted_billing_full_name();
+                }
+            }
+        }
+
+        $replacements = array(
+            '{order_id}'      => $order_id,
+            '{order_total}'   => $order_total . ' ریال',
+            '{order_status}'  => $order_status,
+            '{customer_name}' => $customer_name,
+        );
+
+        return strtr(
+            $message,
+            $replacements
+        );
     }
 }
