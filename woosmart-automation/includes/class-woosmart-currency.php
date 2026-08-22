@@ -85,7 +85,11 @@ class WooSmart_Currency {
                 ! empty( $symbol )
             ) {
 
-                return (string) $symbol;
+                return html_entity_decode(
+                    (string) $symbol,
+                    ENT_QUOTES | ENT_HTML5,
+                    'UTF-8'
+                );
             }
         }
 
@@ -121,7 +125,14 @@ class WooSmart_Currency {
             return 'ریال';
         }
 
-        return $this->get_currency_symbol();
+        $unit =
+            $this->get_currency_symbol();
+
+        return html_entity_decode(
+            (string) $unit,
+            ENT_QUOTES | ENT_HTML5,
+            'UTF-8'
+        );
     }
 
     /**
