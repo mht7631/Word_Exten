@@ -509,6 +509,24 @@ class WooSmart_Action_Engine {
             );
 
         /*
+         * Use the WordPress administrator email as the
+         * sender as well as the recipient.
+         *
+         * This prevents the local XAMPP default:
+         *
+         *     wordpress@localhost
+         *
+         * from being used as the From address.
+         *
+         * A dedicated configurable sender will be added
+         * later when the Notification Settings layer is implemented.
+         */
+        $headers = array(
+            'Content-Type: text/plain; charset=UTF-8',
+            'From: WooSmart Automation <' . $recipient . '>',
+        );
+
+        /*
          * Reset the previous mail error before each attempt.
          */
         $this->last_mail_error =
@@ -525,7 +543,8 @@ class WooSmart_Action_Engine {
             wp_mail(
                 $recipient,
                 $subject,
-                $message
+                $message,
+                $headers
             );
 
         $this->capturing_mail_error =
@@ -607,9 +626,7 @@ class WooSmart_Action_Engine {
 
                 /*
                  * wp_mail() can also return false without
-                 * exposing a PHPMailer error through the hook,
-                 * for example when another component preempts
-                 * the mail request.
+                 * exposing a PHPMailer error through the hook.
                  */
                 $error_context[
                     'mail_error'
