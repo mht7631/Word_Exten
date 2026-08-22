@@ -23,7 +23,7 @@ WHEN
 Order Created
 
 IF
-Order Total > 1,000,000 IRR
+Order Total > 1,000,000 تومان
 
 THEN
 Notify Store Administrator
@@ -36,7 +36,7 @@ WHEN
 Order Created
 
 IF
-Order Total > 5,000,000 IRR
+Order Total > 5,000,000 تومان
 
 THEN
 Notify Store Administrator
@@ -78,15 +78,17 @@ Current milestone:
 
 ```
 Modular Condition and Action Registry architecture implemented and tested
++ WooCommerce-aware currency presentation
++ Multiple Action execution
++ Multiple Automation diagnostics
++ Notification failure diagnostics
 ```
 
 Current development focus:
 
 ```
-Action Validation through Action Registry
-Multiple Actions UI
-Notification Configuration
-SMTP / Email Delivery
+Mail Transport / SMTP Environment
+Multiple Actions stabilization
 Conflict Detection
 Execution Priority
 Execution Policy
@@ -139,6 +141,16 @@ Action Handler
 Action Result
 ```
 
+Currency architecture:
+
+```
+WooCommerce Currency
+     ↓
+WooSmart Currency Helper
+     ↓
+WooSmart Admin Display
+```
+
 Administrative workflow:
 
 ```
@@ -168,6 +180,7 @@ woosmart-automation/
 └── includes/
     ├── class-woosmart-core.php
     ├── class-woosmart-logger.php
+    ├── class-woosmart-currency.php
     ├── class-woosmart-admin.php
     ├── class-woosmart-automation.php
     ├── class-woosmart-triggers.php
@@ -201,6 +214,7 @@ Responsibilities:
 * Initialize the Admin layer.
 * Initialize the Post Type.
 * Initialize the Automation Manager.
+* Initialize the Currency helper.
 * Handle plugin activation.
 * Handle plugin deactivation.
 * Flush rewrite rules when required.
@@ -218,23 +232,54 @@ Responsibilities:
 * Detect WooCommerce.
 * Display WooCommerce dependency warnings.
 * Provide WooCommerce availability status.
-* Control Iranian Rial frontend price formatting when WooCommerce currency is IRR.
+* Maintain WooCommerce compatibility behavior.
 
-For Iranian stores, WooSmart formats WooCommerce prices as:
-
-```
-1,500,000 ریال
-```
-
-instead of:
-
-```
-﷼1,500,000.00
-```
-
-The actual store currency remains controlled by WooCommerce.
+WooCommerce remains the source of truth for store currency.
 
 WooSmart does not change the numeric value of products or orders.
+
+---
+
+## class-woosmart-currency.php
+
+Display-only currency helper.
+
+Responsibilities:
+
+* Read the current WooCommerce currency.
+* Detect `IRT`.
+* Detect `IRR`.
+* Return the user-facing display unit.
+* Normalize numeric values without changing their currency.
+* Format values for WooSmart UI without performing currency conversion.
+
+Current behavior:
+
+```
+IRT
+    ↓
+تومان
+
+IRR
+    ↓
+ریال
+```
+
+Other currencies use the WooCommerce currency symbol where available.
+
+Critical architectural rule:
+
+```
+WooSmart does NOT convert:
+    Rial → Toman
+    Toman → Rial
+```
+
+No numeric multiplication or division is performed by WooSmart.
+
+The class does not modify WooCommerce prices or order totals.
+
+WooCommerce remains responsible for the actual currency interpretation and monetary values.
 
 ---
 
@@ -324,7 +369,7 @@ Example UI:
 شرط:
 مبلغ سفارش
 بیشتر از
-1,000,000 ریال
+1,000,000 تومان
 
 عملیات:
 ارسال اعلان به مدیر فروشگاه
@@ -351,7 +396,17 @@ class-woosmart-condition-registry.php
 
 The current Condition Builder dynamically updates the available operators when the selected condition changes.
 
-Numeric conditions can use numeric input formatting, including Persian Rial presentation.
+Numeric conditions use formatted numeric input.
+
+The currency label displayed in the numeric input is obtained from the current WooCommerce currency context through:
+
+```
+WooSmart_Currency
+```
+
+No numeric currency conversion is performed by the Admin UI.
+
+The amount field visually separates the numeric value from the currency label so RTL/LTR rendering does not cause the number and currency text to overlap.
 
 ---
 
@@ -532,7 +587,7 @@ less_than
 less_than_or_equal
 ```
 
-The Condition Engine now resolves Condition definitions through:
+The Condition Engine resolves Condition definitions through:
 
 ```
 WooSmart_Condition_Registry
@@ -667,7 +722,19 @@ The Action Engine does not implement SMTP itself.
 
 SMTP configuration remains a WordPress-level / environment-level responsibility.
 
-The Action Engine now captures `wp_mail_failed` errors during its own notification attempt so the actual WordPress / PHPMailer failure can be stored in WooSmart Logs.
+The Action Engine captures `wp_mail_failed` errors during its own notification attempt so the actual WordPress / PHPMailer failure can be stored in WooSmart Logs.
+
+The current development implementation also explicitly controls the sender address used by the WooSmart notification attempt.
+
+The original local XAMPP sender problem:
+
+```
+wordpress@localhost
+```
+
+has been identified and bypassed for development.
+
+The current diagnostics now show the configured administrator address as the sender, but the local mailer still fails during initialization.
 
 ---
 
@@ -737,7 +804,9 @@ Example Automation with notification and status change:
 
 The current system has already demonstrated that more than one Action can be stored in an Automation configuration.
 
-The next development step is to move Action validation and the remaining Action UI configuration to the Action Registry so the entire Action lifecycle is driven from a central definition.
+The Action Engine can execute multiple Actions sequentially and reports overall Action success/failure.
+
+The next development step is to make Multiple Actions a fully controlled and predictable first-class feature in the UI and execution system.
 
 ---
 
@@ -781,6 +850,31 @@ The Execution Engine currently supports:
 * Action failure detection.
 * Automation success logging.
 * Automation failure logging.
+
+A temporary diagnostic event was added during development:
+
+```
+automation_scan
+```
+
+This diagnostic records the number and IDs of active Automations found for a Trigger.
+
+Example observed diagnostic:
+
+```
+{
+    "trigger": "order_created",
+    "context": {
+        "order_id": 56
+    },
+    "found_count": 3,
+    "automation_ids": [48, 43, 35]
+}
+```
+
+This confirmed that multiple active Automations can be discovered for the same Trigger.
+
+The diagnostic event is temporary and should eventually be removed or replaced by a formal Execution Planning system.
 
 ---
 
@@ -836,6 +930,10 @@ Actions:
     ]
 ```
 
+The numeric monetary value remains in the same representation used by WooCommerce.
+
+WooSmart does not silently convert the stored value because the UI uses تومان or ریال.
+
 ---
 
 # Current User Interface
@@ -871,24 +969,59 @@ The purpose of this terminology is to make the plugin understandable to store ad
 
 WooCommerce remains the source of truth for store currency.
 
-For an Iranian store:
+The current development store uses:
 
 ```
-Currency:
-    IRR
+WooCommerce Currency:
+    IRT
 ```
 
-WooSmart displays monetary values in the administration interface as:
+WooSmart therefore displays the current store currency in its own Admin UI as:
 
 ```
-1,500,000 ریال
+تومان
 ```
 
-instead of:
+For `IRT`:
 
 ```
-﷼1,500,000.00
+IRT
+    ↓
+تومان
 ```
+
+For `IRR`:
+
+```
+IRR
+    ↓
+ریال
+```
+
+WooSmart does not convert the numeric amount between Rial and Toman.
+
+Example current development environment:
+
+```
+WooCommerce:
+    IRT
+
+Product/order monetary value:
+    150,000
+
+WooSmart display:
+    150,000 تومان
+```
+
+The numeric value remains under WooCommerce's control.
+
+WooSmart does not modify:
+
+- Product prices.
+- Order totals.
+- Payment amounts.
+- WooCommerce currency settings.
+- Payment gateway currency behavior.
 
 The Automation condition value is stored as a numeric value rather than a formatted display string.
 
@@ -896,11 +1029,13 @@ Example:
 
 ```
 Display:
-    1,000,000 ریال
+    100,000 تومان
 
 Stored value:
-    1000000
+    100000
 ```
+
+The current implementation intentionally does not multiply or divide the value by 10.
 
 Thousand separators are displayed in the amount input to reduce user mistakes.
 
@@ -920,6 +1055,7 @@ Condition evaluation uses numeric values.
 * [x] WooCommerce dependency detection
 * [x] WooCommerce admin notice
 * [x] Internal Automation Custom Post Type
+* [x] WooCommerce-aware currency helper
 
 ## Admin
 
@@ -937,8 +1073,10 @@ Condition evaluation uses numeric values.
 * [x] Persian terminology
 * [x] Persian action labels
 * [x] Persian order-status labels
-* [x] Rial amount display
+* [x] WooCommerce-aware currency display
+* [x] IRT → تومان display
 * [x] Thousand separators in amount input
+* [x] Separate currency label in numeric amount input
 * [x] Dynamic Condition field list
 * [x] Dynamic Condition operator list
 * [x] Dynamic Condition value type handling
@@ -989,18 +1127,22 @@ Condition evaluation uses numeric values.
 * [x] Action success detection
 * [x] Action failure detection
 * [x] Action execution logging
+* [x] Multiple Action configuration storage
+* [x] Multiple Action sequential execution
 * [x] `wp_mail_failed` diagnostic capture
 
 ## Execution
 
 * [x] Trigger processing
 * [x] Active Automation lookup
+* [x] Multiple Automation detection
 * [x] Condition evaluation
 * [x] Action execution
 * [x] Successful execution logging
 * [x] Failed Action detection
 * [x] Failed Automation detection
 * [x] Execution result handling
+* [x] Temporary `automation_scan` diagnostics
 
 ## Logging
 
@@ -1010,6 +1152,7 @@ Condition evaluation uses numeric values.
 * [x] Automation-level failure logging
 * [x] Condition pass logging
 * [x] Condition failure logging
+* [x] Multiple Automation scan logging
 * [x] Persian log labels
 * [x] Latest 100 log entries retention
 * [x] Mail failure diagnostics
@@ -1025,7 +1168,7 @@ The following behavior has been tested using real WooCommerce orders.
 Example:
 
 ```
-Order Total > 1,000,000 IRR
+Order Total > 1,000,000 تومان
 ```
 
 Result:
@@ -1059,7 +1202,7 @@ Context:
 Example:
 
 ```
-Order Total = 1,000,000 IRR
+Order Total = 1,000,000 تومان
 ```
 
 When the actual order value is not exactly 1,000,000:
@@ -1086,39 +1229,95 @@ Confirmed status transitions include examples such as:
 pending → processing
 ```
 
+and:
+
+```
+pending → on-hold
+```
+
 The Action Engine correctly reports Action success and failure.
 
 ---
 
-## Multiple Automation Execution
+## Multiple Action Execution
+
+The current Action Engine can execute multiple Actions sequentially for one Automation.
+
+The tested model is:
+
+```
+Condition Passed
+    ↓
+Action 1
+    ↓
+Action 2
+    ↓
+Action Results
+```
+
+Multiple Action configurations have been stored and executed during development.
+
+The current UI already allows adding multiple Action rows, removing them, and configuring the supported Action types.
+
+Further work remains to make the entire Multiple Actions experience fully Registry-driven and predictably governed by future Execution Policy rules.
+
+---
+
+## Multiple Automation Detection
 
 Multiple active Automations can currently respond to the same Trigger.
 
 This behavior has been explicitly tested.
 
-Example:
+A real order produced:
 
 ```
-Automation A:
-    Order Total > 500,000
-    → Processing
-
-Automation B:
-    Order Total < 10,000,000
-    → Completed
+automation_scan
 ```
 
-A 2,000,000 order satisfies both Automations.
-
-The current implementation can execute both.
-
-This exposed an important architectural requirement:
+with:
 
 ```
-WooSmart needs deterministic execution planning.
+found_count:
+    3
+
+automation_ids:
+    48
+    43
+    35
 ```
 
-The final order state must not depend on accidental database/query execution order.
+This confirms that the Execution Engine can discover multiple active Automations for the same `order_created` Trigger.
+
+---
+
+## Automation 43
+
+A real WooCommerce order above the configured threshold for Automation 43 produced:
+
+```
+condition_passed
+```
+
+for:
+
+```
+field:
+    order_total
+
+operator:
+    greater_than
+
+value:
+    1000000
+```
+
+This confirmed that:
+
+- Automation 43 is active.
+- Automation 43 is discovered by the Trigger execution path.
+- The Condition Engine correctly evaluates the order total.
+- The Action phase is reached.
 
 ---
 
@@ -1170,38 +1369,34 @@ message:
 
 The notification Action itself is implemented and reaches the WordPress mail system.
 
-The current local XAMPP test revealed a specific mail configuration problem:
+The initial local XAMPP problem was:
 
 ```
 نشانی نامعتبر: (From): wordpress@localhost
 ```
 
-The failing log was captured as:
+The WooSmart notification implementation was then changed to explicitly use the configured administrator email as the development sender.
+
+Current development diagnostics now show:
 
 ```
-action_failed
+from:
+    mht7631@gmail.com
 ```
 
-with diagnostic context including:
+Therefore the original `wordpress@localhost` From-address problem has been isolated and bypassed for the current development test.
+
+The current local XAMPP test now fails later during mailer initialization with:
 
 ```
-action_type
-recipient
-order_id
-mail_error
-mail_error_code
+نمی‌توان تابع ایمیل را نمونه‌سازی کرد.
 ```
 
-Example observed diagnostic:
+and:
 
 ```
-{
-    "action_type": "notify_admin",
-    "recipient": "mht7631@gmail.com",
-    "order_id": 53,
-    "mail_error": "نشانی نامعتبر: (From): wordpress@localhost",
-    "mail_error_code": 0
-}
+mail_error_code:
+    2
 ```
 
 Therefore:
@@ -1209,33 +1404,44 @@ Therefore:
 ```
 Condition system = working
 Action Registry = working
-Action Engine = reaching notify_admin = working
+Action Engine reaching notify_admin = working
+From address = corrected for development
 wp_mail() invocation = working
-Actual mail transport / From configuration = currently failing
+Mailer initialization / mail transport = currently failing
 ```
 
-This is currently considered an environment / mail configuration issue rather than a Condition or Action Registry issue.
+This is currently considered an environment / mail transport issue rather than a Condition or Action Registry issue.
 
 ---
 
 # SMTP Limitation
 
-The local XAMPP environment does not currently provide a production-ready SMTP mail transport.
+The local XAMPP environment does not currently provide a working mail transport for the WooSmart notification Action.
 
-Current observed failure:
+The original default sender failure:
 
 ```
 wordpress@localhost
 ```
 
-is being used as the default `From` address and PHPMailer rejects it in the current environment.
+has been addressed for the current development test.
+
+The remaining failure is:
+
+```
+نمی‌توان تابع ایمیل را نمونه‌سازی کرد.
+```
+
+with error code:
+
+```
+2
+```
 
 Therefore the next Notification milestone is:
 
 ```
-Configure a valid From address
-    ↓
-Configure SMTP / mail transport
+Configure / validate a real mail transport
     ↓
 Test real email delivery
 ```
@@ -1280,6 +1486,7 @@ The diagnostic system should help distinguish:
 Invalid From address
 SMTP connection error
 Authentication failure
+Mailer initialization failure
 Mail transport failure
 Other PHPMailer errors
 ```
@@ -1305,6 +1512,7 @@ action_executed
 action_failed
 condition_passed
 condition_failed
+automation_scan
 ```
 
 The user-facing log labels are localized to Persian.
@@ -1682,7 +1890,7 @@ Action Registry
 Action Engine success/failure handling
 ```
 
-Remaining work is to make the entire Multiple Actions experience fully dynamic and Registry-driven.
+Remaining work is to make the entire Multiple Actions experience fully dynamic and Registry-driven and to integrate it with future Execution Policy rules.
 
 ---
 
@@ -1938,7 +2146,7 @@ The immediate Notification milestone is:
 ```
 Valid From Address
     ↓
-SMTP / Mail Transport
+Mail Transport
     ↓
 Real Delivery Test
     ↓
@@ -1968,7 +2176,7 @@ From Email:
     no-reply@example.com
 ```
 
-The current local environment has demonstrated that relying on:
+The current local environment demonstrated that the WordPress default:
 
 ```
 wordpress@localhost
@@ -1976,7 +2184,9 @@ wordpress@localhost
 
 can produce an invalid From-address error.
 
-The final implementation should avoid relying on the localhost-generated address for production email delivery.
+The development implementation has now explicitly supplied the administrator address for the WooSmart notification attempt.
+
+The final implementation should still provide a proper configurable sender and production mail transport rather than depending on local XAMPP defaults.
 
 ---
 
@@ -2092,6 +2302,7 @@ The production system should eventually include:
 * [x] Basic Action failure detection
 * [x] Automation failure detection
 * [x] Mail failure diagnostics
+* [x] Mailer initialization failure diagnostics
 * [ ] Structured errors
 * [ ] Action-level error details
 * [ ] Automation-level error details
@@ -2273,28 +2484,37 @@ The following end-to-end behavior has been confirmed:
 * [x] Condition failure
 * [x] Change Order Status
 * [x] Multiple Action configuration storage
+* [x] Multiple Action execution
 * [x] Action Registry resolution
 * [x] Action execution
 * [x] Failed Action detection
 * [x] Failed Automation detection
 * [x] Persian Admin UI
 * [x] RTL interface
-* [x] Rial price display
-* [x] Thousand separators in amount input
+* [x] WooCommerce IRT configuration
+* [x] WooSmart تومان display for IRT
+* [x] WooCommerce-aware currency display
+* [x] No independent currency conversion
+* [x] Thousands separators in amount input
+* [x] Separate currency label in numeric input
 * [x] Real WooCommerce order execution
 * [x] Automation execution logging
 * [x] Action execution logging
 * [x] Condition pass logging
 * [x] Condition failure logging
+* [x] Multiple Automation detection
+* [x] `automation_scan` diagnostics
 * [x] Notification Action failure logging
 * [x] `wp_mail_failed` diagnostic capture
 * [x] Detection of invalid local `From` address
+* [x] Detection of mailer initialization failure
 
 Pending:
 
-* [ ] Valid `From` address configuration
+* [ ] Real mail transport configuration
 * [ ] Real SMTP delivery test
 * [ ] Full Action Registry-driven UI
+* [ ] Final Multiple Actions UI stabilization
 * [ ] Conflict Detection
 * [ ] Execution Priority
 * [ ] Execution Policy
@@ -2302,47 +2522,78 @@ Pending:
 
 ---
 
-# Confirmed Diagnostic Example
+# Confirmed Diagnostic Examples
 
-A real WooCommerce order triggered the following path:
+## Multiple Automation Scan
+
+A real WooCommerce order produced:
 
 ```
-Order Created
-    ↓
-Automation 48
-    ↓
-Condition:
-    Order Total = 1,000,000
-    ↓
-Condition Failed
-    ↓
-Automation 48 skipped
+automation_scan
 ```
 
-Another Automation then matched the same order:
+with:
+
+```
+{
+    "trigger": "order_created",
+    "context": {
+        "order_id": 56
+    },
+    "found_count": 3,
+    "automation_ids": [48, 43, 35]
+}
+```
+
+This confirmed that multiple active Automations can be discovered for the same Trigger.
+
+---
+
+## Automation 43 + Mail Failure
+
+A real WooCommerce order produced:
 
 ```
 Automation 43
     ↓
-Condition:
-    Order Total > 1,000,000
-    ↓
-Condition Passed
+condition_passed
     ↓
 notify_admin
     ↓
 wp_mail()
     ↓
-Failed because:
-    wordpress@localhost
-    is invalid as From address
-    ↓
-Action Failed
-    ↓
-Automation Failed
+Mailer initialization failed
 ```
 
-This confirms that the Condition layer, Registry layer, Action Registry, Action Engine, Execution Engine, and failure logging are connected and functioning through the real WooCommerce workflow.
+Current diagnostic context includes:
+
+```
+action_type:
+    notify_admin
+
+recipient:
+    mht7631@gmail.com
+
+from:
+    mht7631@gmail.com
+
+order_id:
+    58
+
+mail_error:
+    نمی‌توان تابع ایمیل را نمونه‌سازی کرد.
+
+mail_error_code:
+    2
+```
+
+This confirms that:
+
+- The Condition Engine passed the Condition.
+- Automation 43 reached the Action Engine.
+- `notify_admin` was executed.
+- The development sender address was no longer `wordpress@localhost`.
+- The remaining failure occurred during mailer initialization.
 
 ---
 
@@ -2350,10 +2601,9 @@ This confirms that the Condition layer, Registry layer, Action Registry, Action 
 
 ## High Priority
 
-* [ ] Configure a valid notification From address.
-* [ ] Configure / validate SMTP mail transport in the development environment.
-* [ ] Complete Action Registry-driven Admin UI.
-* [ ] Complete Multiple Actions UI as a fully Registry-driven feature.
+* [ ] Configure / validate the local mail transport.
+* [ ] Verify `notify_admin` end-to-end with a real SMTP configuration.
+* [ ] Complete the final Multiple Actions UI stabilization.
 * [ ] Implement Conflict Detection.
 * [ ] Implement Execution Priority.
 * [ ] Implement Execution Policy.
@@ -2368,6 +2618,7 @@ This confirms that the Condition layer, Registry layer, Action Registry, Action 
 * [ ] Better execution summaries.
 * [ ] Better conflict warnings.
 * [ ] Better Action-level error messages.
+* [ ] Dedicated Notification Settings.
 
 ## Future
 
@@ -2392,13 +2643,13 @@ The recommended development order is:
 
 ```
 STEP 1
-Complete and stabilize Action Registry integration
+Resolve local Mail Transport / SMTP Environment
     ↓
 STEP 2
-Notification From / SMTP configuration
+Verify real email delivery
     ↓
 STEP 3
-Complete Multiple Actions UI
+Stabilize Multiple Actions UI and execution policy integration
     ↓
 STEP 4
 Conflict Detection
@@ -2453,7 +2704,7 @@ WHEN
 ایجاد سفارش
 
 IF
-مبلغ سفارش > 1,000,000 ریال
+مبلغ سفارش > 1,000,000 تومان
 
 THEN
 ارسال اعلان به مدیر فروشگاه
@@ -2496,7 +2747,7 @@ WHEN
     Order Created
 
 IF
-    Order Total > 5,000,000
+    Order Total > 5,000,000 تومان
     AND
     Payment Method = Bank Transfer
     AND
@@ -2662,10 +2913,10 @@ v1.2.0 - Dynamic Condition Builder
 v1.3.0 - Action Registry
 v1.4.0 - Notification Diagnostics
 v1.5.0 - Multiple Actions
-v1.6.0 - Conflict Detection
-v1.7.0 - Execution Priority
-v1.8.0 - Multiple Conditions
-v1.9.0 - Additional Triggers
+v1.6.0 - Currency-aware Admin UI
+v1.7.0 - Conflict Detection
+v1.8.0 - Execution Priority
+v1.9.0 - Multiple Conditions
 v2.0.0 - Professional Automation Builder
 ```
 
@@ -2691,6 +2942,7 @@ The README should record:
 * Important architectural decisions.
 * Important future requirements.
 * Important diagnostic findings.
+* Important currency decisions.
 
 This prevents the project roadmap from being lost between development sessions or separate conversations.
 
@@ -2744,7 +2996,56 @@ WooSmart does not replace WooCommerce's currency system.
 
 WooCommerce remains the source of truth.
 
-WooSmart only controls presentation where necessary for the Iranian Rial user experience.
+WooSmart reads the current WooCommerce currency and uses it for its own monetary UI.
+
+For the current development store:
+
+```
+WooCommerce:
+    IRT
+
+WooSmart:
+    تومان
+```
+
+WooSmart does not create a parallel Rial/Toman conversion system.
+
+---
+
+## No Independent Rial / Toman Conversion
+
+WooSmart does not convert the numeric monetary value merely because the display unit is تومان or ریال.
+
+For example:
+
+```
+WooCommerce:
+    IRT
+
+Numeric value:
+    100000
+
+WooSmart display:
+    100,000 تومان
+```
+
+No `×10` or `÷10` conversion is performed.
+
+This avoids conflicts with WooCommerce and third-party pricing/payment plugins.
+
+---
+
+## WooSmart Does Not Modify Store Prices
+
+WooSmart does not:
+
+- Change product prices.
+- Change order totals.
+- Change payment amounts.
+- Change WooCommerce currency settings.
+- Change payment gateway currency behavior.
+
+This is a compatibility requirement.
 
 ---
 
@@ -2844,6 +3145,14 @@ If a new Automation conflicts with an existing Automation:
 
 When email delivery fails, WooSmart should record the underlying WordPress / PHPMailer error whenever available.
 
+During development, the original invalid sender problem was:
+
+```
+wordpress@localhost
+```
+
+The current development sender has been changed to the configured administrator address, but the local mailer currently fails during initialization.
+
 The system should avoid reducing every mail failure to a generic:
 
 ```
@@ -2863,8 +3172,17 @@ Core:
 Admin:
     🟢 Persian / RTL MVP
 
-Currency:
-    🟢 IRR presentation supported
+Currency Helper:
+    🟢 Implemented
+
+WooCommerce Currency:
+    🟢 IRT in current development store
+
+WooSmart Currency Display:
+    🟢 تومان for IRT
+
+Independent Currency Conversion:
+    🟢 Not used
 
 Trigger Engine:
     🟡 One trigger implemented
@@ -2895,22 +3213,28 @@ Multiple Actions Execution:
     🟢 Supported
 
 Multiple Actions UI:
-    🟡 Basic UI exists / further Registry integration planned
+    🟡 Basic UI exists / stabilization planned
 
 Notification:
-    🟡 Implemented / valid From and SMTP environment pending
+    🟡 Implemented / mail transport pending
+
+Email From Diagnostics:
+    🟢 Implemented
+
+Mailer Failure Diagnostics:
+    🟢 Implemented
 
 Execution Engine:
     🟢 Functional and tested
+
+Multiple Automation Detection:
+    🟢 Confirmed
 
 Validation:
     🟢 Implemented
 
 Logging:
     🟢 Functional MVP
-
-Mail Failure Diagnostics:
-    🟢 Implemented
 
 Conflict Detection:
     🔴 Planned
@@ -2964,13 +3288,11 @@ The next development target is to complete the current modular architecture befo
 The immediate sequence is:
 
 ```
-Action Validation through Registry
+Resolve Local Mail Transport
     ↓
-Valid Notification From Address
+Verify Real Email Delivery
     ↓
-SMTP / Mail Delivery Test
-    ↓
-Fully Registry-driven Multiple Actions UI
+Stabilize Multiple Actions
     ↓
 Conflict Detection
     ↓
@@ -3056,6 +3378,9 @@ When continuing the project in a new development session:
 15. Do not modify project files based on assumptions when the current file content can be reviewed.
 16. Keep the Persian Admin UI terminology consistent with the project terminology.
 17. When a real runtime error is discovered, document the exact root cause and diagnostic evidence before changing unrelated architecture.
+18. Do not introduce a second currency system when WooCommerce already supplies the required currency context.
+19. Do not perform silent currency conversions because of a display requirement.
+20. Verify complete-file integrity before committing large file replacements.
 
 ---
 
@@ -3100,18 +3425,33 @@ Monitoring
 
 The current foundation is functional.
 
-The Registry architecture for Conditions and Actions is now established and tested.
+The Condition Registry and Action Registry architectures are established and tested.
 
-The next immediate task is completing Action validation and notification configuration while preserving the current stable execution behavior.
+Multiple matching Automations have been confirmed in real WooCommerce execution.
 
-The current known notification issue is:
+The current development store uses WooCommerce `IRT`, and WooSmart displays `تومان` without independent currency conversion.
+
+The original local mail error involving:
 
 ```
 wordpress@localhost
 ```
 
-being rejected as an invalid From address in the local XAMPP environment.
+has been isolated and bypassed for the current development test.
 
-That issue must be resolved and real email delivery verified before the Notification system is considered fully production-ready.
+The current known notification blocker is now the local mailer initialization failure:
+
+```
+نمی‌توان تابع ایمیل را نمونه‌سازی کرد.
+```
+
+with:
+
+```
+mail_error_code:
+    2
+```
+
+The next immediate task is to resolve the local mail transport and verify real email delivery without adding SMTP-specific logic to the WooSmart core.
 
 The next major architectural challenge remains making multiple Automations execute safely, deterministically, and transparently.
