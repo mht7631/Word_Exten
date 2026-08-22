@@ -206,14 +206,18 @@ class WooSmart_Automation_Manager {
             : 0;
 
         if ( ! $automation_id ) {
-            wp_die( 'شناسه اتوماسیون نامعتبر است.' );
+            wp_die(
+                'شناسه اتوماسیون نامعتبر است.'
+            );
         }
 
         if (
             'woosmart_automation' !==
             get_post_type( $automation_id )
         ) {
-            wp_die( 'اتوماسیون نامعتبر است.' );
+            wp_die(
+                'اتوماسیون نامعتبر است.'
+            );
         }
 
         $name = isset( $_POST['automation_name'] )
@@ -347,7 +351,9 @@ class WooSmart_Automation_Manager {
             : 0;
 
         if ( ! $automation_id ) {
-            wp_die( 'شناسه اتوماسیون نامعتبر است.' );
+            wp_die(
+                'شناسه اتوماسیون نامعتبر است.'
+            );
         }
 
         check_admin_referer(
@@ -359,7 +365,9 @@ class WooSmart_Automation_Manager {
             'woosmart_automation' !==
             get_post_type( $automation_id )
         ) {
-            wp_die( 'اتوماسیون نامعتبر است.' );
+            wp_die(
+                'اتوماسیون نامعتبر است.'
+            );
         }
 
         $current_status = get_post_meta(
@@ -373,6 +381,9 @@ class WooSmart_Automation_Manager {
                 ? 'inactive'
                 : 'active';
 
+        /*
+         * Validate existing configuration before activation.
+         */
         if ( 'active' === $new_status ) {
 
             $trigger = get_post_meta(
@@ -482,7 +493,9 @@ class WooSmart_Automation_Manager {
             : 0;
 
         if ( ! $automation_id ) {
-            wp_die( 'شناسه اتوماسیون نامعتبر است.' );
+            wp_die(
+                'شناسه اتوماسیون نامعتبر است.'
+            );
         }
 
         check_admin_referer(
@@ -494,10 +507,14 @@ class WooSmart_Automation_Manager {
             'woosmart_automation' !==
             get_post_type( $automation_id )
         ) {
-            wp_die( 'اتوماسیون نامعتبر است.' );
+            wp_die(
+                'اتوماسیون نامعتبر است.'
+            );
         }
 
-        wp_trash_post( $automation_id );
+        wp_trash_post(
+            $automation_id
+        );
 
         $this->logger->log(
             'automation_deleted',
@@ -530,7 +547,9 @@ class WooSmart_Automation_Manager {
             : 0;
 
         if ( ! $automation_id ) {
-            wp_die( 'شناسه اتوماسیون نامعتبر است.' );
+            wp_die(
+                'شناسه اتوماسیون نامعتبر است.'
+            );
         }
 
         check_admin_referer(
@@ -542,7 +561,9 @@ class WooSmart_Automation_Manager {
             'woosmart_automation' !==
             get_post_type( $automation_id )
         ) {
-            wp_die( 'اتوماسیون نامعتبر است.' );
+            wp_die(
+                'اتوماسیون نامعتبر است.'
+            );
         }
 
         $automation = get_post(
@@ -550,7 +571,9 @@ class WooSmart_Automation_Manager {
         );
 
         if ( ! $automation ) {
-            wp_die( 'اتوماسیون پیدا نشد.' );
+            wp_die(
+                'اتوماسیون پیدا نشد.'
+            );
         }
 
         $new_automation_id = wp_insert_post(
@@ -698,12 +721,117 @@ class WooSmart_Automation_Manager {
     /**
      * Get actions from request.
      *
+     * Supports the current array-based Action structure.
+     *
+     * Also supports the previous single-action form
+     * for backward compatibility with existing automations.
+     *
      * @return array
      */
     private function get_actions_from_request() {
 
         $actions = array();
 
+        /*
+         * New multiple-action structure.
+         */
+        if (
+            isset( $_POST['actions'] ) &&
+            is_array( $_POST['actions'] )
+        ) {
+
+            $submitted_actions =
+                wp_unslash(
+                    $_POST['actions']
+                );
+
+            foreach (
+                $submitted_actions
+                as $submitted_action
+            ) {
+
+                if ( ! is_array( $submitted_action ) ) {
+                    continue;
+                }
+
+                $type = isset(
+                    $submitted_action['type']
+                )
+                    ? sanitize_key(
+                        $submitted_action['type']
+                    )
+                    : '';
+
+                if ( empty( $type ) ) {
+                    continue;
+                }
+
+                if (
+                    'change_order_status' ===
+                    $type
+                ) {
+
+                    $status = isset(
+                        $submitted_action['status']
+                    )
+                        ? sanitize_key(
+                            $submitted_action['status']
+                        )
+                        : '';
+
+                    if ( empty( $status ) ) {
+                        continue;
+                    }
+
+                    $actions[] = array(
+                        'type'   =>
+                            'change_order_status',
+                        'status' =>
+                            $status,
+                    );
+
+                    continue;
+                }
+
+                if (
+                    'notify_admin' ===
+                    $type
+                ) {
+
+                    $subject = isset(
+                        $submitted_action['subject']
+                    )
+                        ? sanitize_text_field(
+                            $submitted_action['subject']
+                        )
+                        : '';
+
+                    $message = isset(
+                        $submitted_action['message']
+                    )
+                        ? sanitize_textarea_field(
+                            $submitted_action['message']
+                        )
+                        : '';
+
+                    $actions[] = array(
+                        'type' =>
+                            'notify_admin',
+                        'subject' =>
+                            $subject,
+                        'message' =>
+                            $message,
+                    );
+                }
+            }
+
+            return $actions;
+        }
+
+        /*
+         * Backward compatibility with the previous
+         * single-action form.
+         */
         $action_type = isset(
             $_POST['action_type']
         )
@@ -732,8 +860,10 @@ class WooSmart_Automation_Manager {
             if ( ! empty( $action_status ) ) {
 
                 $actions[] = array(
-                    'type'   => 'change_order_status',
-                    'status' => $action_status,
+                    'type'   =>
+                        'change_order_status',
+                    'status' =>
+                        $action_status,
                 );
             }
 
@@ -763,9 +893,12 @@ class WooSmart_Automation_Manager {
                 : '';
 
             $actions[] = array(
-                'type'    => 'notify_admin',
-                'subject' => $subject,
-                'message' => $message,
+                'type' =>
+                    'notify_admin',
+                'subject' =>
+                    $subject,
+                'message' =>
+                    $message,
             );
         }
 
@@ -1089,7 +1222,8 @@ class WooSmart_Automation_Manager {
             $statuses =
                 wc_get_order_statuses();
 
-            $status_key = 'wc-' . $status;
+            $status_key =
+                'wc-' . $status;
 
             if (
                 isset(
@@ -1124,7 +1258,11 @@ class WooSmart_Automation_Manager {
      */
     private function verify_admin_access() {
 
-        if ( ! current_user_can( 'manage_options' ) ) {
+        if (
+            ! current_user_can(
+                'manage_options'
+            )
+        ) {
 
             wp_die(
                 'شما اجازه انجام این عملیات را ندارید.'
