@@ -467,6 +467,22 @@ class WooSmart_Admin {
 
                                                 </div>
 
+                                            <?php elseif ( 'notify_admin' === $action_type ) : ?>
+
+                                                <div style="margin-bottom:6px;">
+
+                                                    <strong>
+                                                        ارسال اعلان به مدیر فروشگاه
+                                                    </strong>
+
+                                                    <br>
+
+                                                    <span>
+                                                        ایمیل مدیر فروشگاه
+                                                    </span>
+
+                                                </div>
+
                                             <?php else : ?>
 
                                                 <div>
@@ -590,8 +606,18 @@ class WooSmart_Admin {
         $condition_operator = 'greater_than';
         $condition_value = '';
 
-        $action_type = 'change_order_status';
+        $action_type = 'notify_admin';
         $action_order_status = 'processing';
+
+        $action_email_subject =
+            'اعلان سفارش جدید در WooSmart';
+
+        $action_email_message =
+            "یک سفارش جدید با شرایط اتوماسیون مطابقت دارد.\n\n" .
+            "شناسه سفارش: {order_id}\n" .
+            "مبلغ سفارش: {order_total}\n" .
+            "وضعیت سفارش: {order_status}\n" .
+            "نام مشتری: {customer_name}";
 
         if ( $edit_id ) {
 
@@ -665,13 +691,25 @@ class WooSmart_Admin {
                             $action['type']
                         )
                             ? $action['type']
-                            : 'change_order_status';
+                            : 'notify_admin';
 
                         $action_order_status = isset(
                             $action['status']
                         )
                             ? $action['status']
                             : 'processing';
+
+                        $action_email_subject = isset(
+                            $action['subject']
+                        )
+                            ? $action['subject']
+                            : $action_email_subject;
+
+                        $action_email_message = isset(
+                            $action['message']
+                        )
+                            ? $action['message']
+                            : $action_email_message;
                     }
                 }
             }
@@ -813,7 +851,7 @@ class WooSmart_Admin {
                                 name="automation_name"
                                 class="regular-text"
                                 value="<?php echo esc_attr( $name ); ?>"
-                                placeholder="مثلاً سفارش بالای یک میلیون"
+                                placeholder="مثلاً اطلاع‌رسانی سفارش ویژه"
                                 required
                             >
 
@@ -1090,6 +1128,16 @@ class WooSmart_Admin {
                             >
 
                                 <option
+                                    value="notify_admin"
+                                    <?php selected(
+                                        $action_type,
+                                        'notify_admin'
+                                    ); ?>
+                                >
+                                    ارسال اعلان به مدیر فروشگاه
+                                </option>
+
+                                <option
                                     value="change_order_status"
                                     <?php selected(
                                         $action_type,
@@ -1105,7 +1153,14 @@ class WooSmart_Admin {
 
                     </tr>
 
-                    <tr>
+                    <tr
+                        id="woosmart_order_status_row"
+                        <?php
+                        echo 'change_order_status' === $action_type
+                            ? ''
+                            : 'style="display:none;"';
+                        ?>
+                    >
 
                         <th scope="row">
 
@@ -1146,6 +1201,78 @@ class WooSmart_Admin {
 
                     </tr>
 
+                    <tr
+                        id="woosmart_email_subject_row"
+                        <?php
+                        echo 'notify_admin' === $action_type
+                            ? ''
+                            : 'style="display:none;"';
+                        ?>
+                    >
+
+                        <th scope="row">
+
+                            <label for="action_email_subject">
+                                موضوع اعلان
+                            </label>
+
+                        </th>
+
+                        <td>
+
+                            <input
+                                type="text"
+                                id="action_email_subject"
+                                name="action_email_subject"
+                                class="regular-text"
+                                value="<?php echo esc_attr( $action_email_subject ); ?>"
+                            >
+
+                        </td>
+
+                    </tr>
+
+                    <tr
+                        id="woosmart_email_message_row"
+                        <?php
+                        echo 'notify_admin' === $action_type
+                            ? ''
+                            : 'style="display:none;"';
+                        ?>
+                    >
+
+                        <th scope="row">
+
+                            <label for="action_email_message">
+                                متن اعلان
+                            </label>
+
+                        </th>
+
+                        <td>
+
+                            <textarea
+                                id="action_email_message"
+                                name="action_email_message"
+                                rows="8"
+                                class="large-text"
+                            ><?php echo esc_textarea( $action_email_message ); ?></textarea>
+
+                            <p class="description">
+
+                                مقادیر قابل استفاده:
+
+                                <code>{order_id}</code>
+                                <code>{order_total}</code>
+                                <code>{order_status}</code>
+                                <code>{customer_name}</code>
+
+                            </p>
+
+                        </td>
+
+                    </tr>
+
                 </table>
 
                 <?php
@@ -1175,159 +1302,180 @@ class WooSmart_Admin {
                             'condition_value'
                         );
 
-                    if ( ! displayInput || ! hiddenInput ) {
-                        return;
-                    }
+                    if ( displayInput && hiddenInput ) {
 
-                    function normalizeNumber(value) {
+                        function normalizeNumber(value) {
 
-                        value = String(value || '');
+                            value = String(value || '');
 
-                        value = value.replace(/,/g, '');
+                            value = value.replace(/,/g, '');
 
-                        value = value.replace(/[^\d.]/g, '');
+                            value = value.replace(/[^\d.]/g, '');
 
-                        const firstDot =
-                            value.indexOf('.');
+                            const firstDot =
+                                value.indexOf('.');
 
-                        if ( firstDot !== -1 ) {
+                            if ( firstDot !== -1 ) {
+
+                                value =
+                                    value.substring(
+                                        0,
+                                        firstDot + 1
+                                    ) +
+                                    value.substring(
+                                        firstDot + 1
+                                    ).replace(/\./g, '');
+                            }
+
+                            return value;
+                        }
+
+                        function formatNumber(value) {
 
                             value =
-                                value.substring(
-                                    0,
-                                    firstDot + 1
-                                ) +
-                                value.substring(
-                                    firstDot + 1
-                                ).replace(/\./g, '');
+                                normalizeNumber(
+                                    value
+                                );
+
+                            if ( value === '' ) {
+                                return '';
+                            }
+
+                            const parts =
+                                value.split('.');
+
+                            const integerPart =
+                                parts[0].replace(
+                                    /\B(?=(\d{3})+(?!\d))/g,
+                                    ','
+                                );
+
+                            if ( parts.length > 1 ) {
+
+                                return (
+                                    integerPart +
+                                    '.' +
+                                    parts[1]
+                                );
+                            }
+
+                            return integerPart;
                         }
 
-                        return value;
-                    }
-
-                    function formatNumber(value) {
-
-                        value = normalizeNumber(value);
-
-                        if ( value === '' ) {
-                            return '';
-                        }
-
-                        const parts = value.split('.');
-
-                        const integerPart =
-                            parts[0].replace(
-                                /\B(?=(\d{3})+(?!\d))/g,
-                                ','
-                            );
-
-                        if ( parts.length > 1 ) {
-
-                            return (
-                                integerPart +
-                                '.' +
-                                parts[1]
-                            );
-                        }
-
-                        return integerPart;
-                    }
-
-                    function syncValues() {
-
-                        const rawValue =
-                            normalizeNumber(
-                                displayInput.value
-                            );
-
-                        hiddenInput.value =
-                            rawValue;
-
-                        displayInput.value =
-                            formatNumber(rawValue);
-                    }
-
-                    displayInput.addEventListener(
-                        'input',
-                        function() {
-
-                            const cursorPosition =
-                                displayInput.selectionStart;
-
-                            const oldValue =
-                                displayInput.value;
+                        function syncValues() {
 
                             const rawValue =
                                 normalizeNumber(
-                                    oldValue
+                                    displayInput.value
                                 );
-
-                            const formattedValue =
-                                formatNumber(
-                                    rawValue
-                                );
-
-                            displayInput.value =
-                                formattedValue;
 
                             hiddenInput.value =
                                 rawValue;
 
-                            let newCursorPosition =
-                                cursorPosition;
+                            displayInput.value =
+                                formatNumber(
+                                    rawValue
+                                );
+                        }
 
-                            if (
-                                formattedValue.length >
-                                oldValue.length
-                            ) {
+                        displayInput.addEventListener(
+                            'input',
+                            function() {
 
-                                newCursorPosition +=
-                                    formattedValue.length -
-                                    oldValue.length;
-                            }
-
-                            if (
-                                newCursorPosition >
-                                formattedValue.length
-                            ) {
-
-                                newCursorPosition =
-                                    formattedValue.length;
-                            }
-
-                            try {
+                                syncValues();
 
                                 displayInput.setSelectionRange(
-                                    newCursorPosition,
-                                    newCursorPosition
+                                    displayInput.value.length,
+                                    displayInput.value.length
                                 );
+                            }
+                        );
 
-                            } catch ( error ) {
-                                // Ignore cursor positioning errors.
+                        displayInput.addEventListener(
+                            'blur',
+                            function() {
+
+                                syncValues();
+                            }
+                        );
+
+                        displayInput.form.addEventListener(
+                            'submit',
+                            function() {
+
+                                hiddenInput.value =
+                                    normalizeNumber(
+                                        displayInput.value
+                                    );
+                            }
+                        );
+
+                        syncValues();
+                    }
+
+                    const actionType =
+                        document.getElementById(
+                            'action_type'
+                        );
+
+                    const statusRow =
+                        document.getElementById(
+                            'woosmart_order_status_row'
+                        );
+
+                    const subjectRow =
+                        document.getElementById(
+                            'woosmart_email_subject_row'
+                        );
+
+                    const messageRow =
+                        document.getElementById(
+                            'woosmart_email_message_row'
+                        );
+
+                    if (
+                        actionType &&
+                        statusRow &&
+                        subjectRow &&
+                        messageRow
+                    ) {
+
+                        function updateActionFields() {
+
+                            if (
+                                actionType.value ===
+                                'change_order_status'
+                            ) {
+
+                                statusRow.style.display =
+                                    '';
+
+                                subjectRow.style.display =
+                                    'none';
+
+                                messageRow.style.display =
+                                    'none';
+
+                            } else {
+
+                                statusRow.style.display =
+                                    'none';
+
+                                subjectRow.style.display =
+                                    '';
+
+                                messageRow.style.display =
+                                    '';
                             }
                         }
-                    );
 
-                    displayInput.addEventListener(
-                        'blur',
-                        function() {
+                        actionType.addEventListener(
+                            'change',
+                            updateActionFields
+                        );
 
-                            syncValues();
-                        }
-                    );
-
-                    displayInput.form.addEventListener(
-                        'submit',
-                        function() {
-
-                            hiddenInput.value =
-                                normalizeNumber(
-                                    displayInput.value
-                                );
-                        }
-                    );
-
-                    syncValues();
+                        updateActionFields();
+                    }
                 }
             );
         </script>
@@ -1542,6 +1690,7 @@ class WooSmart_Admin {
 
         $labels = array(
             'change_order_status' => 'تغییر وضعیت سفارش',
+            'notify_admin'        => 'ارسال اعلان به مدیر فروشگاه',
         );
 
         return isset( $labels[ $action_type ] )
@@ -1637,7 +1786,10 @@ class WooSmart_Admin {
             ','
         );
 
-        if ( isset( $parts[1] ) && '' !== $parts[1] ) {
+        if (
+            isset( $parts[1] ) &&
+            '' !== $parts[1]
+        ) {
 
             return $integer_part . '.' . $parts[1];
         }
