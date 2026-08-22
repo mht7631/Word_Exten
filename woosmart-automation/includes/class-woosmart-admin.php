@@ -17,11 +17,22 @@ class WooSmart_Admin {
     private $logger;
 
     /**
+     * Condition Registry instance.
+     *
+     * @var WooSmart_Condition_Registry
+     */
+    private $condition_registry;
+
+    /**
      * Initialize admin functionality.
      */
     public function __construct() {
 
-        $this->logger = new WooSmart_Logger();
+        $this->logger =
+            new WooSmart_Logger();
+
+        $this->condition_registry =
+            new WooSmart_Condition_Registry();
 
         add_action(
             'admin_menu',
@@ -41,7 +52,10 @@ class WooSmart_Admin {
             'WooSmart',
             'manage_options',
             'woosmart-automation',
-            array( $this, 'render_dashboard_page' ),
+            array(
+                $this,
+                'render_dashboard_page',
+            ),
             'dashicons-controls-repeat',
             30
         );
@@ -52,7 +66,10 @@ class WooSmart_Admin {
             'داشبورد',
             'manage_options',
             'woosmart-automation',
-            array( $this, 'render_dashboard_page' )
+            array(
+                $this,
+                'render_dashboard_page',
+            )
         );
 
         add_submenu_page(
@@ -61,7 +78,10 @@ class WooSmart_Admin {
             'اتوماسیون‌ها',
             'manage_options',
             'woosmart-automations',
-            array( $this, 'render_automations_page' )
+            array(
+                $this,
+                'render_automations_page',
+            )
         );
 
         add_submenu_page(
@@ -70,7 +90,10 @@ class WooSmart_Admin {
             'افزودن اتوماسیون',
             'manage_options',
             'woosmart-add-automation',
-            array( $this, 'render_add_automation_page' )
+            array(
+                $this,
+                'render_add_automation_page',
+            )
         );
 
         add_submenu_page(
@@ -79,7 +102,10 @@ class WooSmart_Admin {
             'گزارش‌ها',
             'manage_options',
             'woosmart-automation-logs',
-            array( $this, 'render_logs_page' )
+            array(
+                $this,
+                'render_logs_page',
+            )
         );
     }
 
@@ -306,7 +332,11 @@ class WooSmart_Admin {
                             <tr>
 
                                 <td>
-                                    <?php echo esc_html( $automation_id ); ?>
+                                    <?php
+                                    echo esc_html(
+                                        $automation_id
+                                    );
+                                    ?>
                                 </td>
 
                                 <td>
@@ -346,13 +376,17 @@ class WooSmart_Admin {
                                             $field = isset(
                                                 $condition['field']
                                             )
-                                                ? $condition['field']
+                                                ? sanitize_key(
+                                                    $condition['field']
+                                                )
                                                 : '';
 
                                             $operator = isset(
                                                 $condition['operator']
                                             )
-                                                ? $condition['operator']
+                                                ? sanitize_key(
+                                                    $condition['operator']
+                                                )
                                                 : '';
 
                                             $value = isset(
@@ -361,9 +395,31 @@ class WooSmart_Admin {
                                                 ? $condition['value']
                                                 : '';
 
+                                            $definition =
+                                                $this->condition_registry->get(
+                                                    $field
+                                                );
+
+                                            $value_type = (
+                                                is_array(
+                                                    $definition
+                                                ) &&
+                                                isset(
+                                                    $definition['value_type']
+                                                )
+                                            )
+                                                ? sanitize_key(
+                                                    $definition['value_type']
+                                                )
+                                                : 'text';
+
                                             ?>
 
-                                            <div style="margin-bottom:6px;">
+                                            <div
+                                                style="
+                                                    margin-bottom:6px;
+                                                "
+                                            >
 
                                                 <strong>
                                                     <?php
@@ -378,15 +434,16 @@ class WooSmart_Admin {
                                                 <?php
                                                 echo esc_html(
                                                     $this->get_operator_label(
-                                                        $operator
+                                                        $operator,
+                                                        $field
                                                     )
                                                 );
                                                 ?>
 
                                                 <?php
                                                 if (
-                                                    'order_total' ===
-                                                    $field
+                                                    'number' ===
+                                                    $value_type
                                                 ) {
 
                                                     echo wp_kses_post(
@@ -443,7 +500,11 @@ class WooSmart_Admin {
 
                                                 <strong>
                                                     عملیات
-                                                    <?php echo esc_html( $index + 1 ); ?>:
+                                                    <?php
+                                                    echo esc_html(
+                                                        $index + 1
+                                                    );
+                                                    ?>:
                                                 </strong>
 
                                                 <?php if ( 'change_order_status' === $action_type ) : ?>
@@ -601,6 +662,58 @@ class WooSmart_Admin {
 
         $actions = array();
 
+        /*
+         * Get all registered conditions from the Registry.
+         */
+        $condition_definitions =
+            $this->condition_registry->get_all();
+
+        /*
+         * If the default condition does not exist,
+         * use the first registered condition.
+         */
+        if (
+            ! isset(
+                $condition_definitions['order_total']
+            ) &&
+            ! empty( $condition_definitions )
+        ) {
+
+            $condition_keys =
+                array_keys(
+                    $condition_definitions
+                );
+
+            $condition_field =
+                $condition_keys[0];
+
+            $first_definition =
+                $condition_definitions[
+                    $condition_field
+                ];
+
+            if (
+                isset(
+                    $first_definition['operators']
+                ) &&
+                is_array(
+                    $first_definition['operators']
+                ) &&
+                ! empty(
+                    $first_definition['operators']
+                )
+            ) {
+
+                $operator_keys =
+                    array_keys(
+                        $first_definition['operators']
+                    );
+
+                $condition_operator =
+                    $operator_keys[0];
+            }
+        }
+
         if ( $edit_id ) {
 
             if (
@@ -646,14 +759,65 @@ class WooSmart_Admin {
                         $condition_field = isset(
                             $condition['field']
                         )
-                            ? $condition['field']
-                            : 'order_total';
+                            ? sanitize_key(
+                                $condition['field']
+                            )
+                            : $condition_field;
+
+                        $condition_definition =
+                            $this->condition_registry->get(
+                                $condition_field
+                            );
 
                         $condition_operator = isset(
                             $condition['operator']
                         )
-                            ? $condition['operator']
-                            : 'greater_than';
+                            ? sanitize_key(
+                                $condition['operator']
+                            )
+                            : $condition_operator;
+
+                        /*
+                         * Make sure the stored operator is
+                         * valid for the stored condition.
+                         */
+                        if (
+                            ! is_array(
+                                $condition_definition
+                            ) ||
+                            ! isset(
+                                $condition_definition['operators']
+                            ) ||
+                            ! is_array(
+                                $condition_definition['operators']
+                            ) ||
+                            ! isset(
+                                $condition_definition['operators'][
+                                    $condition_operator
+                                ]
+                            )
+                        ) {
+
+                            if (
+                                is_array(
+                                    $condition_definition
+                                ) &&
+                                ! empty(
+                                    $condition_definition['operators']
+                                )
+                            ) {
+
+                                $operator_keys =
+                                    array_keys(
+                                        $condition_definition[
+                                            'operators'
+                                        ]
+                                    );
+
+                                $condition_operator =
+                                    $operator_keys[0];
+                            }
+                        }
 
                         $condition_value = isset(
                             $condition['value']
@@ -697,17 +861,24 @@ class WooSmart_Admin {
 
         if ( function_exists( 'wc_get_order_statuses' ) ) {
 
-            $wc_statuses = wc_get_order_statuses();
+            $wc_statuses =
+                wc_get_order_statuses();
 
-            foreach ( $wc_statuses as $status_key => $status_label ) {
+            foreach (
+                $wc_statuses
+                as $status_key => $status_label
+            ) {
 
-                $status_slug = str_replace(
-                    'wc-',
-                    '',
-                    $status_key
-                );
+                $status_slug =
+                    str_replace(
+                        'wc-',
+                        '',
+                        $status_key
+                    );
 
-                $order_statuses[ $status_slug ] =
+                $order_statuses[
+                    $status_slug
+                ] =
                     $this->get_order_status_label(
                         $status_slug,
                         $status_label
@@ -728,6 +899,32 @@ class WooSmart_Admin {
             );
         }
 
+        /*
+         * Get current condition metadata.
+         */
+        $current_condition_definition =
+            $this->condition_registry->get(
+                $condition_field
+            );
+
+        $current_condition_value_type =
+            (
+                is_array(
+                    $current_condition_definition
+                ) &&
+                isset(
+                    $current_condition_definition[
+                        'value_type'
+                    ]
+                )
+            )
+                ? sanitize_key(
+                    $current_condition_definition[
+                        'value_type'
+                    ]
+                )
+                : 'text';
+
         $condition_value_numeric =
             $this->normalize_irr_input(
                 $condition_value
@@ -735,12 +932,21 @@ class WooSmart_Admin {
 
         $condition_value_display = '';
 
-        if ( '' !== $condition_value_numeric ) {
+        if (
+            'number' ===
+            $current_condition_value_type &&
+            '' !== $condition_value_numeric
+        ) {
 
             $condition_value_display =
                 $this->format_irr_input(
                     $condition_value_numeric
                 );
+
+        } else {
+
+            $condition_value_display =
+                (string) $condition_value;
         }
 
         ?>
@@ -898,15 +1104,38 @@ class WooSmart_Admin {
                                 name="condition_field"
                             >
 
-                                <option
-                                    value="order_total"
-                                    <?php selected(
-                                        $condition_field,
-                                        'order_total'
-                                    ); ?>
-                                >
-                                    مبلغ سفارش
-                                </option>
+                                <?php foreach (
+                                    $condition_definitions
+                                    as $condition_key =>
+                                    $condition_definition
+                                ) : ?>
+
+                                    <?php
+
+                                    $condition_label =
+                                        isset(
+                                            $condition_definition['label']
+                                        )
+                                            ? $condition_definition['label']
+                                            : $condition_key;
+
+                                    ?>
+
+                                    <option
+                                        value="<?php echo esc_attr( $condition_key ); ?>"
+                                        <?php selected(
+                                            $condition_field,
+                                            $condition_key
+                                        ); ?>
+                                    >
+                                        <?php
+                                        echo esc_html(
+                                            $condition_label
+                                        );
+                                        ?>
+                                    </option>
+
+                                <?php endforeach; ?>
 
                             </select>
 
@@ -931,65 +1160,34 @@ class WooSmart_Admin {
                                 name="condition_operator"
                             >
 
-                                <option
-                                    value="is_equal"
-                                    <?php selected(
-                                        $condition_operator,
-                                        'is_equal'
-                                    ); ?>
-                                >
-                                    برابر با
-                                </option>
+                                <?php
+                                $current_operators =
+                                    $this->condition_registry->get_operators(
+                                        $condition_field
+                                    );
+                                ?>
 
-                                <option
-                                    value="is_not_equal"
-                                    <?php selected(
-                                        $condition_operator,
-                                        'is_not_equal'
-                                    ); ?>
-                                >
-                                    نابرابر با
-                                </option>
+                                <?php foreach (
+                                    $current_operators
+                                    as $operator_key =>
+                                    $operator_label
+                                ) : ?>
 
-                                <option
-                                    value="greater_than"
-                                    <?php selected(
-                                        $condition_operator,
-                                        'greater_than'
-                                    ); ?>
-                                >
-                                    بیشتر از
-                                </option>
+                                    <option
+                                        value="<?php echo esc_attr( $operator_key ); ?>"
+                                        <?php selected(
+                                            $condition_operator,
+                                            $operator_key
+                                        ); ?>
+                                    >
+                                        <?php
+                                        echo esc_html(
+                                            $operator_label
+                                        );
+                                        ?>
+                                    </option>
 
-                                <option
-                                    value="greater_than_or_equal"
-                                    <?php selected(
-                                        $condition_operator,
-                                        'greater_than_or_equal'
-                                    ); ?>
-                                >
-                                    بیشتر یا مساوی
-                                </option>
-
-                                <option
-                                    value="less_than"
-                                    <?php selected(
-                                        $condition_operator,
-                                        'less_than'
-                                    ); ?>
-                                >
-                                    کمتر از
-                                </option>
-
-                                <option
-                                    value="less_than_or_equal"
-                                    <?php selected(
-                                        $condition_operator,
-                                        'less_than_or_equal'
-                                    ); ?>
-                                >
-                                    کمتر یا مساوی
-                                </option>
+                                <?php endforeach; ?>
 
                             </select>
 
@@ -1010,8 +1208,15 @@ class WooSmart_Admin {
                         <td>
 
                             <div
+                                id="condition-value-number-wrapper"
                                 style="
-                                    display:flex;
+                                    display:
+                                    <?php
+                                    echo 'number' ===
+                                        $current_condition_value_type
+                                        ? 'flex'
+                                        : 'none';
+                                    ?>;
                                     align-items:center;
                                     gap:8px;
                                     max-width:420px;
@@ -1042,6 +1247,7 @@ class WooSmart_Admin {
                                     >
 
                                     <span
+                                        id="condition-value-unit"
                                         style="
                                             position:absolute;
                                             left:12px;
@@ -1060,6 +1266,29 @@ class WooSmart_Admin {
 
                             </div>
 
+                            <div
+                                id="condition-value-text-wrapper"
+                                style="
+                                    display:
+                                    <?php
+                                    echo 'number' ===
+                                        $current_condition_value_type
+                                        ? 'none'
+                                        : 'block';
+                                    ?>;
+                                    max-width:420px;
+                                "
+                            >
+
+                                <input
+                                    type="text"
+                                    id="condition_value_text"
+                                    class="regular-text"
+                                    value="<?php echo esc_attr( $condition_value_display ); ?>"
+                                >
+
+                            </div>
+
                             <input
                                 type="hidden"
                                 id="condition_value"
@@ -1067,8 +1296,24 @@ class WooSmart_Admin {
                                 value="<?php echo esc_attr( $condition_value_numeric ); ?>"
                             >
 
-                            <p class="description">
-                                مبلغ را به ریال وارد کنید؛ جداکننده هزارگان به‌صورت خودکار اضافه می‌شود.
+                            <p
+                                class="description"
+                                id="condition-value-description"
+                            >
+                                <?php
+                                if (
+                                    'number' ===
+                                    $current_condition_value_type
+                                ) {
+                                    echo esc_html(
+                                        'مبلغ را به ریال وارد کنید؛ جداکننده هزارگان به‌صورت خودکار اضافه می‌شود.'
+                                    );
+                                } else {
+                                    echo esc_html(
+                                        'مقدار شرط را وارد کنید.'
+                                    );
+                                }
+                                ?>
                             </p>
 
                         </td>
@@ -1092,7 +1337,9 @@ class WooSmart_Admin {
                     "
                 >
 
-                    <?php foreach ( $actions as $index => $action ) : ?>
+                    <?php foreach (
+                        $actions as $index => $action
+                    ) : ?>
 
                         <?php
                         $this->render_action_row(
@@ -1137,119 +1384,400 @@ class WooSmart_Admin {
                 'DOMContentLoaded',
                 function() {
 
+                    const conditionDefinitions =
+                        <?php
+                        echo wp_json_encode(
+                            $condition_definitions,
+                            JSON_UNESCAPED_UNICODE |
+                            JSON_UNESCAPED_SLASHES
+                        );
+                        ?>;
+
+                    const conditionField =
+                        document.getElementById(
+                            'condition_field'
+                        );
+
+                    const conditionOperator =
+                        document.getElementById(
+                            'condition_operator'
+                        );
+
+                    const conditionValue =
+                        document.getElementById(
+                            'condition_value'
+                        );
+
                     const amountDisplay =
                         document.getElementById(
                             'condition_value_display'
                         );
 
-                    const amountHidden =
+                    const amountWrapper =
                         document.getElementById(
-                            'condition_value'
+                            'condition-value-number-wrapper'
                         );
 
-                    if (
-                        amountDisplay &&
-                        amountHidden
+                    const textWrapper =
+                        document.getElementById(
+                            'condition-value-text-wrapper'
+                        );
+
+                    const textInput =
+                        document.getElementById(
+                            'condition_value_text'
+                        );
+
+                    const valueDescription =
+                        document.getElementById(
+                            'condition-value-description'
+                        );
+
+                    function normalizeNumber(
+                        value
                     ) {
 
-                        function normalizeNumber(value) {
+                        value = String(
+                            value || ''
+                        );
 
-                            value = String(
-                                value || ''
+                        value =
+                            value.replace(
+                                /,/g,
+                                ''
                             );
 
-                            value =
-                                value.replace(
-                                    /,/g,
-                                    ''
-                                );
+                        value =
+                            value.replace(
+                                /[^\d.]/g,
+                                ''
+                            );
+
+                        const firstDot =
+                            value.indexOf(
+                                '.'
+                            );
+
+                        if (
+                            firstDot !== -1
+                        ) {
 
                             value =
-                                value.replace(
-                                    /[^\d.]/g,
+                                value.substring(
+                                    0,
+                                    firstDot + 1
+                                ) +
+                                value.substring(
+                                    firstDot + 1
+                                ).replace(
+                                    /\./g,
                                     ''
                                 );
+                        }
 
-                            const firstDot =
-                                value.indexOf('.');
+                        return value;
+                    }
 
-                            if (
-                                firstDot !== -1
+                    function formatNumber(
+                        value
+                    ) {
+
+                        value =
+                            normalizeNumber(
+                                value
+                            );
+
+                        if (
+                            value === ''
+                        ) {
+                            return '';
+                        }
+
+                        const parts =
+                            value.split(
+                                '.'
+                            );
+
+                        const integerPart =
+                            parts[0].replace(
+                                /\B(?=(\d{3})+(?!\d))/g,
+                                ','
+                            );
+
+                        if (
+                            parts.length > 1
+                        ) {
+
+                            return (
+                                integerPart +
+                                '.' +
+                                parts[1]
+                            );
+                        }
+
+                        return integerPart;
+                    }
+
+                    function getSelectedDefinition() {
+
+                        if (
+                            ! conditionField
+                        ) {
+                            return null;
+                        }
+
+                        const key =
+                            conditionField.value;
+
+                        if (
+                            ! conditionDefinitions[
+                                key
+                            ]
+                        ) {
+                            return null;
+                        }
+
+                        return conditionDefinitions[
+                            key
+                        ];
+                    }
+
+                    function updateOperatorOptions(
+                        preferredOperator
+                    ) {
+
+                        if (
+                            ! conditionOperator
+                        ) {
+                            return;
+                        }
+
+                        const definition =
+                            getSelectedDefinition();
+
+                        conditionOperator.innerHTML =
+                            '';
+
+                        if (
+                            ! definition ||
+                            ! definition.operators
+                        ) {
+                            return;
+                        }
+
+                        let selectedOperator =
+                            preferredOperator || '';
+
+                        let firstOperator = '';
+
+                        Object.keys(
+                            definition.operators
+                        ).forEach(
+                            function(
+                                operatorKey
                             ) {
 
-                                value =
-                                    value.substring(
-                                        0,
-                                        firstDot + 1
-                                    ) +
-                                    value.substring(
-                                        firstDot + 1
-                                    ).replace(
-                                        /\./g,
-                                        ''
+                                if (
+                                    ! firstOperator
+                                ) {
+                                    firstOperator =
+                                        operatorKey;
+                                }
+
+                                const option =
+                                    document.createElement(
+                                        'option'
                                     );
+
+                                option.value =
+                                    operatorKey;
+
+                                option.textContent =
+                                    definition.operators[
+                                        operatorKey
+                                    ];
+
+                                if (
+                                    operatorKey ===
+                                    selectedOperator
+                                ) {
+
+                                    option.selected =
+                                        true;
+                                }
+
+                                conditionOperator.appendChild(
+                                    option
+                                );
                             }
+                        );
 
-                            return value;
+                        if (
+                            ! conditionOperator.value &&
+                            firstOperator
+                        ) {
+
+                            conditionOperator.value =
+                                firstOperator;
                         }
+                    }
 
-                        function formatNumber(value) {
+                    function updateValueField() {
 
-                            value =
+                        const definition =
+                            getSelectedDefinition();
+
+                        const valueType =
+                            definition &&
+                            definition.value_type
+                                ? definition.value_type
+                                : 'text';
+
+                        const currentValue =
+                            conditionValue.value || '';
+
+                        if (
+                            valueType ===
+                            'number'
+                        ) {
+
+                            amountWrapper.style.display =
+                                'flex';
+
+                            textWrapper.style.display =
+                                'none';
+
+                            amountDisplay.value =
+                                formatNumber(
+                                    currentValue
+                                );
+
+                            conditionValue.value =
                                 normalizeNumber(
-                                    value
+                                    currentValue
                                 );
 
                             if (
-                                value === ''
+                                valueDescription
                             ) {
-                                return '';
+
+                                valueDescription.textContent =
+                                    'مبلغ را به ریال وارد کنید؛ جداکننده هزارگان به‌صورت خودکار اضافه می‌شود.';
                             }
 
-                            const parts =
-                                value.split('.');
+                        } else {
 
-                            const integerPart =
-                                parts[0].replace(
-                                    /\B(?=(\d{3})+(?!\d))/g,
-                                    ','
-                                );
+                            amountWrapper.style.display =
+                                'none';
+
+                            textWrapper.style.display =
+                                'block';
+
+                            textInput.value =
+                                currentValue;
 
                             if (
-                                parts.length > 1
+                                valueDescription
                             ) {
 
-                                return (
-                                    integerPart +
-                                    '.' +
-                                    parts[1]
-                                );
+                                valueDescription.textContent =
+                                    'مقدار شرط را وارد کنید.';
                             }
-
-                            return integerPart;
                         }
+                    }
 
-                        function syncAmount() {
+                    function syncConditionValue() {
+
+                        const definition =
+                            getSelectedDefinition();
+
+                        const valueType =
+                            definition &&
+                            definition.value_type
+                                ? definition.value_type
+                                : 'text';
+
+                        if (
+                            valueType ===
+                            'number'
+                        ) {
 
                             const rawValue =
                                 normalizeNumber(
                                     amountDisplay.value
                                 );
 
-                            amountHidden.value =
+                            conditionValue.value =
                                 rawValue;
 
                             amountDisplay.value =
                                 formatNumber(
                                     rawValue
                                 );
+
+                        } else {
+
+                            conditionValue.value =
+                                textInput.value;
                         }
+                    }
+
+                    if (
+                        conditionField &&
+                        conditionOperator
+                    ) {
+
+                        const initialOperator =
+                            conditionOperator.value;
+
+                        updateOperatorOptions(
+                            initialOperator
+                        );
+
+                        updateValueField();
+
+                        conditionField.addEventListener(
+                            'change',
+                            function() {
+
+                                const previousOperator =
+                                    conditionOperator.value;
+
+                                updateOperatorOptions(
+                                    previousOperator
+                                );
+
+                                updateValueField();
+                            }
+                        );
+
+                        conditionOperator.addEventListener(
+                            'change',
+                            function() {
+
+                                updateValueField();
+                            }
+                        );
+                    }
+
+                    if (
+                        amountDisplay &&
+                        conditionValue
+                    ) {
 
                         amountDisplay.addEventListener(
                             'input',
                             function() {
 
-                                syncAmount();
+                                conditionValue.value =
+                                    normalizeNumber(
+                                        amountDisplay.value
+                                    );
+
+                                amountDisplay.value =
+                                    formatNumber(
+                                        conditionValue.value
+                                    );
 
                                 amountDisplay.setSelectionRange(
                                     amountDisplay.value.length,
@@ -1262,22 +1790,48 @@ class WooSmart_Admin {
                             'blur',
                             function() {
 
-                                syncAmount();
-                            }
-                        );
-
-                        amountDisplay.form.addEventListener(
-                            'submit',
-                            function() {
-
-                                amountHidden.value =
+                                conditionValue.value =
                                     normalizeNumber(
                                         amountDisplay.value
                                     );
+
+                                amountDisplay.value =
+                                    formatNumber(
+                                        conditionValue.value
+                                    );
                             }
                         );
+                    }
 
-                        syncAmount();
+                    if (
+                        textInput &&
+                        conditionValue
+                    ) {
+
+                        textInput.addEventListener(
+                            'input',
+                            function() {
+
+                                conditionValue.value =
+                                    textInput.value;
+                            }
+                        );
+                    }
+
+                    const form =
+                        conditionValue
+                            ? conditionValue.form
+                            : null;
+
+                    if ( form ) {
+
+                        form.addEventListener(
+                            'submit',
+                            function() {
+
+                                syncConditionValue();
+                            }
+                        );
                     }
 
                     const actionsContainer =
@@ -1307,7 +1861,9 @@ class WooSmart_Admin {
                         let maxIndex = -1;
 
                         rows.forEach(
-                            function(row) {
+                            function(
+                                row
+                            ) {
 
                                 const index =
                                     parseInt(
@@ -1318,7 +1874,9 @@ class WooSmart_Admin {
                                     );
 
                                 if (
-                                    ! isNaN(index) &&
+                                    ! isNaN(
+                                        index
+                                    ) &&
                                     index > maxIndex
                                 ) {
 
@@ -1415,12 +1973,20 @@ class WooSmart_Admin {
                                             style="min-width:300px;"
                                         >
 
-                                            <?php foreach ( $order_statuses as $status_slug => $status_label ) : ?>
+                                            <?php foreach (
+                                                $order_statuses
+                                                as $status_slug =>
+                                                $status_label
+                                            ) : ?>
 
                                                 <option
                                                     value="<?php echo esc_attr( $status_slug ); ?>"
                                                 >
-                                                    <?php echo esc_html( $status_label ); ?>
+                                                    <?php
+                                                    echo esc_html(
+                                                        $status_label
+                                                    );
+                                                    ?>
                                                 </option>
 
                                             <?php endforeach; ?>
@@ -1527,7 +2093,9 @@ class WooSmart_Admin {
                                 '';
 
                             notifyFields.forEach(
-                                function(field) {
+                                function(
+                                    field
+                                ) {
 
                                     field.style.display =
                                         'none';
@@ -1540,7 +2108,9 @@ class WooSmart_Admin {
                                 'none';
 
                             notifyFields.forEach(
-                                function(field) {
+                                function(
+                                    field
+                                ) {
 
                                     field.style.display =
                                         '';
@@ -1618,7 +2188,10 @@ class WooSmart_Admin {
                             );
 
                         rows.forEach(
-                            function(row, rowIndex) {
+                            function(
+                                row,
+                                rowIndex
+                            ) {
 
                                 row.setAttribute(
                                     'data-index',
@@ -1642,7 +2215,9 @@ class WooSmart_Admin {
                                 row.querySelectorAll(
                                     '[name]'
                                 ).forEach(
-                                    function(input) {
+                                    function(
+                                        input
+                                    ) {
 
                                         input.name =
                                             input.name.replace(
@@ -1660,7 +2235,9 @@ class WooSmart_Admin {
                     actionsContainer.querySelectorAll(
                         '.woosmart-action-row'
                     ).forEach(
-                        function(row) {
+                        function(
+                            row
+                        ) {
 
                             bindActionRow(
                                 row
@@ -1852,7 +2429,11 @@ class WooSmart_Admin {
                             style="min-width:300px;"
                         >
 
-                            <?php foreach ( $order_statuses as $status_slug => $status_label ) : ?>
+                            <?php foreach (
+                                $order_statuses
+                                as $status_slug =>
+                                $status_label
+                            ) : ?>
 
                                 <option
                                     value="<?php echo esc_attr( $status_slug ); ?>"
@@ -2011,14 +2592,19 @@ class WooSmart_Admin {
 
                     <tbody>
 
-                        <?php foreach ( array_reverse( $logs ) as $log ) : ?>
+                        <?php foreach (
+                            array_reverse( $logs )
+                            as $log
+                        ) : ?>
 
                             <tr>
 
                                 <td>
                                     <?php
                                     echo esc_html(
-                                        isset( $log['time'] )
+                                        isset(
+                                            $log['time']
+                                        )
                                             ? $log['time']
                                             : ''
                                     );
@@ -2029,7 +2615,9 @@ class WooSmart_Admin {
                                     <?php
                                     echo esc_html(
                                         $this->get_event_label(
-                                            isset( $log['event'] )
+                                            isset(
+                                                $log['event']
+                                            )
                                                 ? $log['event']
                                                 : ''
                                         )
@@ -2041,10 +2629,14 @@ class WooSmart_Admin {
                                     <?php
                                     echo esc_html(
                                         $this->get_event_message(
-                                            isset( $log['event'] )
+                                            isset(
+                                                $log['event']
+                                            )
                                                 ? $log['event']
                                                 : '',
-                                            isset( $log['message'] )
+                                            isset(
+                                                $log['message']
+                                            )
                                                 ? $log['message']
                                                 : ''
                                         )
@@ -2055,7 +2647,11 @@ class WooSmart_Admin {
                                 <td>
 
                                     <?php
-                                    if ( isset( $log['context'] ) ) {
+                                    if (
+                                        isset(
+                                            $log['context']
+                                        )
+                                    ) {
 
                                         echo esc_html(
                                             wp_json_encode(
@@ -2090,7 +2686,9 @@ class WooSmart_Admin {
      *
      * @return string
      */
-    private function get_trigger_label( $trigger ) {
+    private function get_trigger_label(
+        $trigger
+    ) {
 
         $labels = array(
             'order_created' => 'ایجاد سفارش',
@@ -2108,26 +2706,63 @@ class WooSmart_Admin {
      *
      * @return string
      */
-    private function get_condition_field_label( $field ) {
+    private function get_condition_field_label(
+        $field
+    ) {
 
-        $labels = array(
-            'order_total' => 'مبلغ سفارش',
-        );
+        $definition =
+            $this->condition_registry->get(
+                $field
+            );
 
-        return isset( $labels[ $field ] )
-            ? $labels[ $field ]
-            : $field;
+        if (
+            is_array( $definition ) &&
+            isset(
+                $definition['label']
+            )
+        ) {
+
+            return $definition['label'];
+        }
+
+        return $field;
     }
 
     /**
      * Get comparison operator label.
      *
      * @param string $operator Operator key.
+     * @param string $field    Condition field.
      *
      * @return string
      */
-    private function get_operator_label( $operator ) {
+    private function get_operator_label(
+        $operator,
+        $field = ''
+    ) {
 
+        if ( ! empty( $field ) ) {
+
+            $operators =
+                $this->condition_registry->get_operators(
+                    $field
+                );
+
+            if (
+                isset(
+                    $operators[ $operator ]
+                )
+            ) {
+
+                return $operators[
+                    $operator
+                ];
+            }
+        }
+
+        /*
+         * Fallback for old or unknown data.
+         */
         $labels = array(
             'is_equal'              => 'برابر با',
             'is_not_equal'          => 'نابرابر با',
@@ -2137,7 +2772,9 @@ class WooSmart_Admin {
             'less_than_or_equal'    => 'کمتر یا مساوی',
         );
 
-        return isset( $labels[ $operator ] )
+        return isset(
+            $labels[ $operator ]
+        )
             ? $labels[ $operator ]
             : $operator;
     }
@@ -2149,14 +2786,20 @@ class WooSmart_Admin {
      *
      * @return string
      */
-    private function get_action_label( $action_type ) {
+    private function get_action_label(
+        $action_type
+    ) {
 
         $labels = array(
-            'change_order_status' => 'تغییر وضعیت سفارش',
-            'notify_admin'        => 'ارسال اعلان به مدیر فروشگاه',
+            'change_order_status' =>
+                'تغییر وضعیت سفارش',
+            'notify_admin' =>
+                'ارسال اعلان به مدیر فروشگاه',
         );
 
-        return isset( $labels[ $action_type ] )
+        return isset(
+            $labels[ $action_type ]
+        )
             ? $labels[ $action_type ]
             : $action_type;
     }
@@ -2184,11 +2827,19 @@ class WooSmart_Admin {
             'failed'     => 'ناموفق',
         );
 
-        if ( isset( $labels[ $status_slug ] ) ) {
-            return $labels[ $status_slug ];
+        if (
+            isset(
+                $labels[ $status_slug ]
+            )
+        ) {
+            return $labels[
+                $status_slug
+            ];
         }
 
-        if ( null !== $default_label ) {
+        if (
+            null !== $default_label
+        ) {
             return $default_label;
         }
 
@@ -2202,11 +2853,14 @@ class WooSmart_Admin {
      *
      * @return string
      */
-    private function format_irr_value( $value ) {
+    private function format_irr_value(
+        $value
+    ) {
 
-        $value = $this->normalize_irr_input(
-            $value
-        );
+        $value =
+            $this->normalize_irr_input(
+                $value
+            );
 
         if ( '' === $value ) {
             return '';
@@ -2226,11 +2880,14 @@ class WooSmart_Admin {
      *
      * @return string
      */
-    private function format_irr_input( $value ) {
+    private function format_irr_input(
+        $value
+    ) {
 
-        $value = $this->normalize_irr_input(
-            $value
-        );
+        $value =
+            $this->normalize_irr_input(
+                $value
+            );
 
         if ( '' === $value ) {
             return '';
@@ -2250,11 +2907,17 @@ class WooSmart_Admin {
         );
 
         if (
-            isset( $parts[1] ) &&
+            isset(
+                $parts[1]
+            ) &&
             '' !== $parts[1]
         ) {
 
-            return $integer_part . '.' . $parts[1];
+            return (
+                $integer_part .
+                '.' .
+                $parts[1]
+            );
         }
 
         return $integer_part;
@@ -2267,32 +2930,43 @@ class WooSmart_Admin {
      *
      * @return string
      */
-    private function normalize_irr_input( $value ) {
+    private function normalize_irr_input(
+        $value
+    ) {
 
-        $value = (string) $value;
+        $value =
+            (string) $value;
 
-        $value = str_replace(
-            ',',
-            '',
-            $value
-        );
+        $value =
+            str_replace(
+                ',',
+                '',
+                $value
+            );
 
-        $value = preg_replace(
-            '/[^\d.]/',
-            '',
-            $value
-        );
+        $value =
+            preg_replace(
+                '/[^\d.]/',
+                '',
+                $value
+            );
 
-        if ( null === $value ) {
+        if (
+            null === $value
+        ) {
             return '';
         }
 
-        $first_dot = strpos(
-            $value,
-            '.'
-        );
+        $first_dot =
+            strpos(
+                $value,
+                '.'
+            );
 
-        if ( false !== $first_dot ) {
+        if (
+            false !==
+            $first_dot
+        ) {
 
             $value =
                 substr(
@@ -2320,24 +2994,51 @@ class WooSmart_Admin {
      *
      * @return string
      */
-    private function get_event_label( $event ) {
+    private function get_event_label(
+        $event
+    ) {
 
         $labels = array(
-            'order_created'                => 'ایجاد سفارش',
-            'automation_created'           => 'ایجاد اتوماسیون',
-            'automation_updated'           => 'ویرایش اتوماسیون',
-            'automation_status_changed'    => 'تغییر وضعیت اتوماسیون',
-            'automation_deleted'           => 'حذف اتوماسیون',
-            'automation_duplicated'        => 'کپی اتوماسیون',
-            'automation_skipped'           => 'رد شدن اتوماسیون',
-            'automation_conditions_failed' => 'شرایط برقرار نبود',
-            'automation_executed'          => 'اجرای اتوماسیون',
-            'automation_failed'            => 'خطای اجرای اتوماسیون',
-            'action_failed'                => 'خطا در عملیات',
-            'action_executed'              => 'اجرای عملیات',
+            'order_created' =>
+                'ایجاد سفارش',
+
+            'automation_created' =>
+                'ایجاد اتوماسیون',
+
+            'automation_updated' =>
+                'ویرایش اتوماسیون',
+
+            'automation_status_changed' =>
+                'تغییر وضعیت اتوماسیون',
+
+            'automation_deleted' =>
+                'حذف اتوماسیون',
+
+            'automation_duplicated' =>
+                'کپی اتوماسیون',
+
+            'automation_skipped' =>
+                'رد شدن اتوماسیون',
+
+            'automation_conditions_failed' =>
+                'شرایط برقرار نبود',
+
+            'automation_executed' =>
+                'اجرای اتوماسیون',
+
+            'automation_failed' =>
+                'خطای اجرای اتوماسیون',
+
+            'action_failed' =>
+                'خطا در عملیات',
+
+            'action_executed' =>
+                'اجرای عملیات',
         );
 
-        return isset( $labels[ $event ] )
+        return isset(
+            $labels[ $event ]
+        )
             ? $labels[ $event ]
             : $event;
     }
@@ -2393,7 +3094,9 @@ class WooSmart_Admin {
                 'عملیات با موفقیت اجرا شد.',
         );
 
-        return isset( $messages[ $event ] )
+        return isset(
+            $messages[ $event ]
+        )
             ? $messages[ $event ]
             : $message;
     }
