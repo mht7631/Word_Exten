@@ -38,6 +38,20 @@ class WooSmart_Action_Engine {
     private $last_mail_error = null;
 
     /**
+     * Current WooSmart mail sender email.
+     *
+     * @var string
+     */
+    private $current_mail_sender = '';
+
+    /**
+     * Current WooSmart mail sender name.
+     *
+     * @var string
+     */
+    private $current_mail_sender_name = 'WooSmart Automation';
+
+    /**
      * Initialize Action Engine.
      */
     public function __construct() {
@@ -102,6 +116,73 @@ class WooSmart_Action_Engine {
     }
 
     /**
+     * Configure the PHPMailer sender for WooSmart.
+     *
+     * This runs through the phpmailer_init hook immediately
+     * before the actual mail send.
+     *
+     * @param object $phpmailer PHPMailer instance.
+     *
+     * @return void
+     */
+    public function configure_mailer_sender(
+        $phpmailer
+    ) {
+
+        if (
+            ! $this->capturing_mail_error
+        ) {
+            return;
+        }
+
+        if (
+            empty(
+                $this->current_mail_sender
+            )
+        ) {
+            return;
+        }
+
+        if (
+            ! is_object(
+                $phpmailer
+            )
+        ) {
+            return;
+        }
+
+        if (
+            ! method_exists(
+                $phpmailer,
+                'setFrom'
+            )
+        ) {
+            return;
+        }
+
+        try {
+
+            $phpmailer->setFrom(
+                $this->current_mail_sender,
+                $this->current_mail_sender_name,
+                false
+            );
+
+        } catch ( Exception $exception ) {
+
+            $this->last_mail_error =
+                new WP_Error(
+                    'woosmart_phpmailer_from_error',
+                    $exception->getMessage(),
+                    array(
+                        'phpmailer_exception_code' =>
+                            $exception->getCode(),
+                    )
+                );
+        }
+    }
+
+    /**
      * Execute automation actions.
      *
      * @param array $actions Actions configuration.
@@ -160,7 +241,9 @@ class WooSmart_Action_Engine {
                     $context
                 );
 
-            if ( ! $result ) {
+            if (
+                ! $result
+            ) {
 
                 $all_successful = false;
             }
@@ -510,21 +593,16 @@ class WooSmart_Action_Engine {
 
         /*
          * Use the WordPress administrator email as the
-         * sender as well as the recipient.
+         * sender for this temporary development setup.
          *
-         * This prevents the local XAMPP default:
-         *
-         *     wordpress@localhost
-         *
-         * from being used as the From address.
-         *
-         * A dedicated configurable sender will be added
-         * later when the Notification Settings layer is implemented.
+         * A dedicated configurable sender will be introduced
+         * later in the Notification Settings layer.
          */
-        $headers = array(
-            'Content-Type: text/plain; charset=UTF-8',
-            'From: WooSmart Automation <' . $recipient . '>',
-        );
+        $this->current_mail_sender =
+            $recipient;
+
+        $this->current_mail_sender_name =
+            'WooSmart Automation';
 
         /*
          * Reset the previous mail error before each attempt.
@@ -533,11 +611,34 @@ class WooSmart_Action_Engine {
             null;
 
         /*
-         * Tell the mail-error callback that this particular
-         * wp_mail() call belongs to WooSmart.
+         * Tell the mail-error callback and PHPMailer
+         * configuration callback that this specific
+         * wp_mail() request belongs to WooSmart.
          */
         $this->capturing_mail_error =
             true;
+
+        /*
+         * Configure the From address at the final PHPMailer
+         * initialization stage.
+         *
+         * Priority 999 allows WooSmart to set the sender after
+         * normal WordPress/plugin mail configuration has run.
+         */
+        add_action(
+            'phpmailer_init',
+            array(
+                $this,
+                'configure_mailer_sender',
+            ),
+            999,
+            1
+        );
+
+        $headers = array(
+            'Content-Type: text/plain; charset=UTF-8',
+            'Reply-To: ' . $recipient,
+        );
 
         $mail_sent =
             wp_mail(
@@ -546,6 +647,19 @@ class WooSmart_Action_Engine {
                 $message,
                 $headers
             );
+
+        /*
+         * Remove the temporary PHPMailer hook immediately
+         * after this specific mail attempt.
+         */
+        remove_action(
+            'phpmailer_init',
+            array(
+                $this,
+                'configure_mailer_sender',
+            ),
+            999
+        );
 
         $this->capturing_mail_error =
             false;
@@ -560,6 +674,9 @@ class WooSmart_Action_Engine {
 
                 'recipient' =>
                     $recipient,
+
+                'from' =>
+                    $this->current_mail_sender,
 
                 'order_id' =>
                     isset(
@@ -624,10 +741,6 @@ class WooSmart_Action_Engine {
                 }
             } else {
 
-                /*
-                 * wp_mail() can also return false without
-                 * exposing a PHPMailer error through the hook.
-                 */
                 $error_context[
                     'mail_error'
                 ] =
@@ -652,6 +765,9 @@ class WooSmart_Action_Engine {
 
                 'recipient' =>
                     $recipient,
+
+                'from' =>
+                    $this->current_mail_sender,
 
                 'order_id' =>
                     isset(
