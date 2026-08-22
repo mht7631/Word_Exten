@@ -25,6 +25,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-post-types.p
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-automation-manager.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-condition-registry.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-condition-engine.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-action-registry.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-action-engine.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-execution-engine.php';
 
@@ -94,9 +95,14 @@ function woosmart_automation_activate() {
     /*
      * Register custom post types before flushing rewrite rules.
      */
-    if ( class_exists( 'WooSmart_Post_Types' ) ) {
+    if (
+        class_exists(
+            'WooSmart_Post_Types'
+        )
+    ) {
 
-        $post_types = new WooSmart_Post_Types();
+        $post_types =
+            new WooSmart_Post_Types();
 
         $post_types->register_automation_post_type();
     }
