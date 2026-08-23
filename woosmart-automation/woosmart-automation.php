@@ -20,6 +20,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-logger.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-currency.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-core.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-admin.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-notification-settings.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-automation.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-triggers.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-post-types.php';
@@ -43,6 +44,7 @@ function woosmart_automation_init() {
      */
     new WooSmart_Core();
     new WooSmart_Admin();
+    new WooSmart_Notification_Settings();
     new WooSmart_Post_Types();
     new WooSmart_Automation_Manager();
 
