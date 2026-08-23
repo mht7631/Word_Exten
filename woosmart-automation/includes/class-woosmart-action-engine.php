@@ -464,13 +464,31 @@ class WooSmart_Action_Engine {
             return false;
         }
 
+        /*
+         * Use the WooSmart notification recipient when configured.
+         * Fall back to the WordPress administrator email so existing
+         * installations continue working without additional setup.
+         */
         $recipient =
             sanitize_email(
                 get_option(
-                    'admin_email',
+                    'woosmart_notification_email',
                     ''
                 )
             );
+
+        if (
+            empty( $recipient )
+        ) {
+
+            $recipient =
+                sanitize_email(
+                    get_option(
+                        'admin_email',
+                        ''
+                    )
+                );
+        }
 
         if (
             empty(
@@ -483,7 +501,7 @@ class WooSmart_Action_Engine {
 
             $this->logger->log(
                 'action_failed',
-                'Store administrator email address is invalid.',
+                'آدرس ایمیل دریافت اعلان‌های WooSmart معتبر نیست.',
                 array(
                     'action_type' =>
                         'notify_admin',
