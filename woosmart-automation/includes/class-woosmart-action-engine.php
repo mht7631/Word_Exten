@@ -24,6 +24,13 @@ class WooSmart_Action_Engine {
     private $action_registry;
 
     /**
+     * Currency service instance.
+     *
+     * @var WooSmart_Currency
+     */
+    private $currency;
+
+    /**
      * Whether the engine is currently capturing a mail error.
      *
      * @var bool
@@ -48,10 +55,9 @@ class WooSmart_Action_Engine {
         $this->action_registry =
             new WooSmart_Action_Registry();
 
-        /*
-         * Capture the real PHPMailer error when wp_mail()
-         * fails. WordPress provides this through wp_mail_failed.
-         */
+        $this->currency =
+            new WooSmart_Currency();
+
         add_action(
             'wp_mail_failed',
             array(
@@ -74,10 +80,6 @@ class WooSmart_Action_Engine {
         $error
     ) {
 
-        /*
-         * Only capture the error when this Action Engine
-         * is actively sending its own administrator notification.
-         */
         if (
             ! $this->capturing_mail_error
         ) {
@@ -123,8 +125,7 @@ class WooSmart_Action_Engine {
             return true;
         }
 
-        $all_successful =
-            true;
+        $all_successful = true;
 
         foreach (
             $actions as $action
@@ -134,9 +135,7 @@ class WooSmart_Action_Engine {
                 ! is_array( $action )
             ) {
 
-                $all_successful =
-                    false;
-
+                $all_successful = false;
                 continue;
             }
 
@@ -152,9 +151,7 @@ class WooSmart_Action_Engine {
                 empty( $type )
             ) {
 
-                $all_successful =
-                    false;
-
+                $all_successful = false;
                 continue;
             }
 
@@ -169,8 +166,7 @@ class WooSmart_Action_Engine {
                 ! $result
             ) {
 
-                $all_successful =
-                    false;
+                $all_successful = false;
             }
         }
 
@@ -192,9 +188,6 @@ class WooSmart_Action_Engine {
         $context
     ) {
 
-        /*
-         * Resolve the action through the Registry.
-         */
         if (
             ! $this->action_registry->has(
                 $type
@@ -205,20 +198,14 @@ class WooSmart_Action_Engine {
                 'action_failed',
                 'Unknown action type.',
                 array(
-                    'action_type' =>
-                        $type,
-
-                    'context' =>
-                        $context,
+                    'action_type' => $type,
+                    'context'     => $context,
                 )
             );
 
             return false;
         }
 
-        /*
-         * Get the registered handler method.
-         */
         $handler =
             $this->action_registry->get_handler(
                 $type
@@ -236,23 +223,15 @@ class WooSmart_Action_Engine {
                 'action_failed',
                 'Registered action handler could not be found.',
                 array(
-                    'action_type' =>
-                        $type,
-
-                    'handler' =>
-                        $handler,
-
-                    'context' =>
-                        $context,
+                    'action_type' => $type,
+                    'handler'     => $handler,
+                    'context'     => $context,
                 )
             );
 
             return false;
         }
 
-        /*
-         * Execute the registered handler.
-         */
         return (bool) call_user_func(
             array(
                 $this,
@@ -286,8 +265,7 @@ class WooSmart_Action_Engine {
                 'action_failed',
                 'WooCommerce is not available.',
                 array(
-                    'action_type' =>
-                        'change_order_status',
+                    'action_type' => 'change_order_status',
                 )
             );
 
@@ -295,21 +273,13 @@ class WooSmart_Action_Engine {
         }
 
         $order_id =
-            isset(
-                $context['order_id']
-            )
-                ? absint(
-                    $context['order_id']
-                )
+            isset( $context['order_id'] )
+                ? absint( $context['order_id'] )
                 : 0;
 
         $new_status =
-            isset(
-                $action['status']
-            )
-                ? sanitize_key(
-                    $action['status']
-                )
+            isset( $action['status'] )
+                ? sanitize_key( $action['status'] )
                 : '';
 
         if (
@@ -320,11 +290,8 @@ class WooSmart_Action_Engine {
                 'action_failed',
                 'Order ID is missing from action context.',
                 array(
-                    'action_type' =>
-                        'change_order_status',
-
-                    'context' =>
-                        $context,
+                    'action_type' => 'change_order_status',
+                    'context'     => $context,
                 )
             );
 
@@ -339,11 +306,8 @@ class WooSmart_Action_Engine {
                 'action_failed',
                 'Order status is missing.',
                 array(
-                    'action_type' =>
-                        'change_order_status',
-
-                    'order_id' =>
-                        $order_id,
+                    'action_type' => 'change_order_status',
+                    'order_id'    => $order_id,
                 )
             );
 
@@ -363,11 +327,8 @@ class WooSmart_Action_Engine {
                 'action_failed',
                 'WooCommerce order could not be found.',
                 array(
-                    'action_type' =>
-                        'change_order_status',
-
-                    'order_id' =>
-                        $order_id,
+                    'action_type' => 'change_order_status',
+                    'order_id'    => $order_id,
                 )
             );
 
@@ -391,17 +352,10 @@ class WooSmart_Action_Engine {
                 'action_failed',
                 'Failed to change order status.',
                 array(
-                    'action_type' =>
-                        'change_order_status',
-
-                    'order_id' =>
-                        $order_id,
-
-                    'old_status' =>
-                        $old_status,
-
-                    'new_status' =>
-                        $new_status,
+                    'action_type' => 'change_order_status',
+                    'order_id'    => $order_id,
+                    'old_status'  => $old_status,
+                    'new_status'  => $new_status,
                 )
             );
 
@@ -412,17 +366,10 @@ class WooSmart_Action_Engine {
             'action_executed',
             'Order status was changed successfully.',
             array(
-                'action_type' =>
-                    'change_order_status',
-
-                'order_id' =>
-                    $order_id,
-
-                'old_status' =>
-                    $old_status,
-
-                'new_status' =>
-                    $new_status,
+                'action_type' => 'change_order_status',
+                'order_id'    => $order_id,
+                'old_status'  => $old_status,
+                'new_status'  => $new_status,
             )
         );
 
@@ -430,11 +377,10 @@ class WooSmart_Action_Engine {
     }
 
     /**
-     * Send an email notification to the store administrator.
+     * Send an email notification to the configured WooSmart recipient.
      *
      * WooSmart intentionally does not set the From address here.
-     * The active WordPress mail transport is responsible for the
-     * final From address.
+     * The active WordPress mail transport controls the From address.
      *
      * @param array $action  Action configuration.
      * @param array $context Execution context.
@@ -447,17 +393,31 @@ class WooSmart_Action_Engine {
     ) {
 
         if (
-            ! function_exists(
-                'wp_mail'
-            )
+            ! function_exists( 'wp_mail' )
         ) {
 
             $this->logger->log(
                 'action_failed',
                 'WordPress mail system is not available.',
                 array(
-                    'action_type' =>
-                        'notify_admin',
+                    'action_type' => 'notify_admin',
+                )
+            );
+
+            return false;
+        }
+
+        if (
+            ! class_exists(
+                'WooSmart_Notification_Settings'
+            )
+        ) {
+
+            $this->logger->log(
+                'action_failed',
+                'WooSmart notification settings service is not available.',
+                array(
+                    'action_type' => 'notify_admin',
                 )
             );
 
@@ -465,50 +425,46 @@ class WooSmart_Action_Engine {
         }
 
         $recipient =
-            sanitize_email(
-                get_option(
-                    'admin_email',
-                    ''
-                )
-            );
+            WooSmart_Notification_Settings::get_recipient_email();
 
         if (
-            empty(
-                $recipient
-            ) ||
-            ! is_email(
-                $recipient
-            )
+            empty( $recipient ) ||
+            ! is_email( $recipient )
         ) {
 
             $this->logger->log(
                 'action_failed',
-                'Store administrator email address is invalid.',
+                'WooSmart notification recipient email address is invalid.',
                 array(
-                    'action_type' =>
-                        'notify_admin',
+                    'action_type' => 'notify_admin',
+                    'recipient'   => $recipient,
                 )
             );
 
             return false;
         }
 
-        $subject =
-            isset(
-                $action['subject']
+        $configured_recipient = sanitize_email(
+            get_option(
+                WooSmart_Notification_Settings::RECIPIENT_OPTION,
+                ''
             )
-                ? sanitize_text_field(
-                    $action['subject']
-                )
+        );
+
+        $recipient_source =
+            ! empty( $configured_recipient ) &&
+            is_email( $configured_recipient )
+                ? 'WooSmart Settings'
+                : 'WordPress admin_email fallback';
+
+        $subject =
+            isset( $action['subject'] )
+                ? sanitize_text_field( $action['subject'] )
                 : '';
 
         $message =
-            isset(
-                $action['message']
-            )
-                ? sanitize_textarea_field(
-                    $action['message']
-                )
+            isset( $action['message'] )
+                ? sanitize_textarea_field( $action['message'] )
                 : '';
 
         if (
@@ -527,7 +483,8 @@ class WooSmart_Action_Engine {
                 "یک سفارش جدید با شرایط اتوماسیون مطابقت دارد.\n\n" .
                 "شناسه سفارش: {order_id}\n" .
                 "مبلغ سفارش: {order_total}\n" .
-                "وضعیت سفارش: {order_status}";
+                "وضعیت سفارش: {order_status}\n" .
+                "نام مشتری: {customer_name}";
         }
 
         $message =
@@ -536,29 +493,15 @@ class WooSmart_Action_Engine {
                 $context
             );
 
-        /*
-         * Reset the previous mail error before each attempt.
-         */
         $this->last_mail_error =
             null;
 
-        /*
-         * Enable mail error capture only for this
-         * WooSmart notification attempt.
-         */
         $this->capturing_mail_error =
             true;
 
         /*
-         * IMPORTANT:
-         *
-         * Do NOT add wp_mail_from or wp_mail_from_name filters here.
-         *
-         * WooSmart must not override the mail transport's
-         * configured From address.
-         *
-         * WP Mail SMTP / Resend will determine the final
-         * From address.
+         * Do not set wp_mail_from or wp_mail_from_name here.
+         * The configured WordPress mail transport controls From.
          */
         $headers = array(
             'Content-Type: text/plain; charset=UTF-8',
@@ -580,79 +523,44 @@ class WooSmart_Action_Engine {
         ) {
 
             $error_context = array(
-                'action_type' =>
-                    'notify_admin',
-
-                'recipient' =>
-                    $recipient,
-
-                'order_id' =>
-                    isset(
-                        $context['order_id']
-                    )
-                        ? absint(
-                            $context['order_id']
-                        )
-                        : 0,
+                'action_type'     => 'notify_admin',
+                'recipient'       => $recipient,
+                'recipient_source' => $recipient_source,
+                'order_id'        => isset( $context['order_id'] )
+                    ? absint( $context['order_id'] )
+                    : 0,
             );
 
-            /*
-             * Add the real PHPMailer error when WordPress
-             * provides it through wp_mail_failed.
-             */
             if (
-                $this->last_mail_error
-                instanceof WP_Error
+                $this->last_mail_error instanceof WP_Error
             ) {
 
                 $error_message =
-                    $this->last_mail_error
-                        ->get_error_message();
+                    $this->last_mail_error->get_error_message();
 
                 if (
-                    ! empty(
-                        $error_message
-                    )
+                    ! empty( $error_message )
                 ) {
 
-                    $error_context[
-                        'mail_error'
-                    ] =
+                    $error_context['mail_error'] =
                         $error_message;
                 }
 
                 $error_data =
-                    $this->last_mail_error
-                        ->get_error_data();
+                    $this->last_mail_error->get_error_data();
 
                 if (
-                    is_array(
-                        $error_data
-                    )
+                    is_array( $error_data ) &&
+                    isset( $error_data['phpmailer_exception_code'] )
                 ) {
 
-                    if (
-                        isset(
-                            $error_data[
-                                'phpmailer_exception_code'
-                            ]
-                        )
-                    ) {
-
-                        $error_context[
-                            'mail_error_code'
-                        ] =
-                            $error_data[
-                                'phpmailer_exception_code'
-                            ];
-                    }
+                    $error_context['mail_error_code'] =
+                        $error_data['phpmailer_exception_code'];
                 }
 
             } else {
 
-                $error_context[
-                    'mail_error'
-                ] =
+                $error_context['mail_error'] =
                     'wp_mail() بدون ارائه خطای دقیق، مقدار false برگرداند.';
             }
 
@@ -667,25 +575,15 @@ class WooSmart_Action_Engine {
 
         $this->logger->log(
             'action_executed',
-            'اعلان ایمیل مدیر فروشگاه با موفقیت ارسال شد.',
+            'اعلان ایمیل با موفقیت ارسال شد.',
             array(
-                'action_type' =>
-                    'notify_admin',
-
-                'recipient' =>
-                    $recipient,
-
-                'from_source' =>
-                    'WP Mail SMTP / WordPress Mail Transport',
-
-                'order_id' =>
-                    isset(
-                        $context['order_id']
-                    )
-                        ? absint(
-                            $context['order_id']
-                        )
-                        : 0,
+                'action_type'     => 'notify_admin',
+                'recipient'       => $recipient,
+                'recipient_source' => $recipient_source,
+                'from_source'     => 'WordPress Mail Transport',
+                'order_id'        => isset( $context['order_id'] )
+                    ? absint( $context['order_id'] )
+                    : 0,
             )
         );
 
@@ -694,13 +592,6 @@ class WooSmart_Action_Engine {
 
     /**
      * Replace order placeholders in notification message.
-     *
-     * Supported placeholders:
-     *
-     * {order_id}
-     * {order_total}
-     * {order_status}
-     * {customer_name}
      *
      * @param string $message Message template.
      * @param array  $context Execution context.
@@ -713,28 +604,17 @@ class WooSmart_Action_Engine {
     ) {
 
         $order_id =
-            isset(
-                $context['order_id']
-            )
-                ? absint(
-                    $context['order_id']
-                )
+            isset( $context['order_id'] )
+                ? absint( $context['order_id'] )
                 : 0;
 
-        $order_total =
-            '';
-
-        $order_status =
-            '';
-
-        $customer_name =
-            '';
+        $order_total  = '';
+        $order_status = '';
+        $customer_name = '';
 
         if (
             $order_id &&
-            function_exists(
-                'wc_get_order'
-            )
+            function_exists( 'wc_get_order' )
         ) {
 
             $order =
@@ -748,8 +628,7 @@ class WooSmart_Action_Engine {
 
                 $order_total =
                     number_format_i18n(
-                        (float)
-                        $order->get_total(),
+                        (float) $order->get_total(),
                         0
                     );
 
@@ -769,18 +648,14 @@ class WooSmart_Action_Engine {
             }
         }
 
+        $currency_unit =
+            $this->currency->get_display_unit();
+
         $replacements = array(
-            '{order_id}' =>
-                $order_id,
-
-            '{order_total}' =>
-                $order_total . ' تومان',
-
-            '{order_status}' =>
-                $order_status,
-
-            '{customer_name}' =>
-                $customer_name,
+            '{order_id}' => $order_id,
+            '{order_total}' => $order_total . ' ' . $currency_unit,
+            '{order_status}' => $order_status,
+            '{customer_name}' => $customer_name,
         );
 
         return strtr(
