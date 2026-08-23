@@ -12,9 +12,9 @@ The core concept of WooSmart Automation is:
 
 **WHEN → IF → THEN**
 
-* **WHEN** something happens
-* **IF** certain conditions are satisfied
-* **THEN** perform one or more actions
+- **WHEN** something happens
+- **IF** certain conditions are satisfied
+- **THEN** perform one or more actions
 
 Example:
 
@@ -81,13 +81,14 @@ Modular Condition and Action Registry architecture implemented and tested
 + WooCommerce-aware currency presentation
 + Multiple Action execution
 + Multiple Automation diagnostics
-+ Notification failure diagnostics
++ Notification Settings
++ Real email delivery through WordPress Mail Transport
++ Provider-agnostic notification error diagnostics
 ```
 
 Current development focus:
 
 ```
-Mail Transport / SMTP Environment
 Multiple Actions stabilization
 Conflict Detection
 Execution Priority
@@ -151,6 +152,20 @@ WooSmart Currency Helper
 WooSmart Admin Display
 ```
 
+Notification architecture:
+
+```
+WooSmart Notification Settings
+     ↓
+Notification Recipient
+     ↓
+wp_mail()
+     ↓
+WordPress Mail Transport
+     ↓
+SMTP / Email Provider
+```
+
 Administrative workflow:
 
 ```
@@ -190,7 +205,8 @@ woosmart-automation/
     ├── class-woosmart-condition-engine.php
     ├── class-woosmart-action-registry.php
     ├── class-woosmart-action-engine.php
-    └── class-woosmart-execution-engine.php
+    ├── class-woosmart-execution-engine.php
+    └── class-woosmart-notification-settings.php
 ```
 
 ---
@@ -203,21 +219,22 @@ Main plugin bootstrap.
 
 Responsibilities:
 
-* Load plugin classes.
-* Initialize shared services.
-* Load the Condition Registry.
-* Initialize the Condition Engine.
-* Load the Action Registry.
-* Initialize the Action Engine.
-* Initialize the Execution Engine.
-* Pass the shared Execution Engine to the Trigger system.
-* Initialize the Admin layer.
-* Initialize the Post Type.
-* Initialize the Automation Manager.
-* Initialize the Currency helper.
-* Handle plugin activation.
-* Handle plugin deactivation.
-* Flush rewrite rules when required.
+- Load plugin classes.
+- Initialize shared services.
+- Load the Condition Registry.
+- Initialize the Condition Engine.
+- Load the Action Registry.
+- Initialize the Action Engine.
+- Initialize the Execution Engine.
+- Pass the shared Execution Engine to the Trigger system.
+- Initialize the Admin layer.
+- Initialize the Post Type.
+- Initialize the Automation Manager.
+- Initialize the Currency helper.
+- Initialize WooSmart Notification Settings.
+- Handle plugin activation.
+- Handle plugin deactivation.
+- Flush rewrite rules when required.
 
 The current architecture avoids unnecessary duplicate Condition, Action, and Execution Engine instances.
 
@@ -229,10 +246,10 @@ Core plugin functionality.
 
 Responsibilities:
 
-* Detect WooCommerce.
-* Display WooCommerce dependency warnings.
-* Provide WooCommerce availability status.
-* Maintain WooCommerce compatibility behavior.
+- Detect WooCommerce.
+- Display WooCommerce dependency warnings.
+- Provide WooCommerce availability status.
+- Maintain WooCommerce compatibility behavior.
 
 WooCommerce remains the source of truth for store currency.
 
@@ -246,12 +263,12 @@ Display-only currency helper.
 
 Responsibilities:
 
-* Read the current WooCommerce currency.
-* Detect `IRT`.
-* Detect `IRR`.
-* Return the user-facing display unit.
-* Normalize numeric values without changing their currency.
-* Format values for WooSmart UI without performing currency conversion.
+- Read the current WooCommerce currency.
+- Detect `IRT`.
+- Detect `IRR`.
+- Return the user-facing display unit.
+- Normalize numeric values without changing their currency.
+- Format values for WooSmart UI without performing currency conversion.
 
 Current behavior:
 
@@ -289,11 +306,11 @@ Central logging system.
 
 Responsibilities:
 
-* Store automation events.
-* Store execution context.
-* Retrieve logs.
-* Clear logs.
-* Keep the latest 100 log entries in the current MVP.
+- Store automation events.
+- Store execution context.
+- Retrieve logs.
+- Clear logs.
+- Keep the latest 100 log entries in the current MVP.
 
 Current storage:
 
@@ -315,10 +332,10 @@ Main WooSmart administration interface.
 
 Current sections:
 
-* داشبورد
-* اتوماسیون‌ها
-* افزودن اتوماسیون
-* گزارش‌ها
+- داشبورد
+- اتوماسیون‌ها
+- افزودن اتوماسیون
+- گزارش‌ها
 
 The current interface is:
 
@@ -349,16 +366,16 @@ notify_admin
 
 Recommended user-facing terminology:
 
-| Internal Term | UI Term   |
-| ------------- | --------- |
-| Trigger       | رویداد    |
-| Condition     | شرط       |
-| Action        | عملیات    |
-| Automation    | اتوماسیون |
-| Execution     | اجرا      |
-| Status        | وضعیت     |
-| Active        | فعال      |
-| Inactive      | غیرفعال   |
+| Internal Term | UI Term |
+| --- | --- |
+| Trigger | رویداد |
+| Condition | شرط |
+| Action | عملیات |
+| Automation | اتوماسیون |
+| Execution | اجرا |
+| Status | وضعیت |
+| Active | فعال |
+| Inactive | غیرفعال |
 
 Example UI:
 
@@ -422,10 +439,10 @@ Foundation / Placeholder
 
 Future responsibilities may include:
 
-* Automation lifecycle.
-* Automation registry.
-* Automation-level services.
-* Automation events.
+- Automation lifecycle.
+- Automation registry.
+- Automation-level services.
+- Automation events.
 
 ---
 
@@ -479,24 +496,24 @@ Handles Automation CRUD and configuration validation.
 
 Current operations:
 
-* Create
-* Update
-* Enable / Disable
-* Delete
-* Duplicate
+- Create
+- Update
+- Enable / Disable
+- Delete
+- Duplicate
 
 Current validation includes:
 
-* Trigger validation.
-* Condition validation.
-* Condition field validation through Condition Registry.
-* Condition operator validation through Condition Registry.
-* Condition value validation.
-* Action type validation.
-* Order status validation.
-* Notification configuration validation.
-* Prevention of empty Action sets.
-* Activation-time validation of existing Automation data.
+- Trigger validation.
+- Condition validation.
+- Condition field validation through Condition Registry.
+- Condition operator validation through Condition Registry.
+- Condition value validation.
+- Action type validation.
+- Order status validation.
+- Notification configuration validation.
+- Prevention of empty Action sets.
+- Activation-time validation of existing Automation data.
 
 The Condition validation layer no longer relies on a hard-coded list of Condition fields and operators.
 
@@ -508,10 +525,10 @@ WooSmart_Condition_Registry
 
 Future validation will include:
 
-* Conflict detection.
-* Condition overlap analysis.
-* Action conflict analysis.
-* Execution policy validation.
+- Conflict detection.
+- Condition overlap analysis.
+- Action conflict analysis.
+- Execution policy validation.
 
 ---
 
@@ -521,12 +538,12 @@ Central registry for Condition definitions.
 
 Current responsibilities:
 
-* Register Condition definitions.
-* Check whether a Condition exists.
-* Retrieve a Condition definition.
-* Retrieve all public Condition definitions.
-* Retrieve the allowed operators for a Condition.
-* Execute the registered evaluator for a Condition.
+- Register Condition definitions.
+- Check whether a Condition exists.
+- Retrieve a Condition definition.
+- Retrieve all public Condition definitions.
+- Retrieve the allowed operators for a Condition.
+- Execute the registered evaluator for a Condition.
 
 Current registered Condition:
 
@@ -618,12 +635,12 @@ Central registry for Action definitions.
 
 Current responsibilities:
 
-* Register Action definitions.
-* Check whether an Action exists.
-* Retrieve Action definitions.
-* Retrieve all Action definitions.
-* Resolve an Action handler.
-* Provide Action field metadata.
+- Register Action definitions.
+- Check whether an Action exists.
+- Retrieve Action definitions.
+- Retrieve all Action definitions.
+- Resolve an Action handler.
+- Provide Action field metadata.
 
 Current registered Actions:
 
@@ -703,10 +720,18 @@ The user-facing UI displays localized Persian labels where appropriate.
 
 ### notify_admin
 
-Sends an email notification to the WordPress store administrator using:
+Sends an email notification through:
 
 ```
 wp_mail()
+```
+
+The Action Engine resolves the notification recipient in this order:
+
+```
+WooSmart Notification Email
+        ↓
+WordPress admin_email fallback
 ```
 
 Supported placeholders:
@@ -720,21 +745,11 @@ Supported placeholders:
 
 The Action Engine does not implement SMTP itself.
 
-SMTP configuration remains a WordPress-level / environment-level responsibility.
+SMTP and Mail Transport configuration remain WordPress-level / environment-level responsibilities.
+
+WooSmart does not force a provider-specific `From` address. The active WordPress Mail Transport controls the actual sender.
 
 The Action Engine captures `wp_mail_failed` errors during its own notification attempt so the actual WordPress / PHPMailer failure can be stored in WooSmart Logs.
-
-The current development implementation also explicitly controls the sender address used by the WooSmart notification attempt.
-
-The original local XAMPP sender problem:
-
-```
-wordpress@localhost
-```
-
-has been identified and bypassed for development.
-
-The current diagnostics now show the configured administrator address as the sender, but the local mailer still fails during initialization.
 
 ---
 
@@ -842,14 +857,14 @@ Logger
 
 The Execution Engine currently supports:
 
-* Trigger processing.
-* Active Automation lookup.
-* Condition evaluation.
-* Action execution.
-* Action success detection.
-* Action failure detection.
-* Automation success logging.
-* Automation failure logging.
+- Trigger processing.
+- Active Automation lookup.
+- Condition evaluation.
+- Action execution.
+- Action success detection.
+- Action failure detection.
+- Automation success logging.
+- Automation failure logging.
 
 A temporary diagnostic event was added during development:
 
@@ -1045,117 +1060,355 @@ Condition evaluation uses numeric values.
 
 ---
 
+# Notification Settings
+
+WooSmart now provides a dedicated Notification Settings page.
+
+Administration path:
+
+```
+WooSmart
+    ↓
+تنظیمات اعلان‌ها
+```
+
+The setting allows the store administrator to configure the **recipient address** for WooSmart notifications without changing the WordPress `admin_email` option.
+
+Setting:
+
+```
+ایمیل دریافت اعلان
+```
+
+Behavior:
+
+```
+Configured WooSmart notification email
+        ↓
+Use configured email
+
+If empty
+        ↓
+Fallback to WordPress admin_email
+```
+
+This separation is intentional.
+
+The recipient address is a WooSmart preference.
+
+SMTP credentials, API keys, SMTP host, SMTP port, sender address, and mail transport configuration do not belong to this setting.
+
+WooSmart does not manage or replace the WordPress Mail Transport.
+
+---
+
+# Notification Test System
+
+WooSmart now provides an **ایمیل آزمایشی** action in Notification Settings.
+
+The test uses:
+
+```
+wp_mail()
+```
+
+and therefore validates the complete WordPress mail path rather than attempting to implement a separate SMTP system.
+
+The test validates:
+
+```
+WooSmart Notification Settings
+        ↓
+Recipient Resolution
+        ↓
+wp_mail()
+        ↓
+WordPress Mail Transport
+        ↓
+SMTP / Email Provider
+```
+
+A successful test confirms that the WordPress mail transport accepted the message for delivery.
+
+A failed test captures the underlying `wp_mail_failed` diagnostic when available.
+
+---
+
+# Provider-Agnostic Notification Diagnostics
+
+WooSmart notification diagnostics are intentionally **provider-agnostic**.
+
+WooSmart does not contain special-case logic for:
+
+```
+Resend
+Brevo
+Gmail
+Outlook
+Amazon SES
+SMTP hosting providers
+```
+
+Instead, WooSmart reads the standard WordPress `WP_Error` produced by the mail transport and presents a generic classification plus the original diagnostic message.
+
+Current generic classifications include:
+
+```
+خطای محدودیت گیرنده
+خطای احراز هویت سرویس ایمیل
+خطای اتصال به سرویس ایمیل
+خطای آدرس فرستنده
+خطای SSL / TLS
+خطای اتصال یا محدودیت شبکه
+خطای عمومی سرویس ارسال ایمیل
+```
+
+The classification is based on general mail-related error patterns and is not tied to a specific provider.
+
+The original provider error message is preserved and displayed to the administrator for troubleshooting.
+
+Sensitive SMTP credentials and API keys are not displayed by WooSmart diagnostics.
+
+---
+
+# Confirmed Real Mail Transport Test
+
+The local development environment has successfully delivered a real WooCommerce notification email using:
+
+```
+WooSmart
+    ↓
+wp_mail()
+    ↓
+WP Mail SMTP
+    ↓
+Configured Mail Transport
+    ↓
+Real Inbox
+```
+
+A real order notification for Order #60 was received successfully.
+
+The WooSmart log confirmed:
+
+```
+action_executed
+```
+
+with:
+
+```
+action_type:
+    notify_admin
+
+recipient:
+    mht7631@gmail.com
+
+from_source:
+    WP Mail SMTP / WordPress Mail Transport
+
+order_id:
+    60
+```
+
+The same successful path was subsequently confirmed with Order #61.
+
+This proves that the WooSmart notification Action, WordPress mail path, configured Mail Transport, and real email delivery can work together.
+
+---
+
+# Confirmed Recipient Restriction Diagnostic
+
+During testing, the configured WooSmart recipient was changed to a second email address while the development Mail Transport was still using a test sender configuration.
+
+The test email failed.
+
+WooSmart correctly captured and displayed the actual provider error through `wp_mail_failed`.
+
+The observed diagnostic was:
+
+```
+403: validation_error
+
+You can only send testing emails to your own email address.
+
+To send emails to other recipients, verify a domain at the email provider
+and use a From address based on that verified domain.
+```
+
+The provider was not hard-coded into WooSmart diagnostics.
+
+WooSmart classified the error generically as:
+
+```
+خطای محدودیت گیرنده
+```
+
+while preserving the original error details.
+
+This confirms that provider-side recipient restrictions are correctly surfaced without coupling WooSmart to a specific email provider.
+
+---
+
+# Important Notification Architecture Decision
+
+WooSmart separates the email **recipient** from the email **sender**.
+
+The recipient is managed by WooSmart:
+
+```
+WooSmart Notification Email
+```
+
+The sender is controlled by the WordPress Mail Transport:
+
+```
+WP Mail SMTP
+or
+Other WordPress Mail Transport
+```
+
+Therefore WooSmart does not assume that a store uses Resend.
+
+A production site may use:
+
+```
+Resend
+Brevo
+Gmail
+Microsoft 365
+Amazon SES
+SMTP hosting
+Another SMTP / transactional email provider
+```
+
+The WooSmart core uses the provider-neutral WordPress mail interface:
+
+```
+wp_mail()
+```
+
+This architecture is required to minimize conflicts with other WordPress plugins and existing site mail configuration.
+
+---
+
 # What Has Been Implemented
 
 ## Foundation
 
-* [x] Plugin bootstrap
-* [x] Plugin activation
-* [x] Plugin deactivation
-* [x] WooCommerce dependency detection
-* [x] WooCommerce admin notice
-* [x] Internal Automation Custom Post Type
-* [x] WooCommerce-aware currency helper
+- [x] Plugin bootstrap
+- [x] Plugin activation
+- [x] Plugin deactivation
+- [x] WooCommerce dependency detection
+- [x] WooCommerce admin notice
+- [x] Internal Automation Custom Post Type
+- [x] WooCommerce-aware currency helper
 
 ## Admin
 
-* [x] WooSmart admin menu
-* [x] Dashboard
-* [x] Automation list
-* [x] Create Automation
-* [x] Edit Automation
-* [x] Enable / Disable Automation
-* [x] Duplicate Automation
-* [x] Delete Automation
-* [x] Logs page
-* [x] Persian interface
-* [x] RTL interface
-* [x] Persian terminology
-* [x] Persian action labels
-* [x] Persian order-status labels
-* [x] WooCommerce-aware currency display
-* [x] IRT → تومان display
-* [x] Thousand separators in amount input
-* [x] Separate currency label in numeric amount input
-* [x] Dynamic Condition field list
-* [x] Dynamic Condition operator list
-* [x] Dynamic Condition value type handling
+- [x] WooSmart admin menu
+- [x] Dashboard
+- [x] Automation list
+- [x] Create Automation
+- [x] Edit Automation
+- [x] Enable / Disable Automation
+- [x] Duplicate Automation
+- [x] Delete Automation
+- [x] Logs page
+- [x] Persian interface
+- [x] RTL interface
+- [x] Persian terminology
+- [x] Persian action labels
+- [x] Persian order-status labels
+- [x] WooCommerce-aware currency display
+- [x] IRT → تومان display
+- [x] Thousand separators in amount input
+- [x] Separate currency label in numeric amount input
+- [x] Dynamic Condition field list
+- [x] Dynamic Condition operator list
+- [x] Dynamic Condition value type handling
+- [x] Notification Settings page
+- [x] Configurable WooSmart notification recipient
+- [x] Notification email fallback to WordPress admin_email
+- [x] Test notification email
 
 ## Automation Management
 
-* [x] Create
-* [x] Update
-* [x] Toggle
-* [x] Duplicate
-* [x] Delete
-* [x] Validation
-* [x] Trigger validation
-* [x] Condition validation
-* [x] Condition Registry validation
-* [x] Action validation
-* [x] Notification configuration validation
-* [x] Existing Automation validation
+- [x] Create
+- [x] Update
+- [x] Toggle
+- [x] Duplicate
+- [x] Delete
+- [x] Validation
+- [x] Trigger validation
+- [x] Condition validation
+- [x] Condition Registry validation
+- [x] Action validation
+- [x] Notification configuration validation
+- [x] Existing Automation validation
 
 ## Trigger System
 
-* [x] Trigger infrastructure
-* [x] Order Created trigger
-* [x] WooCommerce order context
+- [x] Trigger infrastructure
+- [x] Order Created trigger
+- [x] WooCommerce order context
 
 ## Condition System
 
-* [x] Condition Registry
-* [x] Condition Engine
-* [x] Order Total
-* [x] Equal
-* [x] Not Equal
-* [x] Greater Than
-* [x] Greater Than or Equal
-* [x] Less Than
-* [x] Less Than or Equal
-* [x] Dynamic Condition Builder
-* [x] Registry-based Condition validation
+- [x] Condition Registry
+- [x] Condition Engine
+- [x] Order Total
+- [x] Equal
+- [x] Not Equal
+- [x] Greater Than
+- [x] Greater Than or Equal
+- [x] Less Than
+- [x] Less Than or Equal
+- [x] Dynamic Condition Builder
+- [x] Registry-based Condition validation
 
 ## Action System
 
-* [x] Action Registry
-* [x] Action Engine
-* [x] Change Order Status
-* [x] Notify Store Administrator
-* [x] Action execution through Registry
-* [x] Action validation
-* [x] Action success detection
-* [x] Action failure detection
-* [x] Action execution logging
-* [x] Multiple Action configuration storage
-* [x] Multiple Action sequential execution
-* [x] `wp_mail_failed` diagnostic capture
+- [x] Action Registry
+- [x] Action Engine
+- [x] Change Order Status
+- [x] Notify Store Administrator
+- [x] Action execution through Registry
+- [x] Action validation
+- [x] Action success detection
+- [x] Action failure detection
+- [x] Action execution logging
+- [x] Multiple Action configuration storage
+- [x] Multiple Action sequential execution
+- [x] `wp_mail_failed` diagnostic capture
+- [x] WooSmart notification recipient resolution
+- [x] Provider-neutral mail delivery
 
 ## Execution
 
-* [x] Trigger processing
-* [x] Active Automation lookup
-* [x] Multiple Automation detection
-* [x] Condition evaluation
-* [x] Action execution
-* [x] Successful execution logging
-* [x] Failed Action detection
-* [x] Failed Automation detection
-* [x] Execution result handling
-* [x] Temporary `automation_scan` diagnostics
+- [x] Trigger processing
+- [x] Active Automation lookup
+- [x] Multiple Automation detection
+- [x] Condition evaluation
+- [x] Action execution
+- [x] Successful execution logging
+- [x] Failed Action detection
+- [x] Failed Automation detection
+- [x] Execution result handling
+- [x] Temporary `automation_scan` diagnostics
 
 ## Logging
 
-* [x] Event logging
-* [x] Context logging
-* [x] Action-level failure logging
-* [x] Automation-level failure logging
-* [x] Condition pass logging
-* [x] Condition failure logging
-* [x] Multiple Automation scan logging
-* [x] Persian log labels
-* [x] Latest 100 log entries retention
-* [x] Mail failure diagnostics
+- [x] Event logging
+- [x] Context logging
+- [x] Action-level failure logging
+- [x] Automation-level failure logging
+- [x] Condition pass logging
+- [x] Condition failure logging
+- [x] Multiple Automation scan logging
+- [x] Persian log labels
+- [x] Latest 100 log entries retention
+- [x] Mail failure diagnostics
 
 ---
 
@@ -1367,129 +1620,145 @@ message:
 
 # Current Notification Status
 
-The notification Action itself is implemented and reaches the WordPress mail system.
+The notification Action is implemented and has been verified through a real WordPress mail transport.
 
-The initial local XAMPP problem was:
+The original local XAMPP problem was:
 
 ```
 نشانی نامعتبر: (From): wordpress@localhost
 ```
 
-The WooSmart notification implementation was then changed to explicitly use the configured administrator email as the development sender.
+This was not solved by adding SMTP logic to WooSmart.
 
-Current development diagnostics now show:
+Instead, the development environment was configured to use a working WordPress Mail Transport, and WooSmart was changed so that it does not override the final From address.
 
-```
-from:
-    mht7631@gmail.com
-```
+Real delivery was then confirmed for WooCommerce Orders #60 and #61.
 
-Therefore the original `wordpress@localhost` From-address problem has been isolated and bypassed for the current development test.
-
-The current local XAMPP test now fails later during mailer initialization with:
+The successful execution path is:
 
 ```
-نمی‌توان تابع ایمیل را نمونه‌سازی کرد.
+WooSmart
+    ↓
+notify_admin
+    ↓
+wp_mail()
+    ↓
+WP Mail SMTP / WordPress Mail Transport
+    ↓
+Email Provider
+    ↓
+Real Inbox
 ```
 
-and:
+The WooSmart log confirms successful Action execution and identifies the mail sender as being controlled by the active WordPress Mail Transport.
 
-```
-mail_error_code:
-    2
-```
+Therefore the Notification Action is now considered **functionally working in the tested development environment**.
 
-Therefore:
-
-```
-Condition system = working
-Action Registry = working
-Action Engine reaching notify_admin = working
-From address = corrected for development
-wp_mail() invocation = working
-Mailer initialization / mail transport = currently failing
-```
-
-This is currently considered an environment / mail transport issue rather than a Condition or Action Registry issue.
+Provider-specific sender restrictions can still affect delivery and are intentionally outside the WooSmart core.
 
 ---
 
-# SMTP Limitation
+# SMTP / Mail Transport Architecture
 
-The local XAMPP environment does not currently provide a working mail transport for the WooSmart notification Action.
+WooSmart does not implement SMTP itself.
 
-The original default sender failure:
-
-```
-wordpress@localhost
-```
-
-has been addressed for the current development test.
-
-The remaining failure is:
+The intended architecture is:
 
 ```
-نمی‌توان تابع ایمیل را نمونه‌سازی کرد.
-```
-
-with error code:
-
-```
-2
-```
-
-Therefore the next Notification milestone is:
-
-```
-Configure / validate a real mail transport
+WooSmart
     ↓
-Test real email delivery
+wp_mail()
+    ↓
+WordPress Mail Transport
+    ↓
+Any compatible SMTP / Email Provider
 ```
 
-WooSmart does not implement an SMTP server itself.
+Possible providers include:
 
-SMTP configuration remains a WordPress-level / environment-level responsibility.
+```
+Resend
+Brevo
+Gmail
+Microsoft 365
+Amazon SES
+SMTP hosting
+Other transactional email providers
+```
+
+The exact provider is an environment / site configuration decision.
+
+WooSmart must remain provider-neutral.
+
+This avoids unnecessary conflicts with other WordPress plugins and allows site administrators to keep using their existing email infrastructure.
 
 ---
 
 # Notification Error Diagnostics
 
-The current `notify_admin` implementation listens to:
+The Notification Settings test captures `wp_mail_failed` errors when available.
+
+The diagnostic layer is provider-agnostic.
+
+WooSmart does not inspect or require a provider-specific API response format.
+
+Instead it uses the standard WordPress `WP_Error` generated by the mail transport.
+
+The diagnostic output contains:
 
 ```
-wp_mail_failed
+Error Category
+Error Code, when available
+Original Error Message
 ```
 
-while it is executing its own email request.
-
-When `wp_mail()` fails, WooSmart attempts to record:
+Generic error categories currently include:
 
 ```
-mail_error
+خطای محدودیت گیرنده
+خطای احراز هویت سرویس ایمیل
+خطای اتصال به سرویس ایمیل
+خطای آدرس فرستنده
+خطای SSL / TLS
+خطای اتصال یا محدودیت شبکه
+خطای عمومی سرویس ارسال ایمیل
 ```
 
-and, where available:
+The original provider error message is preserved.
+
+This means WooSmart can report useful diagnostics even when a site uses a provider that was not known when the plugin was developed.
+
+The diagnostic layer does not display SMTP passwords, API keys, or other credentials.
+
+---
+
+# Confirmed Diagnostic Example: Recipient Restriction
+
+During development, the WooSmart Notification recipient was changed from the configured working development address to another email address.
+
+The active test Mail Transport rejected the test message because its test-mode policy allowed delivery only to the account's own email address.
+
+WooSmart received the provider error through `wp_mail_failed` and displayed:
 
 ```
-mail_error_code
+نوع خطا:
+خطای محدودیت گیرنده
 ```
 
-This provides more useful diagnostics than simply recording:
+The original diagnostic message remained visible.
+
+This confirmed all of the following:
 
 ```
-action_failed
+WooSmart recipient setting = working
+wp_mail() = working
+Mail Transport = reached
+Provider error = captured
+Provider-specific error = preserved
+Generic WooSmart classification = working
 ```
 
-The diagnostic system should help distinguish:
-
-```
-Invalid From address
-SMTP connection error
-Authentication failure
-Mailer initialization failure
-Mail transport failure
-Other PHPMailer errors
-```
+The provider restriction itself is not a WooSmart bug and should be resolved through the selected Mail Transport / provider configuration, such as verified sending domain requirements where applicable.
 
 ---
 
@@ -1874,12 +2143,12 @@ Add Order Note
 
 The UI should eventually allow users to:
 
-* Add an Action.
-* Remove an Action.
-* Reorder Actions.
-* Configure each Action independently.
-* Validate every Action.
-* See the result of each Action separately.
+- Add an Action.
+- Remove an Action.
+- Reorder Actions.
+- Configure each Action independently.
+- Validate every Action.
+- See the result of each Action separately.
 
 The current foundation already provides:
 
@@ -1930,16 +2199,16 @@ This allows future Actions to be added without tightly coupling them to the Auto
 
 Currently implemented:
 
-* [x] Change Order Status
+- [x] Change Order Status
 
 Future:
 
-* [ ] Add Order Note
-* [ ] Modify Order Metadata
-* [ ] Apply Coupon
-* [ ] Modify Order Items
-* [ ] Add Product to Order
-* [ ] Remove Product from Order
+- [ ] Add Order Note
+- [ ] Modify Order Metadata
+- [ ] Apply Coupon
+- [ ] Modify Order Items
+- [ ] Add Product to Order
+- [ ] Remove Product from Order
 
 ---
 
@@ -1947,16 +2216,16 @@ Future:
 
 Currently implemented:
 
-* [x] Notify Store Administrator by Email
+- [x] Notify Store Administrator by Email
 
 Future:
 
-* [ ] Customer Email
-* [ ] Additional Admin Email
-* [ ] SMS
-* [ ] WhatsApp
-* [ ] Telegram
-* [ ] Push Notification
+- [ ] Customer Email
+- [ ] Additional Admin Email
+- [ ] SMS
+- [ ] WhatsApp
+- [ ] Telegram
+- [ ] Push Notification
 
 ---
 
@@ -1964,13 +2233,13 @@ Future:
 
 Future:
 
-* [ ] Webhook
-* [ ] HTTP Request
-* [ ] REST API
-* [ ] Slack
-* [ ] Discord
-* [ ] Google Sheets
-* [ ] CRM integrations
+- [ ] Webhook
+- [ ] HTTP Request
+- [ ] REST API
+- [ ] Slack
+- [ ] Discord
+- [ ] Google Sheets
+- [ ] CRM integrations
 
 ---
 
@@ -1980,17 +2249,17 @@ Future:
 
 Currently implemented:
 
-* [x] Order Created
+- [x] Order Created
 
 Future:
 
-* [ ] Order Paid
-* [ ] Order Status Changed
-* [ ] Order Completed
-* [ ] Order Cancelled
-* [ ] Order Failed
-* [ ] Order Refunded
-* [ ] Order On Hold
+- [ ] Order Paid
+- [ ] Order Status Changed
+- [ ] Order Completed
+- [ ] Order Cancelled
+- [ ] Order Failed
+- [ ] Order Refunded
+- [ ] Order On Hold
 
 ---
 
@@ -1998,9 +2267,9 @@ Future:
 
 Future:
 
-* [ ] Customer Registered
-* [ ] Customer Login
-* [ ] Customer Role Changed
+- [ ] Customer Registered
+- [ ] Customer Login
+- [ ] Customer Role Changed
 
 ---
 
@@ -2008,11 +2277,11 @@ Future:
 
 Future:
 
-* [ ] Product Created
-* [ ] Product Updated
-* [ ] Product Stock Changed
-* [ ] Product Becomes In Stock
-* [ ] Product Becomes Out of Stock
+- [ ] Product Created
+- [ ] Product Updated
+- [ ] Product Stock Changed
+- [ ] Product Becomes In Stock
+- [ ] Product Becomes Out of Stock
 
 ---
 
@@ -2020,10 +2289,10 @@ Future:
 
 Future:
 
-* [ ] Cart Updated
-* [ ] Checkout Started
-* [ ] Checkout Completed
-* [ ] Abandoned Cart
+- [ ] Cart Updated
+- [ ] Checkout Started
+- [ ] Checkout Completed
+- [ ] Abandoned Cart
 
 ---
 
@@ -2033,22 +2302,22 @@ Future:
 
 Currently implemented:
 
-* [x] Order Total
+- [x] Order Total
 
 Future:
 
-* [ ] Order Subtotal
-* [ ] Order Status
-* [ ] Payment Method
-* [ ] Shipping Method
-* [ ] Coupon
-* [ ] Customer
-* [ ] Billing Country
-* [ ] Shipping Country
-* [ ] Order Item Count
-* [ ] Product
-* [ ] Product Category
-* [ ] Product Quantity
+- [ ] Order Subtotal
+- [ ] Order Status
+- [ ] Payment Method
+- [ ] Shipping Method
+- [ ] Coupon
+- [ ] Customer
+- [ ] Billing Country
+- [ ] Shipping Country
+- [ ] Order Item Count
+- [ ] Product
+- [ ] Product Category
+- [ ] Product Quantity
 
 ---
 
@@ -2056,11 +2325,11 @@ Future:
 
 Future:
 
-* [ ] Customer Role
-* [ ] Customer Email
-* [ ] Customer Order Count
-* [ ] Customer Total Spent
-* [ ] Customer Registration Date
+- [ ] Customer Role
+- [ ] Customer Email
+- [ ] Customer Order Count
+- [ ] Customer Total Spent
+- [ ] Customer Registration Date
 
 ---
 
@@ -2068,12 +2337,12 @@ Future:
 
 Future:
 
-* [ ] Product Price
-* [ ] Stock Quantity
-* [ ] Stock Status
-* [ ] Category
-* [ ] SKU
-* [ ] Product Type
+- [ ] Product Price
+- [ ] Stock Quantity
+- [ ] Stock Status
+- [ ] Category
+- [ ] SKU
+- [ ] Product Type
 
 ---
 
@@ -2141,52 +2410,61 @@ The core Automation Engine should not be tightly coupled to a single messaging p
 
 Notification providers should be replaceable and extensible.
 
-The immediate Notification milestone is:
+The immediate Notification milestone has now been substantially completed in the development environment:
 
 ```
-Valid From Address
+WooSmart Notification Settings
     ↓
-Mail Transport
+Configured Recipient
     ↓
-Real Delivery Test
+wp_mail()
     ↓
-Better Notification Configuration
+WordPress Mail Transport
+    ↓
+Real Email Delivery
 ```
+
+Remaining production concerns are provider-specific sender/domain policies and the final site Mail Transport configuration.
 
 ---
 
 # Planned Notification Settings
 
-The Notification system is expected to eventually provide configurable sender information.
+The Notification Settings architecture now exists in the MVP.
 
-Potential settings:
+Current setting:
 
 ```
-From Name
+WooSmart Notification Email
+```
+
+Current behavior:
+
+```
+Configured WooSmart email
+    ↓
+Used as notification recipient
+
+Empty setting
+    ↓
+WordPress admin_email fallback
+```
+
+The setting is intentionally separate from:
+
+```
+SMTP Host
+SMTP Port
+SMTP Username
+SMTP Password
+API Key
 From Email
+From Name
 ```
 
-Example:
+Those values belong to the active WordPress Mail Transport / email provider configuration.
 
-```
-From Name:
-    WooSmart Automation
-
-From Email:
-    no-reply@example.com
-```
-
-The current local environment demonstrated that the WordPress default:
-
-```
-wordpress@localhost
-```
-
-can produce an invalid From-address error.
-
-The development implementation has now explicitly supplied the administrator address for the WooSmart notification attempt.
-
-The final implementation should still provide a proper configurable sender and production mail transport rather than depending on local XAMPP defaults.
+Future WooSmart versions may provide more advanced sender configuration, but the core notification Action will remain provider-neutral.
 
 ---
 
@@ -2287,11 +2565,11 @@ Notify Administrator
 
 Potential infrastructure:
 
-* [ ] WP-Cron
-* [ ] Action Queue
-* [ ] Background Processing
-* [ ] Retry Mechanism
-* [ ] Failed Job Handling
+- [ ] WP-Cron
+- [ ] Action Queue
+- [ ] Background Processing
+- [ ] Retry Mechanism
+- [ ] Failed Job Handling
 
 ---
 
@@ -2299,18 +2577,20 @@ Potential infrastructure:
 
 The production system should eventually include:
 
-* [x] Basic Action failure detection
-* [x] Automation failure detection
-* [x] Mail failure diagnostics
-* [x] Mailer initialization failure diagnostics
-* [ ] Structured errors
-* [ ] Action-level error details
-* [ ] Automation-level error details
-* [ ] Retry count
-* [ ] Retry delay
-* [ ] Failed execution queue
-* [ ] Error notifications
-* [ ] Debug mode
+- [x] Basic Action failure detection
+- [x] Automation failure detection
+- [x] Mail failure diagnostics
+- [x] Mailer initialization failure diagnostics
+- [x] Provider-agnostic notification error classification
+- [x] Original notification provider error preservation
+- [ ] Structured errors
+- [ ] Action-level error details
+- [ ] Automation-level error details
+- [ ] Retry count
+- [ ] Retry delay
+- [ ] Failed execution queue
+- [ ] Error notifications
+- [ ] Debug mode
 
 The current MVP already distinguishes Action failure from Automation failure.
 
@@ -2354,16 +2634,16 @@ The current implementation is suitable for MVP development and real WooCommerce 
 
 Production-scale improvements may include:
 
-* [ ] Automation caching
-* [ ] Optimized Automation queries
-* [ ] Reduced database queries
-* [ ] Dedicated Logs table
-* [ ] Background execution
-* [ ] Execution queue
-* [ ] Better handling of large Automation counts
-* [ ] Better handling of large order volumes
-* [ ] Efficient Trigger filtering
-* [ ] Execution batching where appropriate
+- [ ] Automation caching
+- [ ] Optimized Automation queries
+- [ ] Reduced database queries
+- [ ] Dedicated Logs table
+- [ ] Background execution
+- [ ] Execution queue
+- [ ] Better handling of large Automation counts
+- [ ] Better handling of large order volumes
+- [ ] Efficient Trigger filtering
+- [ ] Execution batching where appropriate
 
 Performance optimization should be driven by real requirements rather than premature architectural complexity.
 
@@ -2413,25 +2693,25 @@ The exact database architecture will be decided after the feature and performanc
 
 Current security measures:
 
-* [x] Capability checks
-* [x] Nonces
-* [x] Input sanitization
-* [x] Output escaping
-* [x] Action validation
-* [x] Trigger validation
-* [x] Condition validation
-* [x] Automation configuration validation
+- [x] Capability checks
+- [x] Nonces
+- [x] Input sanitization
+- [x] Output escaping
+- [x] Action validation
+- [x] Trigger validation
+- [x] Condition validation
+- [x] Automation configuration validation
 
 Future security work:
 
-* [ ] REST API authentication
-* [ ] Webhook authentication
-* [ ] Secure credential storage
-* [ ] External request validation
-* [ ] SSRF protection
-* [ ] Permission separation
-* [ ] Action-level permissions
-* [ ] Rate limiting for external requests
+- [ ] REST API authentication
+- [ ] Webhook authentication
+- [ ] Secure credential storage
+- [ ] External request validation
+- [ ] SSRF protection
+- [ ] Permission separation
+- [ ] Action-level permissions
+- [ ] Rate limiting for external requests
 
 Security must be considered before implementing Webhooks, HTTP Requests, external APIs, or third-party integrations.
 
@@ -2473,52 +2753,57 @@ Continue
 
 The following end-to-end behavior has been confirmed:
 
-* [x] Create Automation
-* [x] Edit Automation
-* [x] Enable / Disable
-* [x] Duplicate
-* [x] Delete
-* [x] Order Created trigger
-* [x] Order Total condition
-* [x] Condition pass
-* [x] Condition failure
-* [x] Change Order Status
-* [x] Multiple Action configuration storage
-* [x] Multiple Action execution
-* [x] Action Registry resolution
-* [x] Action execution
-* [x] Failed Action detection
-* [x] Failed Automation detection
-* [x] Persian Admin UI
-* [x] RTL interface
-* [x] WooCommerce IRT configuration
-* [x] WooSmart تومان display for IRT
-* [x] WooCommerce-aware currency display
-* [x] No independent currency conversion
-* [x] Thousands separators in amount input
-* [x] Separate currency label in numeric input
-* [x] Real WooCommerce order execution
-* [x] Automation execution logging
-* [x] Action execution logging
-* [x] Condition pass logging
-* [x] Condition failure logging
-* [x] Multiple Automation detection
-* [x] `automation_scan` diagnostics
-* [x] Notification Action failure logging
-* [x] `wp_mail_failed` diagnostic capture
-* [x] Detection of invalid local `From` address
-* [x] Detection of mailer initialization failure
+- [x] Create Automation
+- [x] Edit Automation
+- [x] Enable / Disable
+- [x] Duplicate
+- [x] Delete
+- [x] Order Created trigger
+- [x] Order Total condition
+- [x] Condition pass
+- [x] Condition failure
+- [x] Change Order Status
+- [x] Multiple Action configuration storage
+- [x] Multiple Action execution
+- [x] Action Registry resolution
+- [x] Action execution
+- [x] Failed Action detection
+- [x] Failed Automation detection
+- [x] Persian Admin UI
+- [x] RTL interface
+- [x] WooCommerce IRT configuration
+- [x] WooSmart تومان display for IRT
+- [x] WooCommerce-aware currency display
+- [x] No independent currency conversion
+- [x] Thousands separators in amount input
+- [x] Separate currency label in numeric input
+- [x] Real WooCommerce order execution
+- [x] Automation execution logging
+- [x] Action execution logging
+- [x] Condition pass logging
+- [x] Condition failure logging
+- [x] Multiple Automation detection
+- [x] `automation_scan` diagnostics
+- [x] Notification Settings
+- [x] WooSmart notification recipient configuration
+- [x] Notification recipient fallback to WordPress admin_email
+- [x] Test email sent successfully through the configured WordPress Mail Transport
+- [x] Real notification delivery to Gmail confirmed
+- [x] `wp_mail_failed` diagnostic capture
+- [x] Generic provider-agnostic notification error classification
+- [x] Preservation of original provider error message
+- [x] Recipient restriction diagnostics
 
 Pending:
 
-* [ ] Real mail transport configuration
-* [ ] Real SMTP delivery test
-* [ ] Full Action Registry-driven UI
-* [ ] Final Multiple Actions UI stabilization
-* [ ] Conflict Detection
-* [ ] Execution Priority
-* [ ] Execution Policy
-* [ ] Multiple Conditions
+- [ ] Production-grade sending domain / sender configuration
+- [ ] Final production Mail Transport validation on a real hosted site
+- [ ] Full Action Registry-driven UI
+- [ ] Final Multiple Actions UI stabilization
+- [ ] Conflict Detection
+- [ ] Execution Priority
+- [ ] Execution Policy
+- [ ] Multiple Conditions
 
 ---
 
@@ -2549,51 +2834,40 @@ This confirmed that multiple active Automations can be discovered for the same T
 
 ---
 
-## Automation 43 + Mail Failure
+## Successful Notification Delivery
 
-A real WooCommerce order produced:
+Order #60 and Order #61 both reached the notification Action successfully.
 
-```
-Automation 43
-    ↓
-condition_passed
-    ↓
-notify_admin
-    ↓
-wp_mail()
-    ↓
-Mailer initialization failed
-```
-
-Current diagnostic context includes:
+Example successful context:
 
 ```
-action_type:
-    notify_admin
-
-recipient:
-    mht7631@gmail.com
-
-from:
-    mht7631@gmail.com
-
-order_id:
-    58
-
-mail_error:
-    نمی‌توان تابع ایمیل را نمونه‌سازی کرد.
-
-mail_error_code:
-    2
+{
+    "action_type": "notify_admin",
+    "recipient": "mht7631@gmail.com",
+    "from_source": "WP Mail SMTP / WordPress Mail Transport",
+    "order_id": 61
+}
 ```
 
-This confirms that:
+A real email was received in Gmail.
 
-- The Condition Engine passed the Condition.
-- Automation 43 reached the Action Engine.
-- `notify_admin` was executed.
-- The development sender address was no longer `wordpress@localhost`.
-- The remaining failure occurred during mailer initialization.
+This confirms that the end-to-end notification path is functional in the tested development environment.
+
+---
+
+## Notification Provider Restriction
+
+A test using a different recipient produced a real provider-side rejection.
+
+WooSmart received the provider message through `wp_mail_failed`, classified it as:
+
+```
+خطای محدودیت گیرنده
+```
+
+and preserved the provider's original error details.
+
+This confirms provider-neutral diagnostic handling.
 
 ---
 
@@ -2601,39 +2875,39 @@ This confirms that:
 
 ## High Priority
 
-* [ ] Configure / validate the local mail transport.
-* [ ] Verify `notify_admin` end-to-end with a real SMTP configuration.
-* [ ] Complete the final Multiple Actions UI stabilization.
-* [ ] Implement Conflict Detection.
-* [ ] Implement Execution Priority.
-* [ ] Implement Execution Policy.
-* [ ] Make execution planning deterministic.
+- [ ] Finalize production sending domain / sender configuration guidance.
+- [ ] Validate the Mail Transport on a real hosted WordPress installation.
+- [ ] Complete the final Multiple Actions UI stabilization.
+- [ ] Implement Conflict Detection.
+- [ ] Implement Execution Priority.
+- [ ] Implement Execution Policy.
+- [ ] Make execution planning deterministic.
 
 ## Medium Priority
 
-* [ ] Multiple Conditions.
-* [ ] AND / OR groups.
-* [ ] More Order Conditions.
-* [ ] More Order Actions.
-* [ ] Better execution summaries.
-* [ ] Better conflict warnings.
-* [ ] Better Action-level error messages.
-* [ ] Dedicated Notification Settings.
+- [ ] Multiple Conditions.
+- [ ] AND / OR groups.
+- [ ] More Order Conditions.
+- [ ] More Order Actions.
+- [ ] Better execution summaries.
+- [ ] Better conflict warnings.
+- [ ] Better Action-level error messages.
+- [ ] Advanced Notification Settings.
 
 ## Future
 
-* [ ] Execution History.
-* [ ] Automation Trace.
-* [ ] Scheduled Actions.
-* [ ] Retry Queue.
-* [ ] Additional Triggers.
-* [ ] Additional Conditions.
-* [ ] Additional Actions.
-* [ ] Integrations.
-* [ ] Developer API.
-* [ ] Advanced Automation Builder.
-* [ ] Dedicated database tables.
-* [ ] Automated Test Suite.
+- [ ] Execution History.
+- [ ] Automation Trace.
+- [ ] Scheduled Actions.
+- [ ] Retry Queue.
+- [ ] Additional Triggers.
+- [ ] Additional Conditions.
+- [ ] Additional Actions.
+- [ ] Integrations.
+- [ ] Developer API.
+- [ ] Advanced Automation Builder.
+- [ ] Dedicated database tables.
+- [ ] Automated Test Suite.
 
 ---
 
@@ -2643,51 +2917,48 @@ The recommended development order is:
 
 ```
 STEP 1
-Resolve local Mail Transport / SMTP Environment
+Complete and stabilize Notification Settings
     ↓
 STEP 2
-Verify real email delivery
+Complete and stabilize Multiple Actions UI
     ↓
 STEP 3
-Stabilize Multiple Actions UI and execution policy integration
-    ↓
-STEP 4
 Conflict Detection
     ↓
-STEP 5
+STEP 4
 Execution Priority
     ↓
-STEP 6
+STEP 5
 Execution Policy
     ↓
-STEP 7
+STEP 6
 Multiple Conditions
     ↓
-STEP 8
+STEP 7
 More Conditions
     ↓
-STEP 9
+STEP 8
 More Order Actions
     ↓
-STEP 10
+STEP 9
 More Triggers
     ↓
-STEP 11
+STEP 10
 Execution History
     ↓
-STEP 12
+STEP 11
 Automation Trace
     ↓
-STEP 13
+STEP 12
 Scheduling
     ↓
-STEP 14
+STEP 13
 Retry System
     ↓
-STEP 15
+STEP 14
 Integrations
     ↓
-STEP 16
+STEP 15
 Professional Automation Builder
 ```
 
@@ -2803,19 +3074,19 @@ THEN
 
 The builder should eventually provide:
 
-* Dynamic Trigger selection.
-* Dynamic Condition selection.
-* Dynamic Operator selection.
-* Dynamic Action selection.
-* Multiple Conditions.
-* Multiple Actions.
-* Condition Groups.
-* AND / OR logic.
-* Action ordering.
-* Priority.
-* Execution Policy.
-* Conflict warnings.
-* Human-readable Automation summaries.
+- Dynamic Trigger selection.
+- Dynamic Condition selection.
+- Dynamic Operator selection.
+- Dynamic Action selection.
+- Multiple Conditions.
+- Multiple Actions.
+- Condition Groups.
+- AND / OR logic.
+- Action ordering.
+- Priority.
+- Execution Policy.
+- Conflict warnings.
+- Human-readable Automation summaries.
 
 The UI should hide unnecessary technical details from normal store administrators while retaining a stable internal data model.
 
@@ -2891,10 +3162,10 @@ This is a deliberate project workflow because it reduces accidental merge errors
 
 Before modifying any existing project file:
 
-* The current version of that file must be reviewed.
-* Existing functionality must be preserved unless intentionally changed.
-* Changes must be based on the actual current project state.
-* Do not assume that an older version of a file is still present.
+- The current version of that file must be reviewed.
+- Existing functionality must be preserved unless intentionally changed.
+- Changes must be based on the actual current project state.
+- Do not assume that an older version of a file is still present.
 
 ---
 
@@ -2914,10 +3185,10 @@ v1.3.0 - Action Registry
 v1.4.0 - Notification Diagnostics
 v1.5.0 - Multiple Actions
 v1.6.0 - Currency-aware Admin UI
-v1.7.0 - Conflict Detection
-v1.8.0 - Execution Priority
-v1.9.0 - Multiple Conditions
-v2.0.0 - Professional Automation Builder
+v1.7.0 - Notification Settings and Mail Transport Integration
+v1.8.0 - Conflict Detection
+v1.9.0 - Execution Priority
+v2.0.0 - Multiple Conditions and Professional Automation Builder
 ```
 
 Actual version numbers may change depending on the final release strategy.
@@ -2932,17 +3203,18 @@ Whenever a major development milestone is completed, the README should be update
 
 The README should record:
 
-* What has been implemented.
-* What has been tested.
-* What is currently working.
-* What limitations remain.
-* What is currently being developed.
-* What has intentionally been postponed.
-* What the next development step is.
-* Important architectural decisions.
-* Important future requirements.
-* Important diagnostic findings.
-* Important currency decisions.
+- What has been implemented.
+- What has been tested.
+- What is currently working.
+- What limitations remain.
+- What is currently being developed.
+- What has intentionally been postponed.
+- What the next development step is.
+- Important architectural decisions.
+- Important future requirements.
+- Important diagnostic findings.
+- Important currency decisions.
+- Important notification and mail transport decisions.
 
 This prevents the project roadmap from being lost between development sessions or separate conversations.
 
@@ -2964,27 +3236,27 @@ Replaced by a better design
 
 Important postponed areas currently include:
 
-* Conflict Detection.
-* Execution Priority.
-* Execution Policy.
-* Multiple Conditions.
-* AND / OR condition groups.
-* Advanced Multiple Actions UI.
-* Full Action Registry-driven UI.
-* Notification sender configuration.
-* SMTP environment configuration.
-* Execution History.
-* Automation Trace.
-* Scheduling.
-* Retry System.
-* Additional Triggers.
-* Additional Conditions.
-* Additional Actions.
-* External Integrations.
-* Developer API.
-* Advanced Automation Builder.
-* Dedicated database tables.
-* Automated tests.
+- Conflict Detection.
+- Execution Priority.
+- Execution Policy.
+- Multiple Conditions.
+- AND / OR condition groups.
+- Advanced Multiple Actions UI.
+- Full Action Registry-driven UI.
+- Advanced Notification Settings.
+- Production sender/domain configuration guidance.
+- Execution History.
+- Automation Trace.
+- Scheduling.
+- Retry System.
+- Additional Triggers.
+- Additional Conditions.
+- Additional Actions.
+- External Integrations.
+- Developer API.
+- Advanced Automation Builder.
+- Dedicated database tables.
+- Automated tests.
 
 ---
 
@@ -3063,6 +3335,32 @@ The core Action Engine should not implement an SMTP server or become dependent o
 
 ---
 
+## Email Recipient and Email Sender Are Separate Concerns
+
+WooSmart manages the **notification recipient**:
+
+```
+WooSmart Notification Email
+```
+
+The WordPress Mail Transport manages the **actual sender and delivery mechanism**.
+
+Therefore WooSmart does not assume that the site uses Resend or any other particular provider.
+
+This separation is a compatibility requirement.
+
+---
+
+## Provider-Neutral Mail Diagnostics
+
+WooSmart uses the standard WordPress `wp_mail_failed` / `WP_Error` mechanism to capture email failures.
+
+The plugin may classify common mail failures generically, but it must preserve the original error message and must not depend on provider-specific APIs.
+
+WooSmart must remain functional with different WordPress-compatible mail transports.
+
+---
+
 ## Internal Identifiers Remain English
 
 User-facing labels can be Persian.
@@ -3134,24 +3432,16 @@ Which result becomes authoritative
 
 If a new Automation conflicts with an existing Automation:
 
-* Existing Automations must not be silently changed.
-* Existing Automations must not be silently disabled.
-* The user must be informed.
-* The user must decide how to proceed.
+- Existing Automations must not be silently changed.
+- Existing Automations must not be silently disabled.
+- The user must be informed.
+- The user must decide how to proceed.
 
 ---
 
 ## Notification Diagnostics Should Preserve Root Cause
 
 When email delivery fails, WooSmart should record the underlying WordPress / PHPMailer error whenever available.
-
-During development, the original invalid sender problem was:
-
-```
-wordpress@localhost
-```
-
-The current development sender has been changed to the configured administrator address, but the local mailer currently fails during initialization.
 
 The system should avoid reducing every mail failure to a generic:
 
@@ -3215,14 +3505,26 @@ Multiple Actions Execution:
 Multiple Actions UI:
     🟡 Basic UI exists / stabilization planned
 
-Notification:
-    🟡 Implemented / mail transport pending
+Notification Settings:
+    🟢 Implemented and tested
 
-Email From Diagnostics:
+Notification Recipient:
+    🟢 Configurable
+
+Notification Test:
+    🟢 Tested successfully
+
+Real Email Delivery:
+    🟢 Confirmed in development environment
+
+Mail Transport:
+    🟢 Working in tested development environment
+
+Provider-Neutral Diagnostics:
     🟢 Implemented
 
-Mailer Failure Diagnostics:
-    🟢 Implemented
+Recipient Restriction Diagnostics:
+    🟢 Confirmed
 
 Execution Engine:
     🟢 Functional and tested
@@ -3283,16 +3585,14 @@ Automated Tests:
 
 # Current Development Target
 
-The next development target is to complete the current modular architecture before adding large new features.
+The Notification Settings and provider-neutral email delivery layer have now been implemented and tested in the development environment.
+
+The next development target is to stabilize the existing Multiple Actions system before adding large new features.
 
 The immediate sequence is:
 
 ```
-Resolve Local Mail Transport
-    ↓
-Verify Real Email Delivery
-    ↓
-Stabilize Multiple Actions
+Multiple Actions UI Stabilization
     ↓
 Conflict Detection
     ↓
@@ -3381,6 +3681,9 @@ When continuing the project in a new development session:
 18. Do not introduce a second currency system when WooCommerce already supplies the required currency context.
 19. Do not perform silent currency conversions because of a display requirement.
 20. Verify complete-file integrity before committing large file replacements.
+21. Keep WooSmart independent from any specific email provider.
+22. Keep notification recipient configuration separate from SMTP / Mail Transport configuration.
+23. Preserve the original WordPress mail error whenever possible instead of hiding it behind a generic message.
 
 ---
 
@@ -3431,27 +3734,12 @@ Multiple matching Automations have been confirmed in real WooCommerce execution.
 
 The current development store uses WooCommerce `IRT`, and WooSmart displays `تومان` without independent currency conversion.
 
-The original local mail error involving:
+Notification Settings are now implemented so WooSmart can store its own notification recipient while remaining independent from the WordPress `admin_email` setting.
 
-```
-wordpress@localhost
-```
+The notification Action has been tested through `wp_mail()`, the active WordPress Mail Transport, and a real Gmail inbox.
 
-has been isolated and bypassed for the current development test.
+WooSmart deliberately remains provider-neutral. The current development environment uses a working Mail Transport, but production sites may use another SMTP or transactional email provider.
 
-The current known notification blocker is now the local mailer initialization failure:
-
-```
-نمی‌توان تابع ایمیل را نمونه‌سازی کرد.
-```
-
-with:
-
-```
-mail_error_code:
-    2
-```
-
-The next immediate task is to resolve the local mail transport and verify real email delivery without adding SMTP-specific logic to the WooSmart core.
+Provider-side errors are captured through `wp_mail_failed`, classified generically, and displayed together with their original diagnostic details.
 
 The next major architectural challenge remains making multiple Automations execute safely, deterministically, and transparently.
