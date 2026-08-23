@@ -88,52 +88,6 @@ add_action(
 
 
 /**
- * Enqueue WooSmart admin assets.
- *
- * @param string $hook_suffix Current admin page hook.
- *
- * @return void
- */
-function woosmart_automation_enqueue_admin_assets( $hook_suffix ) {
-
-    if ( 'toplevel_page_woosmart-automation' === $hook_suffix ) {
-        return;
-    }
-
-    if ( 'woosmart_page_woosmart-add-automation' !== $hook_suffix ) {
-        return;
-    }
-
-    $script_path =
-        plugin_dir_path( __FILE__ ) .
-        'assets/js/woosmart-action-ordering.js';
-
-    $script_url =
-        plugins_url(
-            'assets/js/woosmart-action-ordering.js',
-            __FILE__
-        );
-
-    $version = file_exists( $script_path )
-        ? (string) filemtime( $script_path )
-        : '1.0.0';
-
-    wp_enqueue_script(
-        'woosmart-action-ordering',
-        $script_url,
-        array(),
-        $version,
-        true
-    );
-}
-
-add_action(
-    'admin_enqueue_scripts',
-    'woosmart_automation_enqueue_admin_assets'
-);
-
-
-/**
  * Runs when the plugin is activated.
  *
  * @return void
