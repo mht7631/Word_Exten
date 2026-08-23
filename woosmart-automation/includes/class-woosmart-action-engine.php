@@ -38,20 +38,6 @@ class WooSmart_Action_Engine {
     private $last_mail_error = null;
 
     /**
-     * Current WooSmart mail sender email.
-     *
-     * @var string
-     */
-    private $current_mail_sender = '';
-
-    /**
-     * Current WooSmart mail sender name.
-     *
-     * @var string
-     */
-    private $current_mail_sender_name = 'WooSmart Automation';
-
-    /**
      * Initialize Action Engine.
      */
     public function __construct() {
@@ -95,6 +81,7 @@ class WooSmart_Action_Engine {
         if (
             ! $this->capturing_mail_error
         ) {
+
             return;
         }
 
@@ -116,62 +103,6 @@ class WooSmart_Action_Engine {
     }
 
     /**
-     * Temporary filter for wp_mail_from.
-     *
-     * @param string $from_email Current From address.
-     *
-     * @return string
-     */
-    public function filter_mail_from(
-        $from_email
-    ) {
-
-        if (
-            ! $this->capturing_mail_error
-        ) {
-            return $from_email;
-        }
-
-        if (
-            empty(
-                $this->current_mail_sender
-            )
-        ) {
-            return $from_email;
-        }
-
-        return $this->current_mail_sender;
-    }
-
-    /**
-     * Temporary filter for wp_mail_from_name.
-     *
-     * @param string $from_name Current From name.
-     *
-     * @return string
-     */
-    public function filter_mail_from_name(
-        $from_name
-    ) {
-
-        if (
-            ! $this->capturing_mail_error
-        ) {
-            return $from_name;
-        }
-
-        if (
-            empty(
-                $this->current_mail_sender_name
-            )
-        ) {
-            return $from_name;
-        }
-
-        return $this->current_mail_sender_name;
-    }
-
-    /**
      * Execute automation actions.
      *
      * @param array $actions Actions configuration.
@@ -188,10 +119,12 @@ class WooSmart_Action_Engine {
             empty( $actions ) ||
             ! is_array( $actions )
         ) {
+
             return true;
         }
 
-        $all_successful = true;
+        $all_successful =
+            true;
 
         foreach (
             $actions as $action
@@ -201,7 +134,8 @@ class WooSmart_Action_Engine {
                 ! is_array( $action )
             ) {
 
-                $all_successful = false;
+                $all_successful =
+                    false;
 
                 continue;
             }
@@ -218,7 +152,8 @@ class WooSmart_Action_Engine {
                 empty( $type )
             ) {
 
-                $all_successful = false;
+                $all_successful =
+                    false;
 
                 continue;
             }
@@ -234,7 +169,8 @@ class WooSmart_Action_Engine {
                 ! $result
             ) {
 
-                $all_successful = false;
+                $all_successful =
+                    false;
             }
         }
 
@@ -271,6 +207,7 @@ class WooSmart_Action_Engine {
                 array(
                     'action_type' =>
                         $type,
+
                     'context' =>
                         $context,
                 )
@@ -301,8 +238,10 @@ class WooSmart_Action_Engine {
                 array(
                     'action_type' =>
                         $type,
+
                     'handler' =>
                         $handler,
+
                     'context' =>
                         $context,
                 )
@@ -355,21 +294,23 @@ class WooSmart_Action_Engine {
             return false;
         }
 
-        $order_id = isset(
-            $context['order_id']
-        )
-            ? absint(
+        $order_id =
+            isset(
                 $context['order_id']
             )
-            : 0;
+                ? absint(
+                    $context['order_id']
+                )
+                : 0;
 
-        $new_status = isset(
-            $action['status']
-        )
-            ? sanitize_key(
+        $new_status =
+            isset(
                 $action['status']
             )
-            : '';
+                ? sanitize_key(
+                    $action['status']
+                )
+                : '';
 
         if (
             ! $order_id
@@ -381,6 +322,7 @@ class WooSmart_Action_Engine {
                 array(
                     'action_type' =>
                         'change_order_status',
+
                     'context' =>
                         $context,
                 )
@@ -399,6 +341,7 @@ class WooSmart_Action_Engine {
                 array(
                     'action_type' =>
                         'change_order_status',
+
                     'order_id' =>
                         $order_id,
                 )
@@ -422,6 +365,7 @@ class WooSmart_Action_Engine {
                 array(
                     'action_type' =>
                         'change_order_status',
+
                     'order_id' =>
                         $order_id,
                 )
@@ -449,10 +393,13 @@ class WooSmart_Action_Engine {
                 array(
                     'action_type' =>
                         'change_order_status',
+
                     'order_id' =>
                         $order_id,
+
                     'old_status' =>
                         $old_status,
+
                     'new_status' =>
                         $new_status,
                 )
@@ -467,10 +414,13 @@ class WooSmart_Action_Engine {
             array(
                 'action_type' =>
                     'change_order_status',
+
                 'order_id' =>
                     $order_id,
+
                 'old_status' =>
                     $old_status,
+
                 'new_status' =>
                     $new_status,
             )
@@ -481,6 +431,10 @@ class WooSmart_Action_Engine {
 
     /**
      * Send an email notification to the store administrator.
+     *
+     * WooSmart intentionally does not set the From address here.
+     * The active WordPress mail transport is responsible for the
+     * final From address.
      *
      * @param array $action  Action configuration.
      * @param array $context Execution context.
@@ -539,21 +493,23 @@ class WooSmart_Action_Engine {
             return false;
         }
 
-        $subject = isset(
-            $action['subject']
-        )
-            ? sanitize_text_field(
+        $subject =
+            isset(
                 $action['subject']
             )
-            : '';
+                ? sanitize_text_field(
+                    $action['subject']
+                )
+                : '';
 
-        $message = isset(
-            $action['message']
-        )
-            ? sanitize_textarea_field(
+        $message =
+            isset(
                 $action['message']
             )
-            : '';
+                ? sanitize_textarea_field(
+                    $action['message']
+                )
+                : '';
 
         if (
             empty( $subject )
@@ -581,64 +537,31 @@ class WooSmart_Action_Engine {
             );
 
         /*
-         * Temporary development sender.
-         *
-         * We currently use the WordPress administrator
-         * email address as the sender.
-         *
-         * A dedicated Notification Settings layer will
-         * later provide configurable sender information.
-         */
-        $this->current_mail_sender =
-            $recipient;
-
-        $this->current_mail_sender_name =
-            'WooSmart Automation';
-
-        /*
          * Reset the previous mail error before each attempt.
          */
         $this->last_mail_error =
             null;
 
         /*
-         * Enable the temporary mail filters before calling
-         * wp_mail().
-         *
-         * IMPORTANT:
-         * These filters run BEFORE WordPress calls PHPMailer
-         * setFrom(), so the invalid:
-         *
-         *     wordpress@localhost
-         *
-         * address is never passed to PHPMailer.
+         * Enable mail error capture only for this
+         * WooSmart notification attempt.
          */
         $this->capturing_mail_error =
             true;
 
-        add_filter(
-            'wp_mail_from',
-            array(
-                $this,
-                'filter_mail_from',
-            ),
-            999,
-            1
-        );
-
-        add_filter(
-            'wp_mail_from_name',
-            array(
-                $this,
-                'filter_mail_from_name',
-            ),
-            999,
-            1
-        );
-
+        /*
+         * IMPORTANT:
+         *
+         * Do NOT add wp_mail_from or wp_mail_from_name filters here.
+         *
+         * WooSmart must not override the mail transport's
+         * configured From address.
+         *
+         * WP Mail SMTP / Resend will determine the final
+         * From address.
+         */
         $headers = array(
             'Content-Type: text/plain; charset=UTF-8',
-            'Reply-To: ' . $recipient,
         );
 
         $mail_sent =
@@ -648,28 +571,6 @@ class WooSmart_Action_Engine {
                 $message,
                 $headers
             );
-
-        /*
-         * Remove the temporary filters immediately after
-         * this mail attempt.
-         */
-        remove_filter(
-            'wp_mail_from',
-            array(
-                $this,
-                'filter_mail_from',
-            ),
-            999
-        );
-
-        remove_filter(
-            'wp_mail_from_name',
-            array(
-                $this,
-                'filter_mail_from_name',
-            ),
-            999
-        );
 
         $this->capturing_mail_error =
             false;
@@ -684,9 +585,6 @@ class WooSmart_Action_Engine {
 
                 'recipient' =>
                     $recipient,
-
-                'from' =>
-                    $this->current_mail_sender,
 
                 'order_id' =>
                     isset(
@@ -749,6 +647,7 @@ class WooSmart_Action_Engine {
                             ];
                     }
                 }
+
             } else {
 
                 $error_context[
@@ -776,8 +675,8 @@ class WooSmart_Action_Engine {
                 'recipient' =>
                     $recipient,
 
-                'from' =>
-                    $this->current_mail_sender,
+                'from_source' =>
+                    'WP Mail SMTP / WordPress Mail Transport',
 
                 'order_id' =>
                     isset(
@@ -813,13 +712,14 @@ class WooSmart_Action_Engine {
         $context
     ) {
 
-        $order_id = isset(
-            $context['order_id']
-        )
-            ? absint(
+        $order_id =
+            isset(
                 $context['order_id']
             )
-            : 0;
+                ? absint(
+                    $context['order_id']
+                )
+                : 0;
 
         $order_total =
             '';
@@ -874,7 +774,7 @@ class WooSmart_Action_Engine {
                 $order_id,
 
             '{order_total}' =>
-                $order_total . ' ریال',
+                $order_total . ' تومان',
 
             '{order_status}' =>
                 $order_status,
