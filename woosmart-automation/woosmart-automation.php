@@ -32,6 +32,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-action-engin
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-execution-history.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-execution-engine.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-execution-admin.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-priority-admin.php';
 
 
 /**
@@ -93,6 +94,11 @@ function woosmart_automation_init() {
     new WooSmart_Execution_Admin(
         $execution_history
     );
+
+    /*
+     * Automation Priority admin UI.
+     */
+    new WooSmart_Priority_Admin();
 
     /*
      * Main automation class.
