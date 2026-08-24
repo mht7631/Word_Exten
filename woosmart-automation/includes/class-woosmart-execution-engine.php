@@ -111,8 +111,8 @@ class WooSmart_Execution_Engine {
                         -1,
 
                     /*
-                     * First fetch in the historical order.
-                     * Priority sorting is applied below.
+                     * First fetch in historical date order.
+                     * Explicit Priority sorting is applied below.
                      */
                     'orderby' =>
                         'date',
@@ -171,9 +171,10 @@ class WooSmart_Execution_Engine {
          * Normalize priorities.
          *
          * Explicit priorities are respected.
-         * Automations without a stored Priority receive a fallback
-         * after all explicit priorities, while preserving their
-         * original newest-to-oldest order.
+         *
+         * Automations without an explicit Priority receive
+         * a fallback Priority after all explicit priorities
+         * while preserving the original newest-to-oldest order.
          */
         $explicit_priorities =
             array();
@@ -558,6 +559,28 @@ class WooSmart_Execution_Engine {
                 array();
         }
 
+        /*
+         * Current MVP supports one Condition per Automation.
+         *
+         * Older development data may contain more than one
+         * condition because the Condition model evolved during
+         * Range implementation.
+         *
+         * To prevent stale legacy conditions from being evaluated
+         * together with the current condition, normalize the stored
+         * configuration before execution.
+         *
+         * The last condition is treated as the current condition
+         * because the latest edited/added condition is the most
+         * likely intended configuration in the current one-condition
+         * MVP.
+         */
+        $conditions =
+            $this->normalize_conditions_for_current_mvp(
+                $automation_id,
+                $conditions
+            );
+
         $actions =
             get_post_meta(
                 $automation_id,
@@ -757,6 +780,167 @@ class WooSmart_Execution_Engine {
         }
 
         return $result;
+    }
+
+    /**
+     * Normalize Conditions for the current MVP.
+     *
+     * The current product UI supports one Condition per Automation.
+     * This method protects runtime execution from stale development
+     * data that may contain multiple Conditions.
+     *
+     * Example legacy data:
+     *
+     * [
+     *     [
+     *         'field'    => 'order_total',
+     *         'operator' => 'is_equal',
+     *         'value'    => '3000000',
+     *     ],
+     *     [
+     *         'field'    => 'order_total',
+     *         'operator' => 'between',
+     *         'value'    => array(
+     *             'min' => '1700000',
+     *             'max' => '3000000',
+     *         ),
+     *     ],
+     * ]
+     *
+     * The last configured Condition becomes authoritative.
+     *
+     * @param int   $automation_id Automation ID.
+     * @param array $conditions    Stored Conditions.
+     *
+     * @return array
+     */
+    private function normalize_conditions_for_current_mvp(
+        $automation_id,
+        $conditions
+    ) {
+
+        if (
+            ! is_array(
+                $conditions
+            ) ||
+            empty(
+                $conditions
+            )
+        ) {
+
+            return array();
+        }
+
+        /*
+         * Filter out malformed Condition entries.
+         */
+        $valid_conditions =
+            array();
+
+        foreach (
+            $conditions as $condition
+        ) {
+
+            if (
+                ! is_array(
+                    $condition
+                )
+            ) {
+
+                continue;
+            }
+
+            $field =
+                isset(
+                    $condition['field']
+                )
+                    ? sanitize_key(
+                        $condition['field']
+                    )
+                    : '';
+
+            $operator =
+                isset(
+                    $condition['operator']
+                )
+                    ? sanitize_key(
+                        $condition['operator']
+                    )
+                    : '';
+
+            if (
+                empty(
+                    $field
+                ) ||
+                empty(
+                    $operator
+                )
+            ) {
+
+                continue;
+            }
+
+            $condition['field'] =
+                $field;
+
+            $condition['operator'] =
+                $operator;
+
+            $valid_conditions[] =
+                $condition;
+        }
+
+        if (
+            empty(
+                $valid_conditions
+            )
+        ) {
+
+            return array();
+        }
+
+        /*
+         * Only one Condition is supported by the current MVP.
+         */
+        $normalized_condition =
+            end(
+                $valid_conditions
+            );
+
+        /*
+         * Re-index the array so the stored structure is:
+         *
+         * [
+         *     0 => current condition
+         * ]
+         */
+        $normalized_conditions =
+            array(
+                $normalized_condition,
+            );
+
+        /*
+         * If legacy/stale data contains more than one Condition,
+         * permanently clean the Automation metadata so future
+         * executions and admin screens see the same configuration.
+         */
+        if (
+            count(
+                $conditions
+            ) !== 1 ||
+            count(
+                $valid_conditions
+            ) !== 1
+        ) {
+
+            update_post_meta(
+                $automation_id,
+                '_woosmart_conditions',
+                $normalized_conditions
+            );
+        }
+
+        return $normalized_conditions;
     }
 
     /**
