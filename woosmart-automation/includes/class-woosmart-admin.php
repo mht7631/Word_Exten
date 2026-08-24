@@ -1919,22 +1919,11 @@ class WooSmart_Admin {
                         return;
                     }
 
-                    /*
-                     * -------------------------------------------------
-                     * Conflict UI
-                     * -------------------------------------------------
+                    /**
+                     * Remove all dynamically-created Conflict UI boxes.
                      *
-                     * No static Conflict container is used.
-                     *
-                     * The container is created dynamically every time
-                     * the Action configuration changes.
-                     *
-                     * Before each render, every existing WooSmart
-                     * Conflict Box is removed from the document.
-                     *
-                     * This prevents duplicate/stale warning boxes.
+                     * @return void
                      */
-
                     function removeAllConflictBoxes() {
 
                         const boxes =
@@ -1952,11 +1941,13 @@ class WooSmart_Admin {
                         );
                     }
 
-                    function getConflictHost() {
-
-                        return actionsContainer;
-                    }
-
+                    /**
+                     * Create a single Conflict UI box.
+                     *
+                     * @param array conflicts Conflict definitions.
+                     *
+                     * @return void
+                     */
                     function createConflictBox(
                         conflicts
                     ) {
@@ -1964,15 +1955,6 @@ class WooSmart_Admin {
                         if (
                             ! conflicts ||
                             ! conflicts.length
-                        ) {
-                            return;
-                        }
-
-                        const host =
-                            getConflictHost();
-
-                        if (
-                            ! host
                         ) {
                             return;
                         }
@@ -2168,15 +2150,32 @@ class WooSmart_Admin {
                             footer
                         );
 
-                        host.appendChild(
-                            box
+                        /*
+                         * Insert immediately after the Action container.
+                         */
+                        actionsContainer.parentNode.insertBefore(
+                            box,
+                            actionsContainer.nextSibling
                         );
                     }
 
+                    /**
+                     * Render Action conflicts.
+                     *
+                     * UI intentionally displays only distinct conflicts:
+                     *
+                     * 1. Multiple order-status changes.
+                     * 2. Duplicate target status.
+                     *
+                     * The server-side diagnostic log may still contain
+                     * sequential_order_status_transitions.
+                     *
+                     * @return void
+                     */
                     function renderActionConflicts() {
 
                         /*
-                         * Always remove every previous box first.
+                         * Remove every previous UI box first.
                          */
                         removeAllConflictBoxes();
 
@@ -2201,7 +2200,8 @@ class WooSmart_Admin {
 
                         /*
                          * Conflict 1:
-                         * Multiple order-status changes.
+                         *
+                         * More than one Action changes order status.
                          */
                         if (
                             statusActions.length > 1
@@ -2213,10 +2213,10 @@ class WooSmart_Admin {
                                         'multiple_order_status_changes',
 
                                     title:
-                                        'چند بار تغییر وضعیت سفارش',
+                                        'چند تغییر وضعیت سفارش',
 
                                     message:
-                                        'این اتوماسیون چند بار وضعیت سفارش را تغییر می‌دهد و ممکن است چند Hook یا رفتار وابسته به وضعیت سفارش را فعال کند.',
+                                        'این اتوماسیون چند تغییر وضعیت سفارش دارد. هر تغییر ممکن است Hookها، ایمیل‌ها یا رفتارهای وابسته WooCommerce و افزونه‌های دیگر را فعال کند.',
 
                                     actions:
                                         statusActions
@@ -2226,7 +2226,8 @@ class WooSmart_Admin {
 
                         /*
                          * Conflict 2:
-                         * Duplicate target statuses.
+                         *
+                         * More than one Action targets the same status.
                          */
                         const seenStatuses =
                             {};
@@ -2283,31 +2284,6 @@ class WooSmart_Admin {
                                 }
                             }
                         );
-
-                        /*
-                         * Conflict 3:
-                         * Sequential status transitions.
-                         */
-                        if (
-                            statusActions.length > 1
-                        ) {
-
-                            conflicts.push(
-                                {
-                                    type:
-                                        'sequential_order_status_transitions',
-
-                                    title:
-                                        'تغییرات متوالی وضعیت سفارش',
-
-                                    message:
-                                        'چند تغییر متوالی وضعیت سفارش تعریف شده است. هر تغییر ممکن است Hookها، ایمیل‌ها یا رفتارهای افزونه‌های دیگر را فعال کند.',
-
-                                    actions:
-                                        statusActions
-                                }
-                            );
-                        }
 
                         if (
                             conflicts.length
