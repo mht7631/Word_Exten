@@ -46,7 +46,10 @@ class WooSmart_Admin {
 
         add_action(
             'admin_menu',
-            array( $this, 'add_admin_menu' )
+            array(
+                $this,
+                'add_admin_menu',
+            )
         );
     }
 
@@ -153,7 +156,11 @@ class WooSmart_Admin {
 
             <p>
                 <strong>
-                    <?php echo esc_html( $status ); ?>
+                    <?php
+                    echo esc_html(
+                        $status
+                    );
+                    ?>
                 </strong>
             </p>
 
@@ -258,84 +265,116 @@ class WooSmart_Admin {
 
                             <?php
 
-                            $automation_id = $automation->ID;
+                            $automation_id =
+                                $automation->ID;
 
-                            $trigger = get_post_meta(
-                                $automation_id,
-                                '_woosmart_trigger',
-                                true
-                            );
+                            $trigger =
+                                get_post_meta(
+                                    $automation_id,
+                                    '_woosmart_trigger',
+                                    true
+                                );
 
-                            $status = get_post_meta(
-                                $automation_id,
-                                '_woosmart_status',
-                                true
-                            );
+                            $status =
+                                get_post_meta(
+                                    $automation_id,
+                                    '_woosmart_status',
+                                    true
+                                );
 
-                            $conditions = get_post_meta(
-                                $automation_id,
-                                '_woosmart_conditions',
-                                true
-                            );
+                            $conditions =
+                                get_post_meta(
+                                    $automation_id,
+                                    '_woosmart_conditions',
+                                    true
+                                );
 
-                            $actions = get_post_meta(
-                                $automation_id,
-                                '_woosmart_actions',
-                                true
-                            );
+                            $actions =
+                                get_post_meta(
+                                    $automation_id,
+                                    '_woosmart_actions',
+                                    true
+                                );
 
-                            if ( ! is_array( $conditions ) ) {
-                                $conditions = array();
+                            if (
+                                ! is_array(
+                                    $conditions
+                                )
+                            ) {
+                                $conditions =
+                                    array();
                             }
 
-                            if ( ! is_array( $actions ) ) {
-                                $actions = array();
+                            if (
+                                ! is_array(
+                                    $actions
+                                )
+                            ) {
+                                $actions =
+                                    array();
                             }
 
-                            if ( 'active' === $status ) {
+                            if (
+                                'active' ===
+                                $status
+                            ) {
 
-                                $status_label = 'فعال';
-                                $status_class = 'notice-success';
-                                $toggle_label = 'غیرفعال کردن';
+                                $status_label =
+                                    'فعال';
+
+                                $status_class =
+                                    'notice-success';
+
+                                $toggle_label =
+                                    'غیرفعال کردن';
 
                             } else {
 
-                                $status_label = 'غیرفعال';
-                                $status_class = 'notice-warning';
-                                $toggle_label = 'فعال کردن';
+                                $status_label =
+                                    'غیرفعال';
+
+                                $status_class =
+                                    'notice-warning';
+
+                                $toggle_label =
+                                    'فعال کردن';
                             }
 
-                            $toggle_url = wp_nonce_url(
-                                admin_url(
-                                    'admin-post.php?action=woosmart_toggle_automation&automation_id=' .
+                            $toggle_url =
+                                wp_nonce_url(
+                                    admin_url(
+                                        'admin-post.php?action=woosmart_toggle_automation&automation_id=' .
+                                        $automation_id
+                                    ),
+                                    'woosmart_toggle_automation_' .
                                     $automation_id
-                                ),
-                                'woosmart_toggle_automation_' .
-                                $automation_id
-                            );
+                                );
 
-                            $delete_url = wp_nonce_url(
-                                admin_url(
-                                    'admin-post.php?action=woosmart_delete_automation&automation_id=' .
+                            $delete_url =
+                                wp_nonce_url(
+                                    admin_url(
+                                        'admin-post.php?action=woosmart_delete_automation&automation_id=' .
+                                        $automation_id
+                                    ),
+                                    'woosmart_delete_automation_' .
                                     $automation_id
-                                ),
-                                'woosmart_delete_automation_' .
-                                $automation_id
-                            );
+                                );
 
-                            $duplicate_url = wp_nonce_url(
-                                admin_url(
-                                    'admin-post.php?action=woosmart_duplicate_automation&automation_id=' .
+                            $duplicate_url =
+                                wp_nonce_url(
+                                    admin_url(
+                                        'admin-post.php?action=woosmart_duplicate_automation&automation_id=' .
+                                        $automation_id
+                                    ),
+                                    'woosmart_duplicate_automation_' .
                                     $automation_id
-                                ),
-                                'woosmart_duplicate_automation_' .
-                                $automation_id
-                            );
+                                );
 
-                            $edit_url = admin_url(
-                                'admin.php?page=woosmart-add-automation&edit=' .
-                                $automation_id
-                            );
+                            $edit_url =
+                                admin_url(
+                                    'admin.php?page=woosmart-add-automation&edit=' .
+                                    $automation_id
+                                );
 
                             ?>
 
@@ -371,110 +410,11 @@ class WooSmart_Admin {
 
                                 <td>
 
-                                    <?php if ( empty( $conditions ) ) : ?>
-
-                                        <span>
-                                            بدون شرط
-                                        </span>
-
-                                    <?php else : ?>
-
-                                        <?php foreach ( $conditions as $condition ) : ?>
-
-                                            <?php
-
-                                            $field = isset(
-                                                $condition['field']
-                                            )
-                                                ? sanitize_key(
-                                                    $condition['field']
-                                                )
-                                                : '';
-
-                                            $operator = isset(
-                                                $condition['operator']
-                                            )
-                                                ? sanitize_key(
-                                                    $condition['operator']
-                                                )
-                                                : '';
-
-                                            $value = isset(
-                                                $condition['value']
-                                            )
-                                                ? $condition['value']
-                                                : '';
-
-                                            $definition =
-                                                $this->condition_registry->get(
-                                                    $field
-                                                );
-
-                                            $value_type = (
-                                                is_array(
-                                                    $definition
-                                                ) &&
-                                                isset(
-                                                    $definition['value_type']
-                                                )
-                                            )
-                                                ? sanitize_key(
-                                                    $definition['value_type']
-                                                )
-                                                : 'text';
-
-                                            ?>
-
-                                            <div
-                                                style="
-                                                    margin-bottom:6px;
-                                                "
-                                            >
-
-                                                <strong>
-                                                    <?php
-                                                    echo esc_html(
-                                                        $this->get_condition_field_label(
-                                                            $field
-                                                        )
-                                                    );
-                                                    ?>
-                                                </strong>
-
-                                                <?php
-                                                echo esc_html(
-                                                    $this->get_operator_label(
-                                                        $operator,
-                                                        $field
-                                                    )
-                                                );
-                                                ?>
-
-                                                <?php
-                                                if (
-                                                    'number' ===
-                                                    $value_type
-                                                ) {
-
-                                                    echo wp_kses_post(
-                                                        $this->format_currency_value(
-                                                            $value
-                                                        )
-                                                    );
-
-                                                } else {
-
-                                                    echo esc_html(
-                                                        $value
-                                                    );
-                                                }
-                                                ?>
-
-                                            </div>
-
-                                        <?php endforeach; ?>
-
-                                    <?php endif; ?>
+                                    <?php
+                                    $this->render_condition_summary(
+                                        $conditions
+                                    );
+                                    ?>
 
                                 </td>
 
@@ -488,15 +428,20 @@ class WooSmart_Admin {
 
                                     <?php else : ?>
 
-                                        <?php foreach ( $actions as $index => $action ) : ?>
+                                        <?php foreach (
+                                            $actions
+                                            as $index =>
+                                            $action
+                                        ) : ?>
 
                                             <?php
 
-                                            $action_type = isset(
-                                                $action['type']
-                                            )
-                                                ? $action['type']
-                                                : '';
+                                            $action_type =
+                                                isset(
+                                                    $action['type']
+                                                )
+                                                    ? $action['type']
+                                                    : '';
 
                                             ?>
 
@@ -517,7 +462,10 @@ class WooSmart_Admin {
                                                     ?>:
                                                 </strong>
 
-                                                <?php if ( 'change_order_status' === $action_type ) : ?>
+                                                <?php if (
+                                                    'change_order_status' ===
+                                                    $action_type
+                                                ) : ?>
 
                                                     <span>
                                                         تغییر وضعیت سفارش
@@ -539,7 +487,10 @@ class WooSmart_Admin {
                                                         ?>
                                                     </span>
 
-                                                <?php elseif ( 'notify_admin' === $action_type ) : ?>
+                                                <?php elseif (
+                                                    'notify_admin' ===
+                                                    $action_type
+                                                ) : ?>
 
                                                     <span>
                                                         ارسال اعلان به مدیر فروشگاه
@@ -656,21 +607,41 @@ class WooSmart_Admin {
      */
     public function render_add_automation_page() {
 
-        $edit_id = isset( $_GET['edit'] )
-            ? absint( $_GET['edit'] )
-            : 0;
+        $edit_id =
+            isset(
+                $_GET['edit']
+            )
+                ? absint(
+                    $_GET['edit']
+                )
+                : 0;
 
-        $is_edit = false;
+        $is_edit =
+            false;
 
-        $name = '';
+        $name =
+            '';
 
-        $trigger = 'order_created';
+        $trigger =
+            'order_created';
 
-        $condition_field = 'order_total';
-        $condition_operator = 'greater_than';
-        $condition_value = '';
+        $condition_field =
+            'order_total';
 
-        $actions = array();
+        $condition_operator =
+            'greater_than';
+
+        $condition_value =
+            '';
+
+        $condition_min =
+            '';
+
+        $condition_max =
+            '';
+
+        $actions =
+            array();
 
         $condition_definitions =
             $this->condition_registry->get_all();
@@ -678,11 +649,18 @@ class WooSmart_Admin {
         $currency_unit =
             $this->currency->get_display_unit();
 
+        /*
+         * Select the first registered condition as fallback.
+         */
         if (
             ! isset(
-                $condition_definitions['order_total']
+                $condition_definitions[
+                    'order_total'
+                ]
             ) &&
-            ! empty( $condition_definitions )
+            ! empty(
+                $condition_definitions
+            )
         ) {
 
             $condition_keys =
@@ -700,19 +678,27 @@ class WooSmart_Admin {
 
             if (
                 isset(
-                    $first_definition['operators']
+                    $first_definition[
+                        'operators'
+                    ]
                 ) &&
                 is_array(
-                    $first_definition['operators']
+                    $first_definition[
+                        'operators'
+                    ]
                 ) &&
                 ! empty(
-                    $first_definition['operators']
+                    $first_definition[
+                        'operators'
+                    ]
                 )
             ) {
 
                 $operator_keys =
                     array_keys(
-                        $first_definition['operators']
+                        $first_definition[
+                            'operators'
+                        ]
                     );
 
                 $condition_operator =
@@ -720,20 +706,29 @@ class WooSmart_Admin {
             }
         }
 
+        /*
+         * Load existing Automation data.
+         */
         if ( $edit_id ) {
 
             if (
                 'woosmart_automation' ===
-                get_post_type( $edit_id )
+                get_post_type(
+                    $edit_id
+                )
             ) {
 
-                $is_edit = true;
+                $is_edit =
+                    true;
 
-                $automation = get_post(
-                    $edit_id
-                );
+                $automation =
+                    get_post(
+                        $edit_id
+                    );
 
-                if ( $automation ) {
+                if (
+                    $automation
+                ) {
 
                     $name =
                         $automation->post_title;
@@ -760,8 +755,12 @@ class WooSmart_Admin {
                         );
 
                     if (
-                        is_array( $conditions ) &&
-                        ! empty( $conditions )
+                        is_array(
+                            $conditions
+                        ) &&
+                        ! empty(
+                            $conditions
+                        )
                     ) {
 
                         $condition =
@@ -783,10 +782,14 @@ class WooSmart_Admin {
 
                         $condition_operator =
                             isset(
-                                $condition['operator']
+                                $condition[
+                                    'operator'
+                                ]
                             )
                                 ? sanitize_key(
-                                    $condition['operator']
+                                    $condition[
+                                        'operator'
+                                    ]
                                 )
                                 : $condition_operator;
 
@@ -795,13 +798,19 @@ class WooSmart_Admin {
                                 $condition_definition
                             ) ||
                             ! isset(
-                                $condition_definition['operators']
+                                $condition_definition[
+                                    'operators'
+                                ]
                             ) ||
                             ! is_array(
-                                $condition_definition['operators']
+                                $condition_definition[
+                                    'operators'
+                                ]
                             ) ||
                             ! isset(
-                                $condition_definition['operators'][
+                                $condition_definition[
+                                    'operators'
+                                ][
                                     $condition_operator
                                 ]
                             )
@@ -812,7 +821,9 @@ class WooSmart_Admin {
                                     $condition_definition
                                 ) &&
                                 ! empty(
-                                    $condition_definition['operators']
+                                    $condition_definition[
+                                        'operators'
+                                    ]
                                 )
                             ) {
 
@@ -834,11 +845,52 @@ class WooSmart_Admin {
                             )
                                 ? $condition['value']
                                 : '';
+
+                        /*
+                         * Restore a range condition.
+                         */
+                        if (
+                            'between' ===
+                            $condition_operator &&
+                            is_array(
+                                $condition_value
+                            )
+                        ) {
+
+                            $condition_min =
+                                isset(
+                                    $condition_value[
+                                        'min'
+                                    ]
+                                )
+                                    ? $condition_value[
+                                        'min'
+                                    ]
+                                    : '';
+
+                            $condition_max =
+                                isset(
+                                    $condition_value[
+                                        'max'
+                                    ]
+                                )
+                                    ? $condition_value[
+                                        'max'
+                                    ]
+                                    : '';
+
+                            $condition_value =
+                                '';
+                        }
                     }
 
                     if (
-                        is_array( $stored_actions ) &&
-                        ! empty( $stored_actions )
+                        is_array(
+                            $stored_actions
+                        ) &&
+                        ! empty(
+                            $stored_actions
+                        )
                     ) {
 
                         $actions =
@@ -848,22 +900,37 @@ class WooSmart_Admin {
             }
         }
 
-        if ( empty( $actions ) ) {
+        /*
+         * Default Action for new Automations.
+         */
+        if (
+            empty(
+                $actions
+            )
+        ) {
 
-            $actions[] = array(
-                'type'    => 'notify_admin',
-                'subject' =>
-                    'اعلان سفارش جدید در WooSmart',
-                'message' =>
-                    "یک سفارش جدید با شرایط اتوماسیون مطابقت دارد.\n\n" .
-                    "شناسه سفارش: {order_id}\n" .
-                    "مبلغ سفارش: {order_total}\n" .
-                    "وضعیت سفارش: {order_status}\n" .
-                    "نام مشتری: {customer_name}",
-            );
+            $actions[] =
+                array(
+                    'type' =>
+                        'notify_admin',
+
+                    'subject' =>
+                        'اعلان سفارش جدید در WooSmart',
+
+                    'message' =>
+                        "یک سفارش جدید با شرایط اتوماسیون مطابقت دارد.\n\n" .
+                        "شناسه سفارش: {order_id}\n" .
+                        "مبلغ سفارش: {order_total}\n" .
+                        "وضعیت سفارش: {order_status}\n" .
+                        "نام مشتری: {customer_name}",
+                );
         }
 
-        $order_statuses = array();
+        /*
+         * WooCommerce order statuses.
+         */
+        $order_statuses =
+            array();
 
         if (
             function_exists(
@@ -903,24 +970,34 @@ class WooSmart_Admin {
             )
         ) {
 
-            $order_statuses = array(
-                'pending' =>
-                    'در انتظار پرداخت',
-                'processing' =>
-                    'در حال پردازش',
-                'on-hold' =>
-                    'در انتظار',
-                'completed' =>
-                    'تکمیل‌شده',
-                'cancelled' =>
-                    'لغوشده',
-                'refunded' =>
-                    'مستردشده',
-                'failed' =>
-                    'ناموفق',
-            );
+            $order_statuses =
+                array(
+                    'pending' =>
+                        'در انتظار پرداخت',
+
+                    'processing' =>
+                        'در حال پردازش',
+
+                    'on-hold' =>
+                        'در انتظار',
+
+                    'completed' =>
+                        'تکمیل‌شده',
+
+                    'cancelled' =>
+                        'لغوشده',
+
+                    'refunded' =>
+                        'مستردشده',
+
+                    'failed' =>
+                        'ناموفق',
+                );
         }
 
+        /*
+         * Current Condition definition.
+         */
         $current_condition_definition =
             $this->condition_registry->get(
                 $condition_field
@@ -949,20 +1026,64 @@ class WooSmart_Admin {
                 $condition_value
             );
 
-        $condition_value_display = '';
+        $condition_min_numeric =
+            $this->normalize_numeric_input(
+                $condition_min
+            );
+
+        $condition_max_numeric =
+            $this->normalize_numeric_input(
+                $condition_max
+            );
+
+        $condition_value_display =
+            '';
 
         if (
             'number' ===
             $current_condition_value_type &&
-            '' !== $condition_value_numeric
+            '' !==
+                $condition_value_numeric
         ) {
 
             $condition_value_display =
                 $this->format_currency_input(
                     $condition_value_numeric
                 );
+        }
 
-        } else {
+        $condition_min_display =
+            '';
+
+        $condition_max_display =
+            '';
+
+        if (
+            '' !==
+            $condition_min_numeric
+        ) {
+
+            $condition_min_display =
+                $this->format_currency_input(
+                    $condition_min_numeric
+                );
+        }
+
+        if (
+            '' !==
+            $condition_max_numeric
+        ) {
+
+            $condition_max_display =
+                $this->format_currency_input(
+                    $condition_max_numeric
+                );
+        }
+
+        if (
+            'number' !==
+            $current_condition_value_type
+        ) {
 
             $condition_value_display =
                 (string)
@@ -1039,9 +1160,11 @@ class WooSmart_Admin {
                     <tr>
 
                         <th scope="row">
+
                             <label for="automation_name">
                                 نام اتوماسیون
                             </label>
+
                         </th>
 
                         <td>
@@ -1063,9 +1186,11 @@ class WooSmart_Admin {
                     <tr>
 
                         <th scope="row">
+
                             <label for="automation_trigger">
                                 رویداد
                             </label>
+
                         </th>
 
                         <td>
@@ -1106,9 +1231,11 @@ class WooSmart_Admin {
                     <tr>
 
                         <th scope="row">
+
                             <label for="condition_field">
                                 فیلد
                             </label>
+
                         </th>
 
                         <td>
@@ -1219,7 +1346,7 @@ class WooSmart_Admin {
 
                         <th scope="row">
 
-                            <label for="condition_value_display">
+                            <label>
                                 مقدار
                             </label>
 
@@ -1227,14 +1354,19 @@ class WooSmart_Admin {
 
                         <td>
 
+                            <!-- Single number value -->
                             <div
-                                id="condition-value-number-wrapper"
+                                id="condition-value-single-wrapper"
                                 dir="ltr"
                                 style="
                                     display:
                                     <?php
-                                    echo 'number' ===
-                                        $current_condition_value_type
+                                    echo (
+                                        'number' ===
+                                        $current_condition_value_type &&
+                                        'between' !==
+                                        $condition_operator
+                                    )
                                         ? 'flex'
                                         : 'none';
                                     ?>;
@@ -1301,13 +1433,152 @@ class WooSmart_Admin {
 
                             </div>
 
+                            <!-- Range value -->
+                            <div
+                                id="condition-value-range-wrapper"
+                                dir="rtl"
+                                style="
+                                    display:
+                                    <?php
+                                    echo (
+                                        'number' ===
+                                        $current_condition_value_type &&
+                                        'between' ===
+                                        $condition_operator
+                                    )
+                                        ? 'flex'
+                                        : 'none';
+                                    ?>;
+                                    flex-wrap:wrap;
+                                    align-items:center;
+                                    gap:10px;
+                                    max-width:700px;
+                                "
+                            >
+
+                                <div
+                                    style="
+                                        position:relative;
+                                        min-width:220px;
+                                        flex:1;
+                                        direction:ltr;
+                                    "
+                                >
+
+                                    <input
+                                        type="text"
+                                        inputmode="decimal"
+                                        autocomplete="off"
+                                        dir="ltr"
+                                        id="condition_value_min_display"
+                                        class="regular-text"
+                                        value="<?php echo esc_attr( $condition_min_display ); ?>"
+                                        placeholder="1,000,000"
+                                        spellcheck="false"
+                                        style="
+                                            width:100%;
+                                            box-sizing:border-box;
+                                            padding:8px 12px 8px 90px;
+                                            direction:ltr;
+                                            unicode-bidi:plaintext;
+                                            text-align:left;
+                                            font-variant-numeric:tabular-nums;
+                                        "
+                                    >
+
+                                    <span
+                                        dir="rtl"
+                                        style="
+                                            position:absolute;
+                                            left:12px;
+                                            top:50%;
+                                            transform:translateY(-50%);
+                                            color:#646970;
+                                            pointer-events:none;
+                                            font-size:13px;
+                                            font-weight:600;
+                                            direction:rtl;
+                                            unicode-bidi:isolate;
+                                            white-space:nowrap;
+                                        "
+                                    >
+                                        حداقل
+                                    </span>
+
+                                </div>
+
+                                <span
+                                    style="
+                                        color:#646970;
+                                        font-weight:600;
+                                    "
+                                >
+                                    تا
+                                </span>
+
+                                <div
+                                    style="
+                                        position:relative;
+                                        min-width:220px;
+                                        flex:1;
+                                        direction:ltr;
+                                    "
+                                >
+
+                                    <input
+                                        type="text"
+                                        inputmode="decimal"
+                                        autocomplete="off"
+                                        dir="ltr"
+                                        id="condition_value_max_display"
+                                        class="regular-text"
+                                        value="<?php echo esc_attr( $condition_max_display ); ?>"
+                                        placeholder="5,000,000"
+                                        spellcheck="false"
+                                        style="
+                                            width:100%;
+                                            box-sizing:border-box;
+                                            padding:8px 12px 8px 90px;
+                                            direction:ltr;
+                                            unicode-bidi:plaintext;
+                                            text-align:left;
+                                            font-variant-numeric:tabular-nums;
+                                        "
+                                    >
+
+                                    <span
+                                        dir="rtl"
+                                        style="
+                                            position:absolute;
+                                            left:12px;
+                                            top:50%;
+                                            transform:translateY(-50%);
+                                            color:#646970;
+                                            pointer-events:none;
+                                            font-size:13px;
+                                            font-weight:600;
+                                            direction:rtl;
+                                            unicode-bidi:isolate;
+                                            white-space:nowrap;
+                                        "
+                                    >
+                                        حداکثر
+                                    </span>
+
+                                </div>
+
+                            </div>
+
+                            <!-- Text value -->
                             <div
                                 id="condition-value-text-wrapper"
                                 style="
                                     display:
                                     <?php
-                                    echo 'number' ===
+                                    echo (
+                                        'number' ===
                                         $current_condition_value_type
+                                    )
                                         ? 'none'
                                         : 'block';
                                     ?>;
@@ -1324,11 +1595,27 @@ class WooSmart_Admin {
 
                             </div>
 
+                            <!-- Submitted scalar value -->
                             <input
                                 type="hidden"
                                 id="condition_value"
                                 name="condition_value"
                                 value="<?php echo esc_attr( $condition_value_numeric ); ?>"
+                            >
+
+                            <!-- Submitted range values -->
+                            <input
+                                type="hidden"
+                                id="condition_value_min"
+                                name="condition_value_min"
+                                value="<?php echo esc_attr( $condition_min_numeric ); ?>"
+                            >
+
+                            <input
+                                type="hidden"
+                                id="condition_value_max"
+                                name="condition_value_max"
+                                value="<?php echo esc_attr( $condition_max_numeric ); ?>"
                             >
 
                             <p
@@ -1337,18 +1624,27 @@ class WooSmart_Admin {
                             >
                                 <?php
                                 if (
-                                    'number' ===
+                                    'number' !==
                                     $current_condition_value_type
                                 ) {
 
                                     echo esc_html(
-                                        'مبلغ را به واحد پول فروشگاه وارد کنید؛ جداکننده هزارگان به‌صورت خودکار اضافه می‌شود.'
+                                        'مقدار شرط را وارد کنید.'
+                                    );
+
+                                } elseif (
+                                    'between' ===
+                                    $condition_operator
+                                ) {
+
+                                    echo esc_html(
+                                        'حداقل و حداکثر مبلغ را به واحد پول فروشگاه وارد کنید.'
                                     );
 
                                 } else {
 
                                     echo esc_html(
-                                        'مقدار شرط را وارد کنید.'
+                                        'مبلغ را به واحد پول فروشگاه وارد کنید؛ جداکننده هزارگان به‌صورت خودکار اضافه می‌شود.'
                                     );
                                 }
                                 ?>
@@ -1457,14 +1753,39 @@ class WooSmart_Admin {
                             'condition_value'
                         );
 
+                    const conditionValueMin =
+                        document.getElementById(
+                            'condition_value_min'
+                        );
+
+                    const conditionValueMax =
+                        document.getElementById(
+                            'condition_value_max'
+                        );
+
                     const amountDisplay =
                         document.getElementById(
                             'condition_value_display'
                         );
 
+                    const amountMinDisplay =
+                        document.getElementById(
+                            'condition_value_min_display'
+                        );
+
+                    const amountMaxDisplay =
+                        document.getElementById(
+                            'condition_value_max_display'
+                        );
+
                     const amountWrapper =
                         document.getElementById(
-                            'condition-value-number-wrapper'
+                            'condition-value-single-wrapper'
+                        );
+
+                    const rangeWrapper =
+                        document.getElementById(
+                            'condition-value-range-wrapper'
                         );
 
                     const textWrapper =
@@ -1491,9 +1812,10 @@ class WooSmart_Admin {
                         value
                     ) {
 
-                        value = String(
-                            value || ''
-                        );
+                        value =
+                            String(
+                                value || ''
+                            );
 
                         value =
                             value.replace(
@@ -1544,6 +1866,7 @@ class WooSmart_Admin {
                         if (
                             value === ''
                         ) {
+
                             return '';
                         }
 
@@ -1577,6 +1900,7 @@ class WooSmart_Admin {
                         if (
                             ! conditionField
                         ) {
+
                             return null;
                         }
 
@@ -1588,6 +1912,7 @@ class WooSmart_Admin {
                                 key
                             ]
                         ) {
+
                             return null;
                         }
 
@@ -1603,6 +1928,7 @@ class WooSmart_Admin {
                         if (
                             ! conditionOperator
                         ) {
+
                             return;
                         }
 
@@ -1616,13 +1942,16 @@ class WooSmart_Admin {
                             ! definition ||
                             ! definition.operators
                         ) {
+
                             return;
                         }
 
                         let selectedOperator =
-                            preferredOperator || '';
+                            preferredOperator ||
+                            '';
 
-                        let firstOperator = '';
+                        let firstOperator =
+                            '';
 
                         Object.keys(
                             definition.operators
@@ -1634,6 +1963,7 @@ class WooSmart_Admin {
                                 if (
                                     ! firstOperator
                                 ) {
+
                                     firstOperator =
                                         operatorKey;
                                 }
@@ -1676,47 +2006,146 @@ class WooSmart_Admin {
                         }
                     }
 
-                    function updateValueField() {
+                    function isNumberCondition() {
 
                         const definition =
                             getSelectedDefinition();
 
-                        const valueType =
+                        return (
                             definition &&
-                            definition.value_type
-                                ? definition.value_type
-                                : 'text';
+                            definition.value_type ===
+                                'number'
+                        );
+                    }
 
-                        const currentValue =
-                            conditionValue.value || '';
+                    function isRangeCondition() {
+
+                        return (
+                            isNumberCondition() &&
+                            conditionOperator &&
+                            conditionOperator.value ===
+                                'between'
+                        );
+                    }
+
+                    function updateValueField() {
+
+                        const valueTypeIsNumber =
+                            isNumberCondition();
+
+                        const range =
+                            isRangeCondition();
 
                         if (
-                            valueType ===
-                            'number'
+                            valueTypeIsNumber
                         ) {
 
-                            amountWrapper.style.display =
-                                'flex';
-
-                            textWrapper.style.display =
-                                'none';
-
-                            amountDisplay.value =
-                                formatNumber(
-                                    currentValue
-                                );
-
-                            conditionValue.value =
-                                normalizeNumber(
-                                    currentValue
-                                );
-
                             if (
-                                valueDescription
+                                range
                             ) {
 
-                                valueDescription.textContent =
-                                    'مبلغ را به واحد پول فروشگاه وارد کنید؛ جداکننده هزارگان به‌صورت خودکار اضافه می‌شود.';
+                                if (
+                                    amountWrapper
+                                ) {
+
+                                    amountWrapper.style.display =
+                                        'none';
+                                }
+
+                                if (
+                                    rangeWrapper
+                                ) {
+
+                                    rangeWrapper.style.display =
+                                        'flex';
+                                }
+
+                                if (
+                                    textWrapper
+                                ) {
+
+                                    textWrapper.style.display =
+                                        'none';
+                                }
+
+                                if (
+                                    amountMinDisplay
+                                ) {
+
+                                    amountMinDisplay.value =
+                                        formatNumber(
+                                            conditionValueMin
+                                                ? conditionValueMin.value
+                                                : ''
+                                        );
+                                }
+
+                                if (
+                                    amountMaxDisplay
+                                ) {
+
+                                    amountMaxDisplay.value =
+                                        formatNumber(
+                                            conditionValueMax
+                                                ? conditionValueMax.value
+                                                : ''
+                                        );
+                                }
+
+                                if (
+                                    valueDescription
+                                ) {
+
+                                    valueDescription.textContent =
+                                        'حداقل و حداکثر مبلغ را به واحد پول فروشگاه وارد کنید؛ هر دو سر بازه شامل شرط هستند.';
+                                }
+
+                            } else {
+
+                                if (
+                                    amountWrapper
+                                ) {
+
+                                    amountWrapper.style.display =
+                                        'flex';
+                                }
+
+                                if (
+                                    rangeWrapper
+                                ) {
+
+                                    rangeWrapper.style.display =
+                                        'none';
+                                }
+
+                                if (
+                                    textWrapper
+                                ) {
+
+                                    textWrapper.style.display =
+                                        'none';
+                                }
+
+                                if (
+                                    amountDisplay
+                                ) {
+
+                                    amountDisplay.value =
+                                        formatNumber(
+                                            conditionValue
+                                                ? conditionValue.value
+                                                : ''
+                                        );
+                                }
+
+                                if (
+                                    valueDescription
+                                ) {
+
+                                    valueDescription.textContent =
+                                        'مبلغ را به واحد پول فروشگاه وارد کنید؛ جداکننده هزارگان به‌صورت خودکار اضافه می‌شود.';
+                                }
+
                             }
 
                             if (
@@ -1729,14 +2158,39 @@ class WooSmart_Admin {
 
                         } else {
 
-                            amountWrapper.style.display =
-                                'none';
+                            if (
+                                amountWrapper
+                            ) {
 
-                            textWrapper.style.display =
-                                'block';
+                                amountWrapper.style.display =
+                                    'none';
+                            }
 
-                            textInput.value =
-                                currentValue;
+                            if (
+                                rangeWrapper
+                            ) {
+
+                                rangeWrapper.style.display =
+                                    'none';
+                            }
+
+                            if (
+                                textWrapper
+                            ) {
+
+                                textWrapper.style.display =
+                                    'block';
+                            }
+
+                            if (
+                                textInput &&
+                                conditionValue
+                            ) {
+
+                                textInput.value =
+                                    conditionValue.value ||
+                                    '';
+                            }
 
                             if (
                                 valueDescription
@@ -1750,37 +2204,126 @@ class WooSmart_Admin {
 
                     function syncConditionValue() {
 
-                        const definition =
-                            getSelectedDefinition();
-
-                        const valueType =
-                            definition &&
-                            definition.value_type
-                                ? definition.value_type
-                                : 'text';
-
                         if (
-                            valueType ===
-                            'number'
+                            ! isNumberCondition()
                         ) {
 
-                            const rawValue =
+                            if (
+                                conditionValue &&
+                                textInput
+                            ) {
+
+                                conditionValue.value =
+                                    textInput.value;
+                            }
+
+                            return;
+                        }
+
+                        if (
+                            isRangeCondition()
+                        ) {
+
+                            const minimum =
                                 normalizeNumber(
-                                    amountDisplay.value
+                                    amountMinDisplay
+                                        ? amountMinDisplay.value
+                                        : ''
                                 );
 
-                            conditionValue.value =
-                                rawValue;
-
-                            amountDisplay.value =
-                                formatNumber(
-                                    rawValue
+                            const maximum =
+                                normalizeNumber(
+                                    amountMaxDisplay
+                                        ? amountMaxDisplay.value
+                                        : ''
                                 );
+
+                            if (
+                                conditionValueMin
+                            ) {
+
+                                conditionValueMin.value =
+                                    minimum;
+                            }
+
+                            if (
+                                conditionValueMax
+                            ) {
+
+                                conditionValueMax.value =
+                                    maximum;
+                            }
+
+                            if (
+                                amountMinDisplay
+                            ) {
+
+                                amountMinDisplay.value =
+                                    formatNumber(
+                                        minimum
+                                    );
+                            }
+
+                            if (
+                                amountMaxDisplay
+                            ) {
+
+                                amountMaxDisplay.value =
+                                    formatNumber(
+                                        maximum
+                                    );
+                            }
+
+                            if (
+                                conditionValue
+                            ) {
+
+                                conditionValue.value =
+                                    '';
+                            }
 
                         } else {
 
-                            conditionValue.value =
-                                textInput.value;
+                            const rawValue =
+                                normalizeNumber(
+                                    amountDisplay
+                                        ? amountDisplay.value
+                                        : ''
+                                );
+
+                            if (
+                                conditionValue
+                            ) {
+
+                                conditionValue.value =
+                                    rawValue;
+                            }
+
+                            if (
+                                amountDisplay
+                            ) {
+
+                                amountDisplay.value =
+                                    formatNumber(
+                                        rawValue
+                                    );
+                            }
+
+                            if (
+                                conditionValueMin
+                            ) {
+
+                                conditionValueMin.value =
+                                    '';
+                            }
+
+                            if (
+                                conditionValueMax
+                            ) {
+
+                                conditionValueMax.value =
+                                    '';
+                            }
                         }
                     }
 
@@ -1831,6 +2374,13 @@ class WooSmart_Admin {
                             'input',
                             function() {
 
+                                if (
+                                    isRangeCondition()
+                                ) {
+
+                                    return;
+                                }
+
                                 const rawValue =
                                     normalizeNumber(
                                         amountDisplay.value
@@ -1855,6 +2405,13 @@ class WooSmart_Admin {
                             'blur',
                             function() {
 
+                                if (
+                                    isRangeCondition()
+                                ) {
+
+                                    return;
+                                }
+
                                 const rawValue =
                                     normalizeNumber(
                                         amountDisplay.value
@@ -1864,6 +2421,104 @@ class WooSmart_Admin {
                                     rawValue;
 
                                 amountDisplay.value =
+                                    formatNumber(
+                                        rawValue
+                                    );
+                            }
+                        );
+                    }
+
+                    if (
+                        amountMinDisplay &&
+                        conditionValueMin
+                    ) {
+
+                        amountMinDisplay.addEventListener(
+                            'input',
+                            function() {
+
+                                const rawValue =
+                                    normalizeNumber(
+                                        amountMinDisplay.value
+                                    );
+
+                                conditionValueMin.value =
+                                    rawValue;
+
+                                amountMinDisplay.value =
+                                    formatNumber(
+                                        rawValue
+                                    );
+
+                                amountMinDisplay.setSelectionRange(
+                                    amountMinDisplay.value.length,
+                                    amountMinDisplay.value.length
+                                );
+                            }
+                        );
+
+                        amountMinDisplay.addEventListener(
+                            'blur',
+                            function() {
+
+                                const rawValue =
+                                    normalizeNumber(
+                                        amountMinDisplay.value
+                                    );
+
+                                conditionValueMin.value =
+                                    rawValue;
+
+                                amountMinDisplay.value =
+                                    formatNumber(
+                                        rawValue
+                                    );
+                            }
+                        );
+                    }
+
+                    if (
+                        amountMaxDisplay &&
+                        conditionValueMax
+                    ) {
+
+                        amountMaxDisplay.addEventListener(
+                            'input',
+                            function() {
+
+                                const rawValue =
+                                    normalizeNumber(
+                                        amountMaxDisplay.value
+                                    );
+
+                                conditionValueMax.value =
+                                    rawValue;
+
+                                amountMaxDisplay.value =
+                                    formatNumber(
+                                        rawValue
+                                    );
+
+                                amountMaxDisplay.setSelectionRange(
+                                    amountMaxDisplay.value.length,
+                                    amountMaxDisplay.value.length
+                                );
+                            }
+                        );
+
+                        amountMaxDisplay.addEventListener(
+                            'blur',
+                            function() {
+
+                                const rawValue =
+                                    normalizeNumber(
+                                        amountMaxDisplay.value
+                                    );
+
+                                conditionValueMax.value =
+                                    rawValue;
+
+                                amountMaxDisplay.value =
                                     formatNumber(
                                         rawValue
                                     );
@@ -1891,7 +2546,9 @@ class WooSmart_Admin {
                             ? conditionValue.form
                             : null;
 
-                    if ( form ) {
+                    if (
+                        form
+                    ) {
 
                         form.addEventListener(
                             'submit',
@@ -1916,6 +2573,7 @@ class WooSmart_Admin {
                         ! actionsContainer ||
                         ! addActionButton
                     ) {
+
                         return;
                     }
 
@@ -1942,6 +2600,48 @@ class WooSmart_Admin {
                     }
 
                     /**
+                     * Get Action status label.
+                     *
+                     * @param string status Status slug.
+                     *
+                     * @return string
+                     */
+                    function getActionStatusLabel(
+                        status
+                    ) {
+
+                        const labels = {
+                            pending:
+                                'در انتظار پرداخت',
+
+                            processing:
+                                'در حال پردازش',
+
+                            'on-hold':
+                                'در انتظار',
+
+                            completed:
+                                'تکمیل‌شده',
+
+                            cancelled:
+                                'لغوشده',
+
+                            refunded:
+                                'مستردشده',
+
+                            failed:
+                                'ناموفق'
+                        };
+
+                        return (
+                            labels[
+                                status
+                            ] ||
+                            status
+                        );
+                    }
+
+                    /**
                      * Create a single Conflict UI box.
                      *
                      * @param array conflicts Conflict definitions.
@@ -1956,6 +2656,7 @@ class WooSmart_Admin {
                             ! conflicts ||
                             ! conflicts.length
                         ) {
+
                             return;
                         }
 
@@ -2092,6 +2793,7 @@ class WooSmart_Admin {
                                             if (
                                                 ! action
                                             ) {
+
                                                 return;
                                             }
 
@@ -2150,9 +2852,6 @@ class WooSmart_Admin {
                             footer
                         );
 
-                        /*
-                         * Insert immediately after the Action container.
-                         */
                         actionsContainer.parentNode.insertBefore(
                             box,
                             actionsContainer.nextSibling
@@ -2162,21 +2861,10 @@ class WooSmart_Admin {
                     /**
                      * Render Action conflicts.
                      *
-                     * UI intentionally displays only distinct conflicts:
-                     *
-                     * 1. Multiple order-status changes.
-                     * 2. Duplicate target status.
-                     *
-                     * The server-side diagnostic log may still contain
-                     * sequential_order_status_transitions.
-                     *
                      * @return void
                      */
                     function renderActionConflicts() {
 
-                        /*
-                         * Remove every previous UI box first.
-                         */
                         removeAllConflictBoxes();
 
                         const actions =
@@ -2198,11 +2886,6 @@ class WooSmart_Admin {
                         const conflicts =
                             [];
 
-                        /*
-                         * Conflict 1:
-                         *
-                         * More than one Action changes order status.
-                         */
                         if (
                             statusActions.length > 1
                         ) {
@@ -2224,11 +2907,6 @@ class WooSmart_Admin {
                             );
                         }
 
-                        /*
-                         * Conflict 2:
-                         *
-                         * More than one Action targets the same status.
-                         */
                         const seenStatuses =
                             {};
 
@@ -2240,6 +2918,7 @@ class WooSmart_Admin {
                                 if (
                                     ! action.status
                                 ) {
+
                                     return;
                                 }
 
@@ -2295,6 +2974,11 @@ class WooSmart_Admin {
                         }
                     }
 
+                    /**
+                     * Get next Action index.
+                     *
+                     * @return int
+                     */
                     function getNextIndex() {
 
                         const rows =
@@ -2302,7 +2986,8 @@ class WooSmart_Admin {
                                 '.woosmart-action-row'
                             );
 
-                        let maxIndex = -1;
+                        let maxIndex =
+                            -1;
 
                         rows.forEach(
                             function(
@@ -2330,9 +3015,19 @@ class WooSmart_Admin {
                             }
                         );
 
-                        return maxIndex + 1;
+                        return (
+                            maxIndex +
+                            1
+                        );
                     }
 
+                    /**
+                     * Create a new Action row.
+                     *
+                     * @param int index Action index.
+                     *
+                     * @return HTMLElement
+                     */
                     function createActionRow(
                         index
                     ) {
@@ -2351,17 +3046,35 @@ class WooSmart_Admin {
                         );
 
                         row.style.cssText =
-                            'margin-bottom:16px;padding:18px;border:1px solid #ccd0d4;background:#fff;position:relative;';
+                            'margin-bottom:16px;' +
+                            'padding:18px;' +
+                            'border:1px solid #ccd0d4;' +
+                            'background:#fff;' +
+                            'position:relative;';
 
                         row.innerHTML =
                             `
-                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;gap:15px;">
+                            <div
+                                style="
+                                    display:flex;
+                                    justify-content:space-between;
+                                    align-items:center;
+                                    margin-bottom:15px;
+                                    gap:15px;
+                                "
+                            >
 
                                 <strong>
                                     عملیات ${index + 1}
                                 </strong>
 
-                                <div style="display:flex;align-items:center;gap:6px;">
+                                <div
+                                    style="
+                                        display:flex;
+                                        align-items:center;
+                                        gap:6px;
+                                    "
+                                >
 
                                     <button
                                         type="button"
@@ -2390,14 +3103,19 @@ class WooSmart_Admin {
 
                             </div>
 
-                            <table class="form-table" style="margin:0;">
+                            <table
+                                class="form-table"
+                                style="margin:0;"
+                            >
 
                                 <tr>
 
                                     <th scope="row">
+
                                         <label>
                                             نوع عملیات
                                         </label>
+
                                     </th>
 
                                     <td>
@@ -2425,9 +3143,11 @@ class WooSmart_Admin {
                                 <tr class="woosmart-status-fields">
 
                                     <th scope="row">
+
                                         <label>
                                             وضعیت سفارش
                                         </label>
+
                                     </th>
 
                                     <td>
@@ -2465,9 +3185,11 @@ class WooSmart_Admin {
                                 <tr class="woosmart-notify-fields">
 
                                     <th scope="row">
+
                                         <label>
                                             موضوع اعلان
                                         </label>
+
                                     </th>
 
                                     <td>
@@ -2486,9 +3208,11 @@ class WooSmart_Admin {
                                 <tr class="woosmart-notify-fields">
 
                                     <th scope="row">
+
                                         <label>
                                             متن اعلان
                                         </label>
+
                                     </th>
 
                                     <td>
@@ -2517,12 +3241,18 @@ class WooSmart_Admin {
                                 </tr>
 
                             </table>
-
                             `;
 
                         return row;
                     }
 
+                    /**
+                     * Update Action fields visibility.
+                     *
+                     * @param HTMLElement row Action row.
+                     *
+                     * @return void
+                     */
                     function updateActionFields(
                         row
                     ) {
@@ -2546,6 +3276,7 @@ class WooSmart_Admin {
                             ! typeSelect ||
                             ! statusFields
                         ) {
+
                             return;
                         }
 
@@ -2584,6 +3315,11 @@ class WooSmart_Admin {
                         }
                     }
 
+                    /**
+                     * Read current Action data from DOM.
+                     *
+                     * @return array
+                     */
                     function getActionData() {
 
                         const rows =
@@ -2611,7 +3347,8 @@ class WooSmart_Admin {
 
                                 return {
                                     index:
-                                        rowIndex + 1,
+                                        rowIndex +
+                                        1,
 
                                     type:
                                         typeSelect
@@ -2627,38 +3364,11 @@ class WooSmart_Admin {
                         );
                     }
 
-                    function getActionStatusLabel(
-                        status
-                    ) {
-
-                        const labels = {
-                            pending:
-                                'در انتظار پرداخت',
-
-                            processing:
-                                'در حال پردازش',
-
-                            'on-hold':
-                                'در انتظار',
-
-                            completed:
-                                'تکمیل‌شده',
-
-                            cancelled:
-                                'لغوشده',
-
-                            refunded:
-                                'مستردشده',
-
-                            failed:
-                                'ناموفق'
-                        };
-
-                        return labels[
-                            status
-                        ] || status;
-                    }
-
+                    /**
+                     * Update Action move button state.
+                     *
+                     * @return void
+                     */
                     function updateActionMoveButtons() {
 
                         const rows =
@@ -2689,7 +3399,8 @@ class WooSmart_Admin {
                                 ) {
 
                                     moveUpButton.disabled =
-                                        rowIndex === 0;
+                                        rowIndex ===
+                                        0;
                                 }
 
                                 if (
@@ -2698,12 +3409,20 @@ class WooSmart_Admin {
 
                                     moveDownButton.disabled =
                                         rowIndex ===
-                                        rows.length - 1;
+                                        rows.length -
+                                        1;
                                 }
                             }
                         );
                     }
 
+                    /**
+                     * Bind one Action row.
+                     *
+                     * @param HTMLElement row Action row.
+                     *
+                     * @return void
+                     */
                     function bindActionRow(
                         row
                     ) {
@@ -2733,7 +3452,9 @@ class WooSmart_Admin {
                                 '.woosmart-move-down'
                             );
 
-                        if ( typeSelect ) {
+                        if (
+                            typeSelect
+                        ) {
 
                             typeSelect.addEventListener(
                                 'change',
@@ -2748,7 +3469,9 @@ class WooSmart_Admin {
                             );
                         }
 
-                        if ( statusSelect ) {
+                        if (
+                            statusSelect
+                        ) {
 
                             statusSelect.addEventListener(
                                 'change',
@@ -2759,7 +3482,9 @@ class WooSmart_Admin {
                             );
                         }
 
-                        if ( removeButton ) {
+                        if (
+                            removeButton
+                        ) {
 
                             removeButton.addEventListener(
                                 'click',
@@ -2771,7 +3496,8 @@ class WooSmart_Admin {
                                         );
 
                                     if (
-                                        rows.length <= 1
+                                        rows.length <=
+                                        1
                                     ) {
 
                                         alert(
@@ -2790,7 +3516,9 @@ class WooSmart_Admin {
                             );
                         }
 
-                        if ( moveUpButton ) {
+                        if (
+                            moveUpButton
+                        ) {
 
                             moveUpButton.addEventListener(
                                 'click',
@@ -2805,6 +3533,7 @@ class WooSmart_Admin {
                                             'woosmart-action-row'
                                         )
                                     ) {
+
                                         return;
                                     }
 
@@ -2820,7 +3549,9 @@ class WooSmart_Admin {
                             );
                         }
 
-                        if ( moveDownButton ) {
+                        if (
+                            moveDownButton
+                        ) {
 
                             moveDownButton.addEventListener(
                                 'click',
@@ -2835,6 +3566,7 @@ class WooSmart_Admin {
                                             'woosmart-action-row'
                                         )
                                     ) {
+
                                         return;
                                     }
 
@@ -2855,6 +3587,11 @@ class WooSmart_Admin {
                         );
                     }
 
+                    /**
+                     * Renumber Action rows and input names.
+                     *
+                     * @return void
+                     */
                     function renumberActionRows() {
 
                         const rows =
@@ -2878,12 +3615,15 @@ class WooSmart_Admin {
                                         'strong'
                                     );
 
-                                if ( title ) {
+                                if (
+                                    title
+                                ) {
 
                                     title.textContent =
                                         'عملیات ' +
                                         (
-                                            rowIndex + 1
+                                            rowIndex +
+                                            1
                                         );
                                 }
 
@@ -2909,23 +3649,31 @@ class WooSmart_Admin {
                         updateActionMoveButtons();
                     }
 
-                    actionsContainer.querySelectorAll(
-                        '.woosmart-action-row'
-                    ).forEach(
-                        function(
-                            row
-                        ) {
-
-                            bindActionRow(
+                    /*
+                     * Bind existing Action rows.
+                     */
+                    actionsContainer
+                        .querySelectorAll(
+                            '.woosmart-action-row'
+                        )
+                        .forEach(
+                            function(
                                 row
-                            );
-                        }
-                    );
+                            ) {
+
+                                bindActionRow(
+                                    row
+                                );
+                            }
+                        );
 
                     renumberActionRows();
 
                     renderActionConflicts();
 
+                    /*
+                     * Add new Action.
+                     */
                     addActionButton.addEventListener(
                         'click',
                         function() {
@@ -2963,7 +3711,7 @@ class WooSmart_Admin {
     }
 
     /**
-     * Render one action row.
+     * Render one Action row.
      *
      * @param int   $index          Action index.
      * @param array $action         Action configuration.
@@ -2977,37 +3725,41 @@ class WooSmart_Admin {
         $order_statuses
     ) {
 
-        $action_type = isset(
-            $action['type']
-        )
-            ? sanitize_key(
+        $action_type =
+            isset(
                 $action['type']
             )
-            : 'notify_admin';
+                ? sanitize_key(
+                    $action['type']
+                )
+                : 'notify_admin';
 
-        $action_status = isset(
-            $action['status']
-        )
-            ? sanitize_key(
+        $action_status =
+            isset(
                 $action['status']
             )
-            : 'processing';
+                ? sanitize_key(
+                    $action['status']
+                )
+                : 'processing';
 
-        $action_subject = isset(
-            $action['subject']
-        )
-            ? $action['subject']
-            : 'اعلان سفارش جدید در WooSmart';
+        $action_subject =
+            isset(
+                $action['subject']
+            )
+                ? $action['subject']
+                : 'اعلان سفارش جدید در WooSmart';
 
-        $action_message = isset(
-            $action['message']
-        )
-            ? $action['message']
-            : "یک سفارش جدید با شرایط اتوماسیون مطابقت دارد.\n\n" .
-            "شناسه سفارش: {order_id}\n" .
-            "مبلغ سفارش: {order_total}\n" .
-            "وضعیت سفارش: {order_status}\n" .
-            "نام مشتری: {customer_name}";
+        $action_message =
+            isset(
+                $action['message']
+            )
+                ? $action['message']
+                : "یک سفارش جدید با شرایط اتوماسیون مطابقت دارد.\n\n" .
+                "شناسه سفارش: {order_id}\n" .
+                "مبلغ سفارش: {order_total}\n" .
+                "وضعیت سفارش: {order_status}\n" .
+                "نام مشتری: {customer_name}";
 
         ?>
 
@@ -3034,7 +3786,12 @@ class WooSmart_Admin {
             >
 
                 <strong>
-                    عملیات <?php echo esc_html( $index + 1 ); ?>
+                    عملیات
+                    <?php
+                    echo esc_html(
+                        $index + 1
+                    );
+                    ?>
                 </strong>
 
                 <div
@@ -3080,9 +3837,11 @@ class WooSmart_Admin {
                 <tr>
 
                     <th scope="row">
+
                         <label>
                             نوع عملیات
                         </label>
+
                     </th>
 
                     <td>
@@ -3122,16 +3881,21 @@ class WooSmart_Admin {
                 <tr
                     class="woosmart-status-fields"
                     <?php
-                    echo 'change_order_status' === $action_type
+                    echo (
+                        'change_order_status' ===
+                        $action_type
+                    )
                         ? ''
                         : 'style="display:none;"';
                     ?>
                 >
 
                     <th scope="row">
+
                         <label>
                             وضعیت سفارش
                         </label>
+
                     </th>
 
                     <td>
@@ -3173,16 +3937,21 @@ class WooSmart_Admin {
                 <tr
                     class="woosmart-notify-fields"
                     <?php
-                    echo 'notify_admin' === $action_type
+                    echo (
+                        'notify_admin' ===
+                        $action_type
+                    )
                         ? ''
                         : 'style="display:none;"';
                     ?>
                 >
 
                     <th scope="row">
+
                         <label>
                             موضوع اعلان
                         </label>
+
                     </th>
 
                     <td>
@@ -3201,16 +3970,21 @@ class WooSmart_Admin {
                 <tr
                     class="woosmart-notify-fields"
                     <?php
-                    echo 'notify_admin' === $action_type
+                    echo (
+                        'notify_admin' ===
+                        $action_type
+                    )
                         ? ''
                         : 'style="display:none;"';
                     ?>
                 >
 
                     <th scope="row">
+
                         <label>
                             متن اعلان
                         </label>
+
                     </th>
 
                     <td>
@@ -3222,11 +3996,14 @@ class WooSmart_Admin {
                         ><?php echo esc_textarea( $action_message ); ?></textarea>
 
                         <p class="description">
+
                             متغیرهای قابل استفاده:
+
                             <code>{order_id}</code>
                             <code>{order_total}</code>
                             <code>{order_status}</code>
                             <code>{customer_name}</code>
+
                         </p>
 
                     </td>
@@ -3238,6 +4015,228 @@ class WooSmart_Admin {
         </div>
 
         <?php
+    }
+
+    /**
+     * Render condition summary in the Automation list.
+     *
+     * Supports both scalar and range conditions.
+     *
+     * @param array $conditions Conditions.
+     *
+     * @return void
+     */
+    private function render_condition_summary(
+        $conditions
+    ) {
+
+        if (
+            empty(
+                $conditions
+            )
+        ) {
+
+            echo '<span>بدون شرط</span>';
+
+            return;
+        }
+
+        foreach (
+            $conditions
+            as $condition
+        ) {
+
+            if (
+                ! is_array(
+                    $condition
+                )
+            ) {
+
+                continue;
+            }
+
+            $field =
+                isset(
+                    $condition['field']
+                )
+                    ? sanitize_key(
+                        $condition['field']
+                    )
+                    : '';
+
+            $operator =
+                isset(
+                    $condition['operator']
+                )
+                    ? sanitize_key(
+                        $condition['operator']
+                    )
+                    : '';
+
+            $value =
+                isset(
+                    $condition['value']
+                )
+                    ? $condition['value']
+                    : '';
+
+            $definition =
+                $this->condition_registry->get(
+                    $field
+                );
+
+            $value_type =
+                (
+                    is_array(
+                        $definition
+                    ) &&
+                    isset(
+                        $definition['value_type']
+                    )
+                )
+                    ? sanitize_key(
+                        $definition[
+                            'value_type'
+                        ]
+                    )
+                    : 'text';
+
+            ?>
+
+            <div
+                style="
+                    margin-bottom:6px;
+                "
+            >
+
+                <strong>
+                    <?php
+                    echo esc_html(
+                        $this->get_condition_field_label(
+                            $field
+                        )
+                    );
+                    ?>
+                </strong>
+
+                <?php
+                echo esc_html(
+                    $this->get_operator_label(
+                        $operator,
+                        $field
+                    )
+                );
+                ?>
+
+                <?php if (
+                    'between' ===
+                    $operator &&
+                    is_array(
+                        $value
+                    )
+                ) : ?>
+
+                    <?php
+
+                    $minimum =
+                        isset(
+                            $value['min']
+                        )
+                            ? $value['min']
+                            : '';
+
+                    $maximum =
+                        isset(
+                            $value['max']
+                        )
+                            ? $value['max']
+                            : '';
+
+                    ?>
+
+                    <?php if (
+                        'number' ===
+                        $value_type
+                    ) : ?>
+
+                        <?php
+                        echo wp_kses_post(
+                            $this->format_currency_value(
+                                $minimum
+                            )
+                        );
+                        ?>
+
+                        <span>
+                            تا
+                        </span>
+
+                        <?php
+                        echo wp_kses_post(
+                            $this->format_currency_value(
+                                $maximum
+                            )
+                        );
+                        ?>
+
+                    <?php else : ?>
+
+                        <span>
+                            <?php
+                            echo esc_html(
+                                (string)
+                                $minimum
+                            );
+                            ?>
+                        </span>
+
+                        <span>
+                            تا
+                        </span>
+
+                        <span>
+                            <?php
+                            echo esc_html(
+                                (string)
+                                $maximum
+                            );
+                            ?>
+                        </span>
+
+                    <?php endif; ?>
+
+                <?php else : ?>
+
+                    <?php if (
+                        'number' ===
+                        $value_type
+                    ) : ?>
+
+                        <?php
+                        echo wp_kses_post(
+                            $this->format_currency_value(
+                                $value
+                            )
+                        );
+                        ?>
+
+                    <?php else : ?>
+
+                        <?php
+                        echo esc_html(
+                            (string)
+                            $value
+                        );
+                        ?>
+
+                    <?php endif; ?>
+
+                <?php endif; ?>
+
+            </div>
+
+            <?php
+        }
     }
 
     /**
@@ -3307,7 +4306,9 @@ class WooSmart_Admin {
                     <tbody>
 
                         <?php foreach (
-                            array_reverse( $logs )
+                            array_reverse(
+                                $logs
+                            )
                             as $log
                         ) : ?>
 
@@ -3361,6 +4362,7 @@ class WooSmart_Admin {
                                 <td>
 
                                     <?php
+
                                     if (
                                         isset(
                                             $log['context']
@@ -3374,6 +4376,7 @@ class WooSmart_Admin {
                                             )
                                         );
                                     }
+
                                     ?>
 
                                 </td>
@@ -3404,15 +4407,20 @@ class WooSmart_Admin {
         $trigger
     ) {
 
-        $labels = array(
-            'order_created' =>
-                'ایجاد سفارش',
-        );
+        $labels =
+            array(
+                'order_created' =>
+                    'ایجاد سفارش',
+            );
 
         return isset(
-            $labels[ $trigger ]
+            $labels[
+                $trigger
+            ]
         )
-            ? $labels[ $trigger ]
+            ? $labels[
+                $trigger
+            ]
             : $trigger;
     }
 
@@ -3437,11 +4445,15 @@ class WooSmart_Admin {
                 $definition
             ) &&
             isset(
-                $definition['label']
+                $definition[
+                    'label'
+                ]
             )
         ) {
 
-            return $definition['label'];
+            return $definition[
+                'label'
+            ];
         }
 
         return $field;
@@ -3461,7 +4473,9 @@ class WooSmart_Admin {
     ) {
 
         if (
-            ! empty( $field )
+            ! empty(
+                $field
+            )
         ) {
 
             $operators =
@@ -3471,7 +4485,9 @@ class WooSmart_Admin {
 
             if (
                 isset(
-                    $operators[ $operator ]
+                    $operators[
+                        $operator
+                    ]
                 )
             ) {
 
@@ -3481,30 +4497,38 @@ class WooSmart_Admin {
             }
         }
 
-        $labels = array(
-            'is_equal' =>
-                'برابر با',
+        $labels =
+            array(
+                'is_equal' =>
+                    'برابر با',
 
-            'is_not_equal' =>
-                'نابرابر با',
+                'is_not_equal' =>
+                    'نابرابر با',
 
-            'greater_than' =>
-                'بیشتر از',
+                'greater_than' =>
+                    'بیشتر از',
 
-            'greater_than_or_equal' =>
-                'بیشتر یا مساوی',
+                'greater_than_or_equal' =>
+                    'بیشتر یا مساوی',
 
-            'less_than' =>
-                'کمتر از',
+                'less_than' =>
+                    'کمتر از',
 
-            'less_than_or_equal' =>
-                'کمتر یا مساوی',
-        );
+                'less_than_or_equal' =>
+                    'کمتر یا مساوی',
+
+                'between' =>
+                    'بین',
+            );
 
         return isset(
-            $labels[ $operator ]
+            $labels[
+                $operator
+            ]
         )
-            ? $labels[ $operator ]
+            ? $labels[
+                $operator
+            ]
             : $operator;
     }
 
@@ -3519,18 +4543,23 @@ class WooSmart_Admin {
         $action_type
     ) {
 
-        $labels = array(
-            'change_order_status' =>
-                'تغییر وضعیت سفارش',
+        $labels =
+            array(
+                'change_order_status' =>
+                    'تغییر وضعیت سفارش',
 
-            'notify_admin' =>
-                'ارسال اعلان به مدیر فروشگاه',
-        );
+                'notify_admin' =>
+                    'ارسال اعلان به مدیر فروشگاه',
+            );
 
         return isset(
-            $labels[ $action_type ]
+            $labels[
+                $action_type
+            ]
         )
-            ? $labels[ $action_type ]
+            ? $labels[
+                $action_type
+            ]
             : $action_type;
     }
 
@@ -3547,32 +4576,35 @@ class WooSmart_Admin {
         $default_label = null
     ) {
 
-        $labels = array(
-            'pending' =>
-                'در انتظار پرداخت',
+        $labels =
+            array(
+                'pending' =>
+                    'در انتظار پرداخت',
 
-            'processing' =>
-                'در حال پردازش',
+                'processing' =>
+                    'در حال پردازش',
 
-            'on-hold' =>
-                'در انتظار',
+                'on-hold' =>
+                    'در انتظار',
 
-            'completed' =>
-                'تکمیل‌شده',
+                'completed' =>
+                    'تکمیل‌شده',
 
-            'cancelled' =>
-                'لغوشده',
+                'cancelled' =>
+                    'لغوشده',
 
-            'refunded' =>
-                'مستردشده',
+                'refunded' =>
+                    'مستردشده',
 
-            'failed' =>
-                'ناموفق',
-        );
+                'failed' =>
+                    'ناموفق',
+            );
 
         if (
             isset(
-                $labels[ $status_slug ]
+                $labels[
+                    $status_slug
+                ]
             )
         ) {
 
@@ -3582,7 +4614,8 @@ class WooSmart_Admin {
         }
 
         if (
-            null !== $default_label
+            null !==
+            $default_label
         ) {
 
             return $default_label;
@@ -3611,7 +4644,8 @@ class WooSmart_Admin {
             );
 
         if (
-            '' === $value
+            '' ===
+            $value
         ) {
 
             return '';
@@ -3645,7 +4679,8 @@ class WooSmart_Admin {
             );
 
         if (
-            '' === $value
+            '' ===
+            $value
         ) {
 
             return '';
@@ -3660,7 +4695,8 @@ class WooSmart_Admin {
 
         $integer_part =
             number_format(
-                (float) $parts[0],
+                (float)
+                $parts[0],
                 0,
                 '.',
                 ','
@@ -3670,7 +4706,8 @@ class WooSmart_Admin {
             isset(
                 $parts[1]
             ) &&
-            '' !== $parts[1]
+            '' !==
+                $parts[1]
         ) {
 
             return (
@@ -3695,7 +4732,8 @@ class WooSmart_Admin {
     ) {
 
         $value =
-            (string) $value;
+            (string)
+            $value;
 
         $value =
             str_replace(
@@ -3712,7 +4750,8 @@ class WooSmart_Admin {
             );
 
         if (
-            null === $value
+            null ===
+            $value
         ) {
 
             return '';
@@ -3725,21 +4764,24 @@ class WooSmart_Admin {
             );
 
         if (
-            false !== $first_dot
+            false !==
+            $first_dot
         ) {
 
             $value =
                 substr(
                     $value,
                     0,
-                    $first_dot + 1
+                    $first_dot +
+                    1
                 ) .
                 str_replace(
                     '.',
                     '',
                     substr(
                         $value,
-                        $first_dot + 1
+                        $first_dot +
+                        1
                     )
                 );
         }
@@ -3758,57 +4800,62 @@ class WooSmart_Admin {
         $event
     ) {
 
-        $labels = array(
-            'order_created' =>
-                'ایجاد سفارش',
+        $labels =
+            array(
+                'order_created' =>
+                    'ایجاد سفارش',
 
-            'automation_created' =>
-                'ایجاد اتوماسیون',
+                'automation_created' =>
+                    'ایجاد اتوماسیون',
 
-            'automation_updated' =>
-                'ویرایش اتوماسیون',
+                'automation_updated' =>
+                    'ویرایش اتوماسیون',
 
-            'automation_status_changed' =>
-                'تغییر وضعیت اتوماسیون',
+                'automation_status_changed' =>
+                    'تغییر وضعیت اتوماسیون',
 
-            'automation_deleted' =>
-                'حذف اتوماسیون',
+                'automation_deleted' =>
+                    'حذف اتوماسیون',
 
-            'automation_duplicated' =>
-                'کپی اتوماسیون',
+                'automation_duplicated' =>
+                    'کپی اتوماسیون',
 
-            'automation_skipped' =>
-                'رد شدن اتوماسیون',
+                'automation_skipped' =>
+                    'رد شدن اتوماسیون',
 
-            'automation_conditions_failed' =>
-                'شرایط برقرار نبود',
+                'automation_conditions_failed' =>
+                    'شرایط برقرار نبود',
 
-            'automation_executed' =>
-                'اجرای اتوماسیون',
+                'automation_executed' =>
+                    'اجرای اتوماسیون',
 
-            'automation_failed' =>
-                'خطای اجرای اتوماسیون',
+                'automation_failed' =>
+                    'خطای اجرای اتوماسیون',
 
-            'action_failed' =>
-                'خطا در عملیات',
+                'action_failed' =>
+                    'خطا در عملیات',
 
-            'action_executed' =>
-                'اجرای عملیات',
+                'action_executed' =>
+                    'اجرای عملیات',
 
-            'action_result' =>
-                'نتیجه عملیات',
+                'action_result' =>
+                    'نتیجه عملیات',
 
-            'action_side_effect' =>
-                'اثر جانبی عملیات',
+                'action_side_effect' =>
+                    'اثر جانبی عملیات',
 
-            'automation_conflict_detected' =>
-                'تعارض اتوماسیون',
-        );
+                'automation_conflict_detected' =>
+                    'تعارض اتوماسیون',
+            );
 
         return isset(
-            $labels[ $event ]
+            $labels[
+                $event
+            ]
         )
-            ? $labels[ $event ]
+            ? $labels[
+                $event
+            ]
             : $event;
     }
 
@@ -3825,57 +4872,62 @@ class WooSmart_Admin {
         $message
     ) {
 
-        $messages = array(
-            'order_created' =>
-                'یک سفارش جدید ایجاد شد.',
+        $messages =
+            array(
+                'order_created' =>
+                    'یک سفارش جدید ایجاد شد.',
 
-            'automation_created' =>
-                'یک اتوماسیون جدید ایجاد شد.',
+                'automation_created' =>
+                    'یک اتوماسیون جدید ایجاد شد.',
 
-            'automation_updated' =>
-                'اتوماسیون ویرایش شد.',
+                'automation_updated' =>
+                    'اتوماسیون ویرایش شد.',
 
-            'automation_status_changed' =>
-                'وضعیت اتوماسیون تغییر کرد.',
+                'automation_status_changed' =>
+                    'وضعیت اتوماسیون تغییر کرد.',
 
-            'automation_deleted' =>
-                'اتوماسیون به زباله‌دان منتقل شد.',
+                'automation_deleted' =>
+                    'اتوماسیون به زباله‌دان منتقل شد.',
 
-            'automation_duplicated' =>
-                'اتوماسیون کپی شد.',
+                'automation_duplicated' =>
+                    'اتوماسیون کپی شد.',
 
-            'automation_skipped' =>
-                'اتوماسیون به دلیل غیرفعال بودن اجرا نشد.',
+                'automation_skipped' =>
+                    'اتوماسیون به دلیل غیرفعال بودن اجرا نشد.',
 
-            'automation_conditions_failed' =>
-                'شرایط اتوماسیون برقرار نبود.',
+                'automation_conditions_failed' =>
+                    'شرایط اتوماسیون برقرار نبود.',
 
-            'automation_executed' =>
-                'اتوماسیون با موفقیت اجرا شد.',
+                'automation_executed' =>
+                    'اتوماسیون با موفقیت اجرا شد.',
 
-            'automation_failed' =>
-                'اجرای اتوماسیون با شکست مواجه شد.',
+                'automation_failed' =>
+                    'اجرای اتوماسیون با شکست مواجه شد.',
 
-            'action_failed' =>
-                'اجرای عملیات با خطا مواجه شد.',
+                'action_failed' =>
+                    'اجرای عملیات با خطا مواجه شد.',
 
-            'action_executed' =>
-                'عملیات با موفقیت اجرا شد.',
+                'action_executed' =>
+                    'عملیات با موفقیت اجرا شد.',
 
-            'action_result' =>
-                'نتیجه هر عملیات به‌صورت مستقل ثبت شد.',
+                'action_result' =>
+                    'نتیجه هر عملیات به‌صورت مستقل ثبت شد.',
 
-            'action_side_effect' =>
-                'عملیات باعث یک اثر جانبی در WooCommerce شد.',
+                'action_side_effect' =>
+                    'عملیات باعث یک اثر جانبی در WooCommerce شد.',
 
-            'automation_conflict_detected' =>
-                'در پیکربندی عملیات اتوماسیون تعارض یا اثر جانبی بالقوه شناسایی شد.',
-        );
+                'automation_conflict_detected' =>
+                    'در پیکربندی عملیات اتوماسیون تعارض یا اثر جانبی بالقوه شناسایی شد.',
+            );
 
         return isset(
-            $messages[ $event ]
+            $messages[
+                $event
+            ]
         )
-            ? $messages[ $event ]
+            ? $messages[
+                $event
+            ]
             : $message;
     }
 }
