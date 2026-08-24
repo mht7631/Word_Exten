@@ -40,9 +40,9 @@ class WooSmart_Execution_Engine {
     /**
      * Initialize execution engine.
      *
-     * @param WooSmart_Condition_Engine          $condition_engine Condition engine.
-     * @param WooSmart_Action_Engine             $action_engine    Action engine.
-     * @param WooSmart_Execution_History|null    $execution_history Execution history.
+     * @param WooSmart_Condition_Engine       $condition_engine Condition engine.
+     * @param WooSmart_Action_Engine          $action_engine    Action engine.
+     * @param WooSmart_Execution_History|null $execution_history History.
      */
     public function __construct(
         WooSmart_Condition_Engine $condition_engine,
@@ -87,22 +87,17 @@ class WooSmart_Execution_Engine {
             );
 
         if (
-            empty( $trigger )
+            empty(
+                $trigger
+            )
         ) {
+
             return;
         }
 
         $execution_policy =
             $this->get_execution_policy();
 
-        /*
-         * Find all active, published Automations
-         * that use the received Trigger.
-         *
-         * Current MVP ordering is newest first.
-         * A dedicated per-Automation Priority UI will be
-         * added in the next phase.
-         */
         $automations =
             get_posts(
                 array(
@@ -161,8 +156,7 @@ class WooSmart_Execution_Engine {
         ) {
 
             foreach (
-                $automations
-                as $automation
+                $automations as $automation
             ) {
 
                 if (
@@ -207,12 +201,12 @@ class WooSmart_Execution_Engine {
                 $automations
             )
         ) {
+
             return;
         }
 
         foreach (
-            $automations
-            as $automation
+            $automations as $automation
         ) {
 
             $result =
@@ -224,16 +218,14 @@ class WooSmart_Execution_Engine {
                 );
 
             if (
-                ! is_array( $result )
+                ! is_array(
+                    $result
+                )
             ) {
+
                 continue;
             }
 
-            /*
-             * FIRST_MATCH:
-             * Stop as soon as one Automation's Conditions pass.
-             * Action success is not required for the policy to stop.
-             */
             if (
                 'first_match' ===
                 $execution_policy &&
@@ -245,11 +237,6 @@ class WooSmart_Execution_Engine {
                 break;
             }
 
-            /*
-             * FIRST_SUCCESS:
-             * Stop only after a matching Automation completes
-             * all configured Actions successfully.
-             */
             if (
                 'first_success' ===
                 $execution_policy &&
@@ -267,12 +254,12 @@ class WooSmart_Execution_Engine {
     }
 
     /**
-     * Execute a single automation.
+     * Execute one Automation.
      *
      * @param int    $automation_id    Automation ID.
      * @param string $trigger          Trigger name.
      * @param array  $context          Trigger context.
-     * @param string $execution_policy Current execution policy.
+     * @param string $execution_policy Current policy.
      *
      * @return array
      */
@@ -302,6 +289,7 @@ class WooSmart_Execution_Engine {
         if (
             ! $automation_id
         ) {
+
             return $result;
         }
 
@@ -332,6 +320,16 @@ class WooSmart_Execution_Engine {
             return $result;
         }
 
+        $automation =
+            get_post(
+                $automation_id
+            );
+
+        $automation_title =
+            $automation
+                ? $automation->post_title
+                : '';
+
         $conditions =
             get_post_meta(
                 $automation_id,
@@ -349,10 +347,23 @@ class WooSmart_Execution_Engine {
                 array();
         }
 
-        /*
-         * Create a History record before evaluating Conditions.
-         * This makes Conditions Failed visible to the user.
-         */
+        $actions =
+            get_post_meta(
+                $automation_id,
+                '_woosmart_actions',
+                true
+            );
+
+        if (
+            ! is_array(
+                $actions
+            )
+        ) {
+
+            $actions =
+                array();
+        }
+
         $order_id =
             isset(
                 $context['order_id']
@@ -362,13 +373,19 @@ class WooSmart_Execution_Engine {
                 )
                 : 0;
 
+        /*
+         * Snapshot is captured before Conditions/Actions execute.
+         */
         $execution_id =
             $this->execution_history->start_execution(
                 $automation_id,
                 $order_id,
                 $trigger,
                 $execution_policy,
-                $context
+                $context,
+                $automation_title,
+                $conditions,
+                $actions
             );
 
         $conditions_passed =
@@ -405,48 +422,63 @@ class WooSmart_Execution_Engine {
                     'conditions_failed',
                     0,
                     false,
-                    'شرایط اتوماسیون برقرار نبود.'
+                    'شرایط اتوماسیون برقرار نبود.',
+                    false,
+                    array()
                 );
             }
 
             return $result;
         }
 
-        $result['matched'] =
+        $result[
+            'matched'
+        ] =
             true;
 
-        $actions =
-            get_post_meta(
-                $automation_id,
-                '_woosmart_actions',
-                true
-            );
-
-        if (
-            ! is_array(
-                $actions
-            )
-        ) {
-
-            $actions =
-                array();
-        }
-
-        $actions_total =
-            count(
-                $actions
-            );
-
-        $actions_successful =
-            $this->action_engine->execute(
+        /*
+         * Execute Actions and receive per-Action results.
+         */
+        $action_execution =
+            $this->action_engine->execute_with_results(
                 $actions,
                 $context
             );
 
-        $result['successful'] =
-            (bool) $actions_successful;
+        $actions_successful =
+            ! empty(
+                $action_execution['success']
+            );
 
-        $result['status'] =
+        $actions_total =
+            isset(
+                $action_execution['actions_total']
+            )
+                ? absint(
+                    $action_execution['actions_total']
+                )
+                : count(
+                    $actions
+                );
+
+        $action_results =
+            isset(
+                $action_execution['actions']
+            ) &&
+            is_array(
+                $action_execution['actions']
+            )
+                ? $action_execution['actions']
+                : array();
+
+        $result[
+            'successful'
+        ] =
+            $actions_successful;
+
+        $result[
+            'status'
+        ] =
             $actions_successful
                 ? 'completed'
                 : 'failed';
@@ -511,7 +543,11 @@ class WooSmart_Execution_Engine {
 
                 $actions_successful
                     ? 'تمام عملیات اتوماسیون با موفقیت اجرا شدند.'
-                    : 'حداقل یکی از عملیات اتوماسیون با شکست مواجه شد.'
+                    : 'حداقل یکی از عملیات اتوماسیون با شکست مواجه شد.',
+
+                true,
+
+                $action_results
             );
         }
 
@@ -525,10 +561,11 @@ class WooSmart_Execution_Engine {
      */
     private function get_execution_policy() {
 
-        $policy = get_option(
-            'woosmart_execution_policy',
-            'all'
-        );
+        $policy =
+            get_option(
+                'woosmart_execution_policy',
+                'all'
+            );
 
         $allowed_policies = array(
             'all',
@@ -544,7 +581,8 @@ class WooSmart_Execution_Engine {
             )
         ) {
 
-            $policy = 'all';
+            $policy =
+                'all';
         }
 
         return $policy;
