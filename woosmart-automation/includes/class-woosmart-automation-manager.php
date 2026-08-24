@@ -136,6 +136,27 @@ class WooSmart_Automation_Manager {
             );
         }
 
+        /*
+         * Detect Action conflicts.
+         *
+         * Conflict detection is intentionally non-blocking
+         * at this stage. The Automation is still allowed to save,
+         * while the detected conflicts are recorded in WooSmart Logs.
+         */
+        $conflicts =
+            $this->detect_action_conflicts(
+                $actions
+            );
+
+        if ( ! empty( $conflicts ) ) {
+
+            $this->log_action_conflicts(
+                0,
+                $trigger,
+                $conflicts
+            );
+        }
+
         $automation_id = wp_insert_post(
             array(
                 'post_type'   => 'woosmart_automation',
@@ -176,6 +197,19 @@ class WooSmart_Automation_Manager {
             '_woosmart_actions',
             $actions
         );
+
+        /*
+         * If conflicts were detected before the Automation ID existed,
+         * record them again with the final Automation ID.
+         */
+        if ( ! empty( $conflicts ) ) {
+
+            $this->log_action_conflicts(
+                $automation_id,
+                $trigger,
+                $conflicts
+            );
+        }
 
         $this->logger->log(
             'automation_created',
@@ -293,6 +327,16 @@ class WooSmart_Automation_Manager {
             );
         }
 
+        /*
+         * Detect Action conflicts.
+         *
+         * Conflicts are currently logged without blocking the save.
+         */
+        $conflicts =
+            $this->detect_action_conflicts(
+                $actions
+            );
+
         $update_result = wp_update_post(
             array(
                 'ID'         => $automation_id,
@@ -326,6 +370,15 @@ class WooSmart_Automation_Manager {
             '_woosmart_actions',
             $actions
         );
+
+        if ( ! empty( $conflicts ) ) {
+
+            $this->log_action_conflicts(
+                $automation_id,
+                $trigger,
+                $conflicts
+            );
+        }
 
         $this->logger->log(
             'automation_updated',
@@ -461,6 +514,25 @@ class WooSmart_Automation_Manager {
                         'امکان فعال‌سازی اتوماسیون وجود ندارد: ' .
                         $actions_error->get_error_message()
                     )
+                );
+            }
+
+            /*
+             * Conflict detection during activation.
+             *
+             * Conflicts are logged but activation remains allowed.
+             */
+            $conflicts =
+                $this->detect_action_conflicts(
+                    $actions
+                );
+
+            if ( ! empty( $conflicts ) ) {
+
+                $this->log_action_conflicts(
+                    $automation_id,
+                    $trigger,
+                    $conflicts
                 );
             }
         }
@@ -1249,6 +1321,247 @@ class WooSmart_Automation_Manager {
         }
 
         return true;
+    }
+
+    /**
+     * Detect conflicts between Actions.
+     *
+     * Current detection rules:
+     *
+     * 1. Multiple change_order_status Actions.
+     * 2. Duplicate change_order_status target statuses.
+     * 3. Sequential order-status transitions.
+     *
+     * These findings are warnings for the current MVP and
+     * do not block saving or activation.
+     *
+     * @param array $actions Actions.
+     *
+     * @return array
+     */
+    private function detect_action_conflicts(
+        $actions
+    ) {
+
+        $conflicts = array();
+
+        if (
+            ! is_array( $actions ) ||
+            empty( $actions )
+        ) {
+            return $conflicts;
+        }
+
+        $status_actions = array();
+
+        foreach (
+            $actions as $index =>
+            $action
+        ) {
+
+            if (
+                ! is_array( $action )
+            ) {
+                continue;
+            }
+
+            $type = isset(
+                $action['type']
+            )
+                ? sanitize_key(
+                    $action['type']
+                )
+                : '';
+
+            if (
+                'change_order_status' !==
+                $type
+            ) {
+                continue;
+            }
+
+            $status = isset(
+                $action['status']
+            )
+                ? sanitize_key(
+                    $action['status']
+                )
+                : '';
+
+            $status_actions[] = array(
+                'index' =>
+                    $index + 1,
+
+                'status' =>
+                    $status,
+            );
+        }
+
+        /*
+         * Conflict 1:
+         * Multiple order-status changes inside one Automation.
+         */
+        if (
+            count( $status_actions ) > 1
+        ) {
+
+            $conflicts[] = array(
+                'code' =>
+                    'multiple_order_status_changes',
+
+                'severity' =>
+                    'warning',
+
+                'message' =>
+                    'این اتوماسیون چند بار وضعیت سفارش را تغییر می‌دهد و ممکن است چند Hook یا رفتار وابسته به وضعیت سفارش را فعال کند.',
+
+                'actions' =>
+                    $status_actions,
+            );
+        }
+
+        /*
+         * Conflict 2:
+         * Duplicate target statuses.
+         */
+        $statuses_seen = array();
+
+        foreach (
+            $status_actions as $status_action
+        ) {
+
+            $status =
+                $status_action['status'];
+
+            if (
+                '' === $status
+            ) {
+                continue;
+            }
+
+            if (
+                isset(
+                    $statuses_seen[
+                        $status
+                    ]
+                )
+            ) {
+
+                $conflicts[] = array(
+                    'code' =>
+                        'duplicate_order_status_target',
+
+                    'severity' =>
+                        'warning',
+
+                    'message' =>
+                        'بیش از یک عملیات وضعیت سفارش را به یک وضعیت یکسان تغییر می‌دهد.',
+
+                    'status' =>
+                        $status,
+
+                    'actions' =>
+                        array(
+                            $statuses_seen[
+                                $status
+                            ],
+                            $status_action['index'],
+                        ),
+                );
+
+            } else {
+
+                $statuses_seen[
+                    $status
+                ] =
+                    $status_action['index'];
+            }
+        }
+
+        /*
+         * Conflict 3:
+         * Sequential status transitions.
+         *
+         * Example:
+         * processing → completed
+         *
+         * The actual current status is only known at runtime,
+         * so this is intentionally classified as a warning.
+         */
+        if (
+            count( $status_actions ) > 1
+        ) {
+
+            $conflicts[] = array(
+                'code' =>
+                    'sequential_order_status_transitions',
+
+                'severity' =>
+                    'warning',
+
+                'message' =>
+                    'چند تغییر متوالی وضعیت سفارش در یک اجرا تعریف شده است. وضعیت واقعی سفارش در زمان اجرا تعیین می‌شود و هر تغییر می‌تواند رفتارهای وابسته WooCommerce یا افزونه‌های دیگر را فعال کند.',
+
+                'actions' =>
+                    array_map(
+                        function(
+                            $item
+                        ) {
+
+                            return array(
+                                'index' =>
+                                    $item['index'],
+
+                                'target_status' =>
+                                    $item['status'],
+                            );
+                        },
+                        $status_actions
+                    ),
+            );
+        }
+
+        return $conflicts;
+    }
+
+    /**
+     * Log detected Action conflicts.
+     *
+     * @param int    $automation_id Automation ID.
+     * @param string $trigger       Trigger key.
+     * @param array  $conflicts     Detected conflicts.
+     *
+     * @return void
+     */
+    private function log_action_conflicts(
+        $automation_id,
+        $trigger,
+        $conflicts
+    ) {
+
+        $this->logger->log(
+            'automation_conflict_detected',
+            'در پیکربندی عملیات اتوماسیون تعارض یا اثر جانبی بالقوه شناسایی شد.',
+            array(
+                'automation_id' =>
+                    absint(
+                        $automation_id
+                    ),
+
+                'trigger' =>
+                    sanitize_key(
+                        $trigger
+                    ),
+
+                'conflict_count' =>
+                    count(
+                        $conflicts
+                    ),
+
+                'conflicts' =>
+                    $conflicts,
+            )
+        );
     }
 
     /**
