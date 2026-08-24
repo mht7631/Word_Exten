@@ -1391,17 +1391,6 @@ class WooSmart_Admin {
 
                 </div>
 
-                <div
-                    id="woosmart-action-conflicts"
-                    dir="rtl"
-                    aria-live="polite"
-                    style="
-                        display:none;
-                        max-width:900px;
-                        margin:0 0 20px 0;
-                    "
-                ></div>
-
                 <p>
 
                     <button
@@ -1923,16 +1912,411 @@ class WooSmart_Admin {
                             'woosmart-add-action'
                         );
 
-                    const actionConflictsContainer =
-                        document.getElementById(
-                            'woosmart-action-conflicts'
-                        );
-
                     if (
                         ! actionsContainer ||
                         ! addActionButton
                     ) {
                         return;
+                    }
+
+                    /*
+                     * -------------------------------------------------
+                     * Conflict UI
+                     * -------------------------------------------------
+                     *
+                     * No static Conflict container is used.
+                     *
+                     * The container is created dynamically every time
+                     * the Action configuration changes.
+                     *
+                     * Before each render, every existing WooSmart
+                     * Conflict Box is removed from the document.
+                     *
+                     * This prevents duplicate/stale warning boxes.
+                     */
+
+                    function removeAllConflictBoxes() {
+
+                        const boxes =
+                            document.querySelectorAll(
+                                '.woosmart-action-conflict-box'
+                            );
+
+                        boxes.forEach(
+                            function(
+                                box
+                            ) {
+
+                                box.remove();
+                            }
+                        );
+                    }
+
+                    function getConflictHost() {
+
+                        return actionsContainer;
+                    }
+
+                    function createConflictBox(
+                        conflicts
+                    ) {
+
+                        if (
+                            ! conflicts ||
+                            ! conflicts.length
+                        ) {
+                            return;
+                        }
+
+                        const host =
+                            getConflictHost();
+
+                        if (
+                            ! host
+                        ) {
+                            return;
+                        }
+
+                        const box =
+                            document.createElement(
+                                'div'
+                            );
+
+                        box.className =
+                            'woosmart-action-conflict-box';
+
+                        box.setAttribute(
+                            'dir',
+                            'rtl'
+                        );
+
+                        box.setAttribute(
+                            'aria-live',
+                            'polite'
+                        );
+
+                        box.style.cssText =
+                            'display:block;' +
+                            'width:100%;' +
+                            'max-width:900px;' +
+                            'box-sizing:border-box;' +
+                            'margin:0 0 20px 0;' +
+                            'padding:16px 18px;' +
+                            'background:#fff8db;' +
+                            'background-color:#fff8db;' +
+                            'border:1px solid #e6c84f;' +
+                            'border-right:4px solid #d4a72c;' +
+                            'border-radius:2px;' +
+                            'color:#3c434a;' +
+                            'font-size:14px;' +
+                            'line-height:1.8;' +
+                            'box-shadow:none;';
+
+                        const title =
+                            document.createElement(
+                                'div'
+                            );
+
+                        title.style.cssText =
+                            'font-size:16px;' +
+                            'font-weight:700;' +
+                            'margin-bottom:12px;' +
+                            'color:#5f4700;';
+
+                        title.textContent =
+                            '⚠ هشدارهای این اتوماسیون';
+
+                        box.appendChild(
+                            title
+                        );
+
+                        conflicts.forEach(
+                            function(
+                                conflict,
+                                conflictIndex
+                            ) {
+
+                                const conflictBox =
+                                    document.createElement(
+                                        'div'
+                                    );
+
+                                conflictBox.style.cssText =
+                                    'margin:0 0 14px 0;' +
+                                    'padding:0 0 14px 0;' +
+                                    (
+                                        conflictIndex <
+                                        conflicts.length - 1
+                                            ? 'border-bottom:1px solid #eadf9c;'
+                                            : ''
+                                    );
+
+                                const conflictTitle =
+                                    document.createElement(
+                                        'strong'
+                                    );
+
+                                conflictTitle.style.cssText =
+                                    'display:block;' +
+                                    'font-size:14px;' +
+                                    'font-weight:700;' +
+                                    'color:#4f410f;' +
+                                    'margin-bottom:5px;';
+
+                                conflictTitle.textContent =
+                                    conflict.title;
+
+                                conflictBox.appendChild(
+                                    conflictTitle
+                                );
+
+                                const conflictMessage =
+                                    document.createElement(
+                                        'p'
+                                    );
+
+                                conflictMessage.style.cssText =
+                                    'margin:0 0 8px 0;' +
+                                    'padding:0;' +
+                                    'color:#4b5560;' +
+                                    'font-size:13px;';
+
+                                conflictMessage.textContent =
+                                    conflict.message;
+
+                                conflictBox.appendChild(
+                                    conflictMessage
+                                );
+
+                                if (
+                                    conflict.actions &&
+                                    conflict.actions.length
+                                ) {
+
+                                    const actionList =
+                                        document.createElement(
+                                            'div'
+                                        );
+
+                                    actionList.style.cssText =
+                                        'font-size:13px;' +
+                                        'color:#4b5560;';
+
+                                    conflict.actions.forEach(
+                                        function(
+                                            action
+                                        ) {
+
+                                            if (
+                                                ! action
+                                            ) {
+                                                return;
+                                            }
+
+                                            const actionItem =
+                                                document.createElement(
+                                                    'div'
+                                                );
+
+                                            actionItem.style.cssText =
+                                                'margin-top:3px;';
+
+                                            actionItem.textContent =
+                                                'عملیات ' +
+                                                String(
+                                                    action.index
+                                                ) +
+                                                ' → ' +
+                                                getActionStatusLabel(
+                                                    action.status ||
+                                                    action.target_status ||
+                                                    ''
+                                                );
+
+                                            actionList.appendChild(
+                                                actionItem
+                                            );
+                                        }
+                                    );
+
+                                    conflictBox.appendChild(
+                                        actionList
+                                    );
+                                }
+
+                                box.appendChild(
+                                    conflictBox
+                                );
+                            }
+                        );
+
+                        const footer =
+                            document.createElement(
+                                'p'
+                            );
+
+                        footer.style.cssText =
+                            'margin:0;' +
+                            'padding:0;' +
+                            'font-size:12px;' +
+                            'color:#756a42;';
+
+                        footer.textContent =
+                            'این هشدارها فعلاً مانع ذخیره یا اجرای اتوماسیون نمی‌شوند.';
+
+                        box.appendChild(
+                            footer
+                        );
+
+                        host.appendChild(
+                            box
+                        );
+                    }
+
+                    function renderActionConflicts() {
+
+                        /*
+                         * Always remove every previous box first.
+                         */
+                        removeAllConflictBoxes();
+
+                        const actions =
+                            getActionData();
+
+                        const statusActions =
+                            actions.filter(
+                                function(
+                                    action
+                                ) {
+
+                                    return (
+                                        action.type ===
+                                        'change_order_status'
+                                    );
+                                }
+                            );
+
+                        const conflicts =
+                            [];
+
+                        /*
+                         * Conflict 1:
+                         * Multiple order-status changes.
+                         */
+                        if (
+                            statusActions.length > 1
+                        ) {
+
+                            conflicts.push(
+                                {
+                                    type:
+                                        'multiple_order_status_changes',
+
+                                    title:
+                                        'چند بار تغییر وضعیت سفارش',
+
+                                    message:
+                                        'این اتوماسیون چند بار وضعیت سفارش را تغییر می‌دهد و ممکن است چند Hook یا رفتار وابسته به وضعیت سفارش را فعال کند.',
+
+                                    actions:
+                                        statusActions
+                                }
+                            );
+                        }
+
+                        /*
+                         * Conflict 2:
+                         * Duplicate target statuses.
+                         */
+                        const seenStatuses =
+                            {};
+
+                        statusActions.forEach(
+                            function(
+                                action
+                            ) {
+
+                                if (
+                                    ! action.status
+                                ) {
+                                    return;
+                                }
+
+                                if (
+                                    Object.prototype.hasOwnProperty.call(
+                                        seenStatuses,
+                                        action.status
+                                    )
+                                ) {
+
+                                    conflicts.push(
+                                        {
+                                            type:
+                                                'duplicate_order_status_target',
+
+                                            title:
+                                                'تکرار وضعیت مقصد',
+
+                                            message:
+                                                'بیش از یک عملیات، سفارش را به یک وضعیت یکسان تغییر می‌دهد.',
+
+                                            status:
+                                                action.status,
+
+                                            actions:
+                                                [
+                                                    seenStatuses[
+                                                        action.status
+                                                    ],
+
+                                                    action
+                                                ]
+                                        }
+                                    );
+
+                                } else {
+
+                                    seenStatuses[
+                                        action.status
+                                    ] =
+                                        action;
+                                }
+                            }
+                        );
+
+                        /*
+                         * Conflict 3:
+                         * Sequential status transitions.
+                         */
+                        if (
+                            statusActions.length > 1
+                        ) {
+
+                            conflicts.push(
+                                {
+                                    type:
+                                        'sequential_order_status_transitions',
+
+                                    title:
+                                        'تغییرات متوالی وضعیت سفارش',
+
+                                    message:
+                                        'چند تغییر متوالی وضعیت سفارش تعریف شده است. هر تغییر ممکن است Hookها، ایمیل‌ها یا رفتارهای افزونه‌های دیگر را فعال کند.',
+
+                                    actions:
+                                        statusActions
+                                }
+                            );
+                        }
+
+                        if (
+                            conflicts.length
+                        ) {
+
+                            createConflictBox(
+                                conflicts
+                            );
+                        }
                     }
 
                     function getNextIndex() {
@@ -2299,340 +2683,6 @@ class WooSmart_Admin {
                         ] || status;
                     }
 
-                    function escapeHtml(
-                        value
-                    ) {
-
-                        return String(
-                            value || ''
-                        )
-                            .replace(
-                                /&/g,
-                                '&amp;'
-                            )
-                            .replace(
-                                /</g,
-                                '&lt;'
-                            )
-                            .replace(
-                                />/g,
-                                '&gt;'
-                            )
-                            .replace(
-                                /"/g,
-                                '&quot;'
-                            )
-                            .replace(
-                                /'/g,
-                                '&#039;'
-                            );
-                    }
-
-                    function updateActionConflicts() {
-
-                        if (
-                            ! actionConflictsContainer
-                        ) {
-                            return;
-                        }
-
-                        const actions =
-                            getActionData();
-
-                        const statusActions =
-                            actions.filter(
-                                function(
-                                    action
-                                ) {
-
-                                    return (
-                                        action.type ===
-                                        'change_order_status'
-                                    );
-                                }
-                            );
-
-                        const conflicts =
-                            [];
-
-                        /*
-                         * Conflict 1:
-                         * Multiple order-status changes.
-                         */
-                        if (
-                            statusActions.length > 1
-                        ) {
-
-                            conflicts.push(
-                                {
-                                    type:
-                                        'multiple_order_status_changes',
-
-                                    title:
-                                        'چند بار تغییر وضعیت سفارش',
-
-                                    message:
-                                        'این اتوماسیون چند بار وضعیت سفارش را تغییر می‌دهد و ممکن است چند Hook یا رفتار وابسته به وضعیت سفارش را فعال کند.',
-
-                                    actions:
-                                        statusActions
-                                }
-                            );
-                        }
-
-                        /*
-                         * Conflict 2:
-                         * Duplicate target statuses.
-                         */
-                        const seenStatuses =
-                            {};
-
-                        statusActions.forEach(
-                            function(
-                                action
-                            ) {
-
-                                if (
-                                    ! action.status
-                                ) {
-                                    return;
-                                }
-
-                                if (
-                                    Object.prototype.hasOwnProperty.call(
-                                        seenStatuses,
-                                        action.status
-                                    )
-                                ) {
-
-                                    conflicts.push(
-                                        {
-                                            type:
-                                                'duplicate_order_status_target',
-
-                                            title:
-                                                'تکرار وضعیت مقصد',
-
-                                            message:
-                                                'بیش از یک عملیات، سفارش را به یک وضعیت یکسان تغییر می‌دهد.',
-
-                                            status:
-                                                action.status,
-
-                                            actions:
-                                                [
-                                                    seenStatuses[
-                                                        action.status
-                                                    ],
-
-                                                    action
-                                                ]
-                                        }
-                                    );
-
-                                } else {
-
-                                    seenStatuses[
-                                        action.status
-                                    ] =
-                                        action;
-                                }
-                            }
-                        );
-
-                        /*
-                         * Conflict 3:
-                         * Sequential order-status transitions.
-                         */
-                        if (
-                            statusActions.length > 1
-                        ) {
-
-                            conflicts.push(
-                                {
-                                    type:
-                                        'sequential_order_status_transitions',
-
-                                    title:
-                                        'تغییرات متوالی وضعیت سفارش',
-
-                                    message:
-                                        'چند تغییر متوالی وضعیت سفارش تعریف شده است. هر تغییر ممکن است Hookها، ایمیل‌ها یا رفتارهای افزونه‌های دیگر را فعال کند.',
-
-                                    actions:
-                                        statusActions
-                                }
-                            );
-                        }
-
-                        /*
-                         * Always clear the previous rendered content
-                         * before deciding whether a new warning exists.
-                         *
-                         * This guarantees that stale warnings cannot
-                         * remain after the Action configuration changes.
-                         */
-                        actionConflictsContainer.innerHTML =
-                            '';
-
-                        actionConflictsContainer.style.display =
-                            'none';
-
-                        if (
-                            conflicts.length === 0
-                        ) {
-                            return;
-                        }
-
-                        let html =
-                            '';
-
-                        html +=
-                            '<div style="' +
-                            'border:1px solid #dba617 !important;' +
-                            'border-right:4px solid #dba617 !important;' +
-                            'background:#fff8e5 !important;' +
-                            'color:#3c434a !important;' +
-                            'padding:16px 18px;' +
-                            'margin-bottom:10px;' +
-                            'box-sizing:border-box;' +
-                            '">';
-
-                        html +=
-                            '<div style="' +
-                            'font-size:16px;' +
-                            'font-weight:600;' +
-                            'margin-bottom:12px;' +
-                            'color:#3c434a !important;' +
-                            '">' ;
-
-                        html +=
-                            '⚠ هشدارهای این اتوماسیون';
-
-                        html +=
-                            '</div>';
-
-                        conflicts.forEach(
-                            function(
-                                conflict,
-                                conflictIndex
-                            ) {
-
-                                html +=
-                                    '<div style="' +
-                                    'margin-bottom:14px;' +
-                                    'padding-bottom:14px;' +
-                                    (
-                                        conflictIndex <
-                                        conflicts.length - 1
-                                            ? 'border-bottom:1px solid #e5d7a0;'
-                                            : ''
-                                    ) +
-                                    '">';
-
-                                html +=
-                                    '<strong style="' +
-                                    'color:#3c434a !important;' +
-                                    '">' +
-                                    escapeHtml(
-                                        conflict.title
-                                    ) +
-                                    '</strong>';
-
-                                html +=
-                                    '<p style="' +
-                                    'margin:6px 0 8px;' +
-                                    'color:#3c434a !important;' +
-                                    '">';
-
-                                html +=
-                                    escapeHtml(
-                                        conflict.message
-                                    );
-
-                                html +=
-                                    '</p>';
-
-                                if (
-                                    conflict.actions &&
-                                    conflict.actions.length
-                                ) {
-
-                                    html +=
-                                        '<div style="' +
-                                        'font-size:13px;' +
-                                        'color:#3c434a !important;' +
-                                        '">';
-
-                                    conflict.actions.forEach(
-                                        function(
-                                            action
-                                        ) {
-
-                                            if (
-                                                ! action
-                                            ) {
-                                                return;
-                                            }
-
-                                            html +=
-                                                '<div style="margin-top:4px;">';
-
-                                            html +=
-                                                'عملیات ' +
-                                                escapeHtml(
-                                                    String(
-                                                        action.index
-                                                    )
-                                                ) +
-                                                ' → ';
-
-                                            html +=
-                                                escapeHtml(
-                                                    getActionStatusLabel(
-                                                        action.status ||
-                                                        action.target_status ||
-                                                        ''
-                                                    )
-                                                );
-
-                                            html +=
-                                                '</div>';
-                                        }
-                                    );
-
-                                    html +=
-                                        '</div>';
-                                }
-
-                                html +=
-                                    '</div>';
-                            }
-                        );
-
-                        html +=
-                            '<p style="' +
-                            'margin:0;' +
-                            'font-size:13px;' +
-                            'color:#646970 !important;' +
-                            '">';
-
-                        html +=
-                            'این هشدارها فعلاً مانع ذخیره یا اجرای اتوماسیون نمی‌شوند.';
-
-                        html +=
-                            '</p>';
-
-                        html +=
-                            '</div>';
-
-                        actionConflictsContainer.innerHTML =
-                            html;
-
-                        actionConflictsContainer.style.display =
-                            'block';
-                    }
-
                     function updateActionMoveButtons() {
 
                         const rows =
@@ -2717,30 +2767,18 @@ class WooSmart_Admin {
                                         row
                                     );
 
-                                    updateActionConflicts();
+                                    renderActionConflicts();
                                 }
                             );
                         }
 
-                        /*
-                         * IMPORTANT:
-                         *
-                         * The previous implementation did not bind
-                         * a change event to the status selector.
-                         *
-                         * Because of that, changing:
-                         *
-                         * processing → completed
-                         *
-                         * did not refresh the Conflict UI.
-                         */
                         if ( statusSelect ) {
 
                             statusSelect.addEventListener(
                                 'change',
                                 function() {
 
-                                    updateActionConflicts();
+                                    renderActionConflicts();
                                 }
                             );
                         }
@@ -2771,7 +2809,7 @@ class WooSmart_Admin {
 
                                     renumberActionRows();
 
-                                    updateActionConflicts();
+                                    renderActionConflicts();
                                 }
                             );
                         }
@@ -2801,7 +2839,7 @@ class WooSmart_Admin {
 
                                     renumberActionRows();
 
-                                    updateActionConflicts();
+                                    renderActionConflicts();
                                 }
                             );
                         }
@@ -2831,7 +2869,7 @@ class WooSmart_Admin {
 
                                     renumberActionRows();
 
-                                    updateActionConflicts();
+                                    renderActionConflicts();
                                 }
                             );
                         }
@@ -2910,11 +2948,7 @@ class WooSmart_Admin {
 
                     renumberActionRows();
 
-                    /*
-                     * Render initial Conflict state from the
-                     * currently loaded Actions.
-                     */
-                    updateActionConflicts();
+                    renderActionConflicts();
 
                     addActionButton.addEventListener(
                         'click',
@@ -2942,7 +2976,7 @@ class WooSmart_Admin {
 
                             renumberActionRows();
 
-                            updateActionConflicts();
+                            renderActionConflicts();
                         }
                     );
                 }
