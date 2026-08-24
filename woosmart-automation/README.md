@@ -1,6 +1,6 @@
 # WooSmart Automation
 
-WooSmart Automation is a WordPress / WooCommerce automation platform built around one simple concept:
+WooSmart Automation is a WordPress / WooCommerce automation platform built around one simple idea:
 
 **WHEN → IF → THEN**
 
@@ -12,201 +12,509 @@ IF conditions are satisfied
 THEN execute one or more actions
 ```
 
-The long-term goal is not merely a rule plugin. WooSmart is being designed as a reliable, predictable, explainable, extensible, and customer-friendly automation engine for WooCommerce stores.
+The project is being built as a real product, not merely as a collection of WooCommerce hooks. The long-term goal is a reliable, predictable, explainable, extensible, and customer-friendly automation engine that store administrators can use without programming knowledge.
 
-A store administrator should be able to create useful workflows without programming knowledge, understand what will happen before activation, and understand exactly what happened after execution.
+A user should eventually be able to create a workflow, understand what it will do before activation, know when another automation may interfere with it, and see exactly what happened after execution.
 
 ---
 
-# Repository / Source of Truth
+# 1. Project Identity
 
-GitHub:
+**Product:** WooSmart Automation  
+**Platform:** WordPress + WooCommerce  
+**Language / UI:** Persian, RTL  
+**Version:** `1.0.0`  
+**Stage:** MVP / Foundation → Execution Planning  
+
+Repository:
 
 https://github.com/mht7631/Word_Exten/tree/main/woosmart-automation
 
-GitHub is the project source of truth.
-
-Local XAMPP is the development/test environment.
-
-Development workflow:
-
-```text
-Review current GitHub file
-        ↓
-Modify complete file
-        ↓
-Replace local file
-        ↓
-Test Admin UI
-        ↓
-Test real WooCommerce order
-        ↓
-Inspect Logger + Execution History
-        ↓
-Fix / retest
-        ↓
-Commit stable milestone
-        ↓
-Update README
-```
+GitHub is the source of truth. Local XAMPP is the development and test environment.
 
 ---
 
-# Current Status
+# 2. Why This Project Exists
 
-Version:
-
-```text
-1.0.0
-```
-
-Stage:
+The project started from a simple need: WooCommerce stores often need small business rules such as:
 
 ```text
-MVP / Foundation
+When an order is created
+If the order is above a certain amount
+Then notify the administrator
 ```
 
-The current foundation has been tested against real WooCommerce orders.
+A useful automation product quickly becomes more complex:
 
-Implemented core:
+- More than one Condition may be needed.
+- More than one Action may be needed.
+- Several Automations may match the same order.
+- Two Automations may modify the same WooCommerce state.
+- An Action may succeed while a later Action fails.
+- Mail delivery may fail for reasons outside WooSmart.
+- Administrators need to know why an Automation did or did not run.
 
-```text
-Plugin bootstrap
-WooCommerce integration
-Persian RTL Admin UI
-Automation CRUD
-Condition Registry
-Condition Engine
-Action Registry
-Action Engine
-Multiple Actions
-Multiple Automation execution
-Execution Policy MVP
-Execution History
-Execution Details
-Notification Settings
-wp_mail() integration
-Provider-neutral mail diagnostics
-WooCommerce-aware currency display
-```
-
-Current focus:
-
-```text
-Execution timing accuracy
-Conflict Detection
-Execution Priority
-Formal Execution Planning
-Multiple Conditions
-Range / Between conditions
-More Conditions / Actions / Triggers
-```
+WooSmart is therefore designed around **predictability, safety, explainability, and usability**, not merely around adding more hooks.
 
 ---
 
-# Product Vision
+# 3. Product Vision
 
-Example:
+The final product should make a powerful automation engine feel simple:
 
 ```text
 WHEN
     Order Created
 
 IF
-    Order Total > 1,000,000 تومان
-
-THEN
-    Notify Store Administrator
-    AND
-    Change Order Status → Processing
-```
-
-Long-term target:
-
-```text
-WHEN
-    Order Created
-
-IF
-    Order Total > 5,000,000 تومان
+    Order Total is between 1,000,000 and 5,000,000 تومان
     AND
     Payment Method = Bank Transfer
     AND
     Customer Role = Wholesale
 
 THEN
-    Notify Store Administrator
-    AND
     Change Order Status → Processing
+    AND
+    Notify Store Administrator
     AND
     Add Order Note
 ```
 
-The UX should remain simple even when the engine becomes powerful.
+A normal store owner should be able to understand the rule as a readable sentence rather than seeing technical internals.
+
+Long-term product promise:
+
+```text
+Easy for beginners
+Powerful for advanced users
+Predictable in execution
+Clear about conflicts
+Transparent after execution
+Compatible with WooCommerce
+Independent from email vendors
+Commercially useful
+Extensible for future integrations
+```
 
 ---
 
-# Current Architecture
+# 4. Project History — From Start to Current State
 
-Core execution flow:
+This section is intentionally descriptive rather than a raw changelog. Its purpose is to let a new developer or another AI understand **where the project started, why the architecture evolved, what has already been solved, and what the next architectural goal is**.
+
+## Phase 1 — Foundation
+
+WooSmart began as a small WooCommerce automation MVP using `WHEN → IF → THEN`.
+
+The first goal was simply to prove a full path:
 
 ```text
-WooCommerce
+WooCommerce Order
     ↓
-Trigger System
+Trigger
     ↓
-Execution Engine
+Condition
     ↓
-Condition Engine
+Action
     ↓
-Action Engine
-    ↓
-Execution Result
-    ↓
-Execution History + Logger
+Log
 ```
 
-Condition architecture:
+The foundation included the plugin bootstrap, WooCommerce detection, internal Automation post type, Admin UI, Automation CRUD, one Trigger, one Condition family, Actions, and basic logging.
+
+## Phase 2 — Condition Registry
+
+Conditions were moved from scattered hard-coded logic into a central **Condition Registry**.
+
+A Condition definition now provides metadata such as:
 
 ```text
-Condition Registry
-       ↓
-Condition Engine
-       ↓
-Condition Result
+label
+value_type
+operators
+evaluator
 ```
 
-Action architecture:
+The Condition Engine, Automation Manager, and Admin UI all use the Registry as their source of truth.
+
+This was a major architectural step because future Conditions can be added centrally instead of rewriting several unrelated classes.
+
+Current Condition:
 
 ```text
-Action Registry
-       ↓
-Action Engine
-       ↓
-Registered Handler
-       ↓
-Action Result
+order_total
 ```
 
-Notification architecture:
+Current operators:
 
 ```text
-WooSmart Notification Settings
-       ↓
-Recipient Resolution
-       ↓
+is_equal
+is_not_equal
+greater_than
+greater_than_or_equal
+less_than
+less_than_or_equal
+```
+
+## Phase 3 — Currency-Aware WooCommerce UI
+
+The development store uses WooCommerce `IRT`, while the Persian UI should display `تومان`.
+
+The project explicitly decided **not** to create an independent currency conversion system.
+
+WooCommerce remains the source of truth.
+
+WooSmart only presents the value appropriately:
+
+```text
+IRT → تومان
+IRR → ریال
+```
+
+No hidden `×10` or `÷10` conversion is performed.
+
+The Admin amount field was then improved with thousands separators, correct LTR numeric presentation inside RTL, and a separate currency label.
+
+This is a compatibility rule, not merely a UI preference.
+
+## Phase 4 — Action Registry
+
+Actions were moved into a central **Action Registry** so that the Execution Engine does not need to know every Action implementation.
+
+Current Actions:
+
+```text
+change_order_status
+notify_admin
+```
+
+The registry resolves the Action definition and handler, which gives the project a clear extension point for future Actions.
+
+## Phase 5 — Multiple Actions
+
+The original MVP was too close to a single-action rule. The product vision required real workflows:
+
+```text
+THEN
+    Action 1
+    AND
+    Action 2
+    AND
+    Action 3
+```
+
+The data model and UI were expanded to support multiple Actions, sequential execution, Action reordering, individual Action results, and an overall Automation result.
+
+Real tests included workflows such as:
+
+```text
+1. Change status → Processing
+2. Change status → Completed
+3. Notify administrator
+```
+
+## Phase 6 — Real Email Delivery and Provider-Neutral Diagnostics
+
+The notification Action uses:
+
+```text
+WooSmart
+    ↓
 wp_mail()
-       ↓
+    ↓
 WordPress Mail Transport
-       ↓
+    ↓
 SMTP / Email Provider
 ```
 
-The bootstrap uses shared Condition, Action, and Execution services rather than unnecessary duplicate engines.
+WooSmart does not implement its own SMTP system and does not depend on a particular vendor.
+
+The recipient is configured by WooSmart, while the WordPress Mail Transport controls sender and delivery.
+
+Real mail delivery was confirmed during development. A real provider-side recipient restriction also exposed the need for better diagnostics. WooSmart now captures `wp_mail_failed` / `WP_Error` information during its own notification attempts, classifies common failures generically, and preserves the original provider message.
+
+## Phase 7 — Multiple Matching Automations
+
+Real WooCommerce orders proved that several active Automations can match the same Trigger.
+
+For example:
+
+```text
+Automation A
+    Order Total > 1,500,000
+
+Automation B
+    Order Total < 5,000,000
+```
+
+An order worth 2,000,000 can satisfy both.
+
+That exposed a larger engine problem:
+
+```text
+Which Automation runs first?
+Should another Automation also run?
+What if the first one fails?
+What if two Automations change the same state?
+```
+
+This became the reason for Execution Policy, Conflict Detection, Priority, and formal Execution Planning.
+
+## Phase 8 — Execution Policy
+
+Three policies were implemented and tested with real orders:
+
+```text
+ALL
+FIRST_MATCH
+FIRST_SUCCESS
+```
+
+### ALL
+
+All matching Automations may execute.
+
+### FIRST_MATCH
+
+Execution stops after the first Automation whose Conditions pass.
+
+### FIRST_SUCCESS
+
+Execution continues until an Automation completes successfully. A matching Automation whose Actions fail does not stop the policy.
+
+A real test demonstrated:
+
+```text
+#68
+Condition ✓
+Action 1 ✓
+Action 2 ✓
+Action 3 ✕
+→ Automation FAILED
+
+#43
+Condition ✓
+Action 1 ✓
+Action 2 ✓
+→ Automation SUCCESS
+→ FIRST_SUCCESS stops
+```
+
+This proved that `FIRST_SUCCESS` uses the real Automation result, not merely the Condition result.
+
+## Phase 9 — Execution History
+
+The technical Logger was useful for development but was not enough for a store administrator.
+
+A separate **Execution History** layer was introduced:
+
+```text
+Logger
+    = technical event stream
+
+Execution History
+    = customer-readable execution record
+```
+
+An Execution record contains information such as:
+
+```text
+Execution ID
+Automation ID
+Order ID
+Trigger
+Execution Policy
+Status
+Action counts
+Start time
+End time
+Duration
+Condition snapshot
+Action snapshot
+Action results
+Message
+```
+
+Each Execution also has a human-readable detail page.
+
+This lets a user answer:
+
+```text
+What ran?
+Why did it run?
+What Conditions passed?
+Which Actions ran?
+Which Action failed?
+How long did it take?
+What was the final result?
+```
+
+## Phase 10 — Historical Snapshot Integrity
+
+A critical requirement was discovered while developing Execution History: a historical Execution must describe the Automation **as it existed at execution time**.
+
+If an Automation later changes from:
+
+```text
+Order Total < 5,000,000
+```
+
+to:
+
+```text
+Order Total < 3,000,000
+```
+
+the old Execution must still show the original 5,000,000 rule.
+
+The same applies to its Actions.
+
+This was tested successfully. Execution History is therefore a historical snapshot, not a live view of today's Automation configuration.
+
+## Phase 11 — Execution Timing
+
+The first Execution History implementation exposed a timing problem: a duration could be inflated by gaps between unrelated log entries even though the actual Execution finished much faster.
+
+The timing model was corrected so that:
+
+```text
+Execution duration
+    = measured Execution start → measured Execution end
+```
+
+and each Action can also have its own measured duration.
+
+A real test confirmed that the sum of Action durations closely tracks the overall Execution duration.
+
+Permanent requirement:
+
+> **Displayed duration must represent measured execution time.**
+
+## Phase 12 — Action-Level Conflict Warnings
+
+Multiple Actions revealed an important first-level conflict class inside a single Automation:
+
+```text
+Action 1 → Processing
+Action 2 → Completed
+```
+
+The UI now shows non-blocking warnings for repeated or sequential order-status changes and explains possible WooCommerce hooks and side effects.
+
+This is only the first layer of Conflict Detection. The final goal is a broader cross-Automation Conflict Engine.
+
+## Current Phase — Execution Planning
+
+The project is now moving from isolated MVP features toward explicit execution planning:
+
+```text
+Trigger
+    ↓
+Candidate Automations
+    ↓
+Condition Evaluation
+    ↓
+Conflict Analysis
+    ↓
+Priority Ordering
+    ↓
+Execution Policy
+    ↓
+Action Execution
+    ↓
+Results
+    ↓
+Execution History
+    ↓
+Technical Logger
+```
+
+This is the transition from a simple rule runner to a real automation platform.
 
 ---
 
-# File Structure
+# 5. Current Architecture
+
+Core runtime:
+
+```text
+WooCommerce
+     ↓
+Trigger System
+     ↓
+Execution Engine
+     ↓
+Condition Engine
+     ↓
+Action Engine
+     ↓
+Execution Result
+     ├── Execution History
+     └── Technical Logger
+```
+
+Condition system:
+
+```text
+Condition Registry
+     ↓
+Condition Engine
+     ↓
+Condition Result
+```
+
+Action system:
+
+```text
+Action Registry
+     ↓
+Action Engine
+     ↓
+Registered Handler
+     ↓
+Action Result
+```
+
+Notification system:
+
+```text
+WooSmart Notification Settings
+     ↓
+Recipient Resolution
+     ↓
+wp_mail()
+     ↓
+WordPress Mail Transport
+     ↓
+SMTP / Email Provider
+```
+
+Future execution-planning system:
+
+```text
+Trigger
+     ↓
+Candidate Automations
+     ↓
+Conditions
+     ↓
+Conflict Detection
+     ↓
+Priority
+     ↓
+Execution Policy
+     ↓
+Actions
+     ↓
+Results
+```
+
+Shared Condition, Action, and Execution services are used to avoid unnecessary duplicate engine instances.
+
+---
+
+# 6. Current File Structure
 
 ```text
 woosmart-automation/
@@ -230,200 +538,347 @@ woosmart-automation/
     ├── class-woosmart-action-engine.php
     ├── class-woosmart-execution-engine.php
     ├── class-woosmart-execution-history.php
-    └── class-woosmart-execution-admin.php
+    ├── class-woosmart-execution-admin.php
+    └── class-woosmart-priority-admin.php
 ```
 
 ---
 
-# Current Capabilities
+# 7. File Responsibilities
 
-## Trigger
+| File | Responsibility |
+| --- | --- |
+| `woosmart-automation.php` | Plugin bootstrap, shared services, initialization, activation/deactivation |
+| `class-woosmart-core.php` | WooCommerce dependency and compatibility foundation |
+| `class-woosmart-logger.php` | Technical event logging |
+| `class-woosmart-currency.php` | WooCommerce-aware display-only currency handling |
+| `class-woosmart-admin.php` | Main Persian RTL Admin UI and Automation Builder |
+| `class-woosmart-notification-settings.php` | Notification recipient configuration and test email |
+| `class-woosmart-automation.php` | Automation foundation |
+| `class-woosmart-triggers.php` | WooCommerce Trigger integration |
+| `class-woosmart-post-types.php` | Internal Automation post type |
+| `class-woosmart-automation-manager.php` | CRUD, validation, persistence |
+| `class-woosmart-condition-registry.php` | Central Condition definitions |
+| `class-woosmart-condition-engine.php` | Condition evaluation |
+| `class-woosmart-action-registry.php` | Central Action definitions / handlers |
+| `class-woosmart-action-engine.php` | Action execution and results |
+| `class-woosmart-execution-engine.php` | Runtime orchestration and Policy |
+| `class-woosmart-execution-history.php` | Historical Execution records and snapshots |
+| `class-woosmart-execution-admin.php` | Execution History / Policy UI |
+| `class-woosmart-priority-admin.php` | Priority UI and Priority persistence; runtime integration is being validated |
+
+---
+
+# 8. Current Features — Status and Meaning
+
+## Plugin Foundation — ✅
+
+The plugin can be activated in WordPress, detect WooCommerce, register its Automation type, and initialize the runtime.
+
+## Automation CRUD — ✅
+
+Administrators can create, edit, enable/disable, duplicate, and delete Automations.
+
+## Condition Registry — ✅
+
+Condition definitions are centralized, preventing duplicated Condition knowledge across Engine, Manager, and UI.
+
+## Order Total Condition — ✅
+
+`order_total` is currently the main Condition and supports equality and greater/less-than comparisons.
+
+## Action Registry — ✅
+
+Actions are registered centrally and resolved through the Action Engine.
+
+## Multiple Actions — ✅
+
+An Automation can contain multiple sequential Actions. Each Action has an independent result, while the Automation has an overall result.
+
+## Multiple Action Reordering — ✅
+
+The UI allows Action order to change because execution order can affect WooCommerce state.
+
+## Action-Level Conflict Warning — ✅
+
+The UI warns about repeated and sequential order-status changes inside one Automation.
+
+## Multiple Automation Matching — ✅
+
+The engine can find multiple active Automations for the same Trigger.
+
+## Execution Policy — ✅ Tested
+
+```text
+ALL
+FIRST_MATCH
+FIRST_SUCCESS
+```
+
+All three have been tested with real orders.
+
+## Execution History — ✅ Tested
+
+Executions have persistent records, filters, summaries, and detail pages.
+
+## Historical Snapshots — ✅ Tested
+
+Past Executions retain the Conditions and Actions that existed at execution time.
+
+## Execution Timing — ✅ Tested
+
+Measured execution timing is used instead of inferred gaps between unrelated logger events.
+
+## Notification Settings — ✅
+
+WooSmart can store a dedicated notification recipient and fall back to WordPress `admin_email` when appropriate.
+
+## Real Email Delivery — ✅ Tested
+
+Real test mail successfully passed through the configured WordPress Mail Transport in development.
+
+## Provider-Neutral Mail Diagnostics — ✅
+
+WooSmart captures useful `wp_mail_failed` / `WP_Error` data without coupling the core to one provider.
+
+## Currency-Aware UI — ✅
+
+`IRT` is displayed as `تومان` in WooSmart's UI without numeric currency conversion.
+
+## Priority — 🟡 In Progress
+
+Priority UI and persistence exist, while end-to-end priority-based runtime ordering is still being validated with real orders.
+
+## Cross-Automation Conflict Engine — 🟡 Next Major Stage
+
+The current Action-level warnings are not yet the final overlap-aware Conflict Engine.
+
+---
+
+# 9. Current Trigger / Condition / Action Inventory
+
+## Triggers
+
+Implemented:
 
 ```text
 [x] order_created
 ```
 
-WooCommerce hook:
+Planned:
 
 ```text
-woocommerce_new_order
+[ ] order_paid
+[ ] order_status_changed
+[ ] order_completed
+[ ] order_cancelled
+[ ] order_failed
+[ ] order_refunded
+[ ] order_on_hold
+[ ] customer_registered
+[ ] customer_login
+[ ] customer_role_changed
+[ ] product_created
+[ ] product_updated
+[ ] stock_changed
+[ ] becomes_in_stock
+[ ] becomes_out_of_stock
+[ ] checkout_started
+[ ] checkout_completed
+[ ] abandoned_cart
 ```
-
-Execution context contains the order ID.
 
 ## Conditions
 
-Current condition:
+Implemented:
 
 ```text
-order_total
+[x] order_total
+[x] is_equal
+[x] is_not_equal
+[x] greater_than
+[x] greater_than_or_equal
+[x] less_than
+[x] less_than_or_equal
 ```
 
-Operators:
+Planned order Conditions:
 
 ```text
-is_equal
-is_not_equal
-greater_than
-greater_than_or_equal
-less_than
-less_than_or_equal
+[ ] order_subtotal
+[ ] order_status
+[ ] payment_method
+[ ] shipping_method
+[ ] coupon
+[ ] customer
+[ ] billing_country
+[ ] shipping_country
+[ ] item_count
+[ ] product
+[ ] product_category
+[ ] product_quantity
 ```
 
-The Condition Registry is the source of truth for definitions, labels, operators, value types, and evaluators.
-
-Current condition model:
+Planned customer Conditions:
 
 ```text
-All configured conditions must pass.
+[ ] customer_role
+[ ] customer_email
+[ ] customer_order_count
+[ ] customer_total_spent
+[ ] customer_registration_date
 ```
 
-The data structure is already array-based for future Multiple Conditions and groups.
+Planned product Conditions:
+
+```text
+[ ] product_price
+[ ] stock_quantity
+[ ] stock_status
+[ ] category
+[ ] sku
+[ ] product_type
+```
 
 ## Actions
 
-Current Actions:
+Implemented:
 
 ```text
-change_order_status
-notify_admin
+[x] change_order_status
+[x] notify_admin
 ```
 
-Multiple Actions execute sequentially.
+Planned order Actions:
+
+```text
+[ ] add_order_note
+[ ] modify_order_metadata
+[ ] apply_coupon
+[ ] modify_order_items
+[ ] add_product_to_order
+[ ] remove_product_from_order
+```
+
+Planned notifications / integrations:
+
+```text
+[ ] customer_email
+[ ] additional_admin_email
+[ ] SMS
+[ ] WhatsApp
+[ ] Telegram
+[ ] push_notification
+[ ] webhook
+[ ] HTTP request
+[ ] REST API
+[ ] Slack
+[ ] Discord
+[ ] Google Sheets
+[ ] CRM integrations
+```
+
+---
+
+# 10. Current Execution Semantics
+
+For one Automation:
+
+```text
+Trigger
+    ↓
+Evaluate Conditions
+    ↓
+If Conditions pass
+    ↓
+Execute Actions sequentially
+    ↓
+Determine Automation result
+```
+
+All current Conditions must pass.
+
+Important behavior:
+
+> **Automation failure does not automatically roll back previously successful Actions.**
 
 Example:
 
 ```text
-Action 1 → Processing
-Action 2 → Completed
-Action 3 → Notify Administrator
+Action 1 → status changed ✓
+Action 2 → status changed ✓
+Action 3 → email failed ✕
 ```
 
-Each Action produces an independent result and the Automation receives an overall result.
+The Automation becomes failed, but earlier successful changes remain.
 
-## Automation Management
+This is intentional for the current MVP. Generic rollback is not safe because WooCommerce state changes and external side effects are not universally reversible.
 
-```text
-[x] Create
-[x] Edit
-[x] Enable / Disable
-[x] Duplicate
-[x] Delete
-[x] Validation
-```
-
-Stored metadata:
-
-```text
-_woosmart_status
-_woosmart_trigger
-_woosmart_conditions
-_woosmart_actions
-```
-
-Internal identifiers remain English for stability.
+Future Retry / Rollback / Transaction features must explicitly account for this.
 
 ---
 
-# Execution Policy
+# 11. Execution Policy
 
-Execution Policy is implemented as an MVP feature.
+The current MVP supports:
 
-Current policies:
-
-```text
-all
-first_match
-first_success
-```
-
-### ALL
+## `all`
 
 All matching Automations may execute.
 
-### FIRST_MATCH
+## `first_match`
 
-Evaluation stops after the first Automation whose Conditions pass.
+The first Automation whose Conditions pass wins and later Automations are not evaluated further.
 
-### FIRST_SUCCESS
+## `first_success`
 
-Evaluation continues until an Automation completes successfully. A matching Automation whose Actions fail does not stop the policy.
+The engine continues through matching Automations until one completes successfully.
 
-These policies have been tested with real orders.
+Important future rule:
 
-Important architectural rule:
-
-```text
-Database query order must not become the permanent execution-order mechanism.
-```
-
-Priority will become the explicit ordering mechanism.
+> Execution Policy and Priority must work together. Database query order must never remain the permanent definition of business priority.
 
 ---
 
-# Execution History
+# 12. Execution History
 
-Execution History is now a user-facing feature and is intentionally separate from the technical Logger.
+Execution History is intentionally different from the technical Logger.
 
 ```text
 Logger
-    = technical event stream
+    = technical diagnosis
 
 Execution History
-    = human-readable execution record
+    = customer-readable execution truth
 ```
 
-Current Execution information includes:
+A detail page should explain:
 
 ```text
-Execution ID
-Automation ID
-Order ID / context
+Execution #N
+Automation #N
+Order #N
 Trigger
-Execution Policy
-Status
-Action counts
-Start Time
-End Time
+Policy
+Result
 Duration
-Message
-Condition results
-Action results
-```
 
-Example:
-
-```text
-Execution #8
-Automation: #68 — زیر 3,000,000
-Order: #74
-Trigger: ایجاد سفارش
-Policy: اولین اتوماسیون موفق
-Result: موفق
-
-Condition
-✓ مبلغ سفارش کمتر از 3,000,000 تومان
+Conditions
+✓ / ✕
 
 Actions
-1. تغییر وضعیت سفارش → در حال پردازش
-   ✓ موفق
-
-2. تغییر وضعیت سفارش → تکمیل‌شده
-   ✓ موفق
-
-3. ارسال اعلان به مدیر
-   ✓ موفق
+1. Action → result → duration
+2. Action → result → duration
+3. Action → result → duration
 ```
 
-The customer should be able to understand an execution without opening raw logs.
+Historical records must remain stable even when the source Automation changes later.
 
 ---
 
-# Execution Timing Requirement
+# 13. Execution Timing Requirement
 
-Execution History must use measured execution timestamps rather than simply calculating the gap between unrelated log entries.
-
-Required model:
+The correct timing model is:
 
 ```text
 Execution Start
@@ -437,97 +892,33 @@ Action N Start / End
 Execution End
 ```
 
-A historical issue exposed misleading long durations caused by timestamp gaps while actual work completed much faster. This is now an explicit requirement:
+The displayed duration must be measured from Execution timestamps, not inferred from unrelated logs.
 
-```text
-Displayed duration = measured execution duration
-```
+Per-Action durations should remain available for diagnosis.
 
-Per-Action duration should also remain available for diagnosis.
+This requirement exists because an earlier implementation showed misleadingly long history durations even though the actual execution was much shorter.
 
 ---
 
-# Multiple Automations
+# 14. Conflict Model
 
-Multiple active Automations can match the same Trigger.
+The project deliberately separates two Conflict layers.
 
-Example:
+## A. Action-Level Conflict — Current
 
-```text
-Automation A
-    Order Total > 1,000,000
-
-Automation B
-    Order Total < 3,000,000
-```
-
-An order worth 2,000,000 can match both.
-
-Current behavior depends on the selected Execution Policy:
+Current examples:
 
 ```text
-ALL
-    Both may execute.
-
-FIRST_MATCH
-    First matching Automation executes.
-
-FIRST_SUCCESS
-    Continue until one succeeds.
+multiple_order_status_changes
+sequential_order_status_transitions
+duplicate_order_status_target
 ```
 
-This behavior has been tested with real orders.
+These warnings are advisory and non-blocking.
 
----
+## B. Cross-Automation Conflict Engine — Future
 
-# Current Limitation: Competing Automations
-
-Example:
-
-```text
-Automation A
-    Order Total > 500,000
-    → Status = Processing
-
-Automation B
-    Order Total < 10,000,000
-    → Status = Completed
-```
-
-For a 2,000,000 order both Conditions are true and both Automations target `Order Status`.
-
-Under `all`, one result can overwrite another.
-
-This is not the desired final behavior.
-
-The long-term solution is:
-
-```text
-Conflict Detection
-+
-Execution Priority
-+
-Execution Policy
-+
-Execution Trace
-```
-
----
-
-# Conflict Detection
-
-Current development already has Action-level warnings for multiple status changes inside one Automation.
-
-Example:
-
-```text
-Action 1 → Processing
-Action 2 → Completed
-```
-
-These warnings are currently advisory and non-blocking.
-
-The future Conflict Engine is broader and must analyze:
+Future analysis must consider:
 
 ```text
 Trigger compatibility
@@ -538,145 +929,73 @@ Priority
 Execution Policy
 ```
 
-## Conflict Levels
+Example:
+
+```text
+Automation A
+    IF Total > 500,000
+    THEN Status = Processing
+
+Automation B
+    IF Total < 10,000,000
+    THEN Status = Completed
+```
+
+For 2,000,000 both Conditions are true and both Actions target the same property.
+
+Target severity:
 
 ```text
 🟢 Safe
-    No meaningful interaction expected.
-
 🟡 Potential Conflict
-    Automations may react to the same event but do not clearly overwrite the same state.
-
 🔴 Conflict
-    Automations can modify the same target with incompatible outcomes.
 ```
 
-Warnings should explain:
-
-```text
-Which Automation
-Which Conditions overlap
-Which Action conflicts
-Which property is affected
-Why the conflict matters
-```
-
-Never silently rewrite or disable another Automation.
+The system should explain the conflict and must never silently modify another Automation.
 
 ---
 
-# Execution Priority
+# 15. Execution Priority
 
-Priority is the next major architectural stage.
+Priority is the explicit ordering mechanism being introduced.
 
-Target:
+Rule:
 
 ```text
-Priority 10
-Priority 20
-Priority 30
+Lower number = higher priority = earlier evaluation
 ```
-
-Lower number = earlier execution.
 
 Example:
 
 ```text
-Priority 10
+Priority 1
     ↓
 Automation A
 
-Priority 20
+Priority 10
     ↓
 Automation B
+
+Priority 20
+    ↓
+Automation C
 ```
 
-Priority creates deterministic ordering, but Priority alone is not enough. It must work with Conflict Detection and Execution Policy.
+Equal Priority must have a deterministic secondary ordering rule, preferably creation date / stable ID.
 
----
-
-# Execution Planning
-
-Long-term execution architecture:
+Current state:
 
 ```text
-Trigger
-    ↓
-Candidate Automations
-    ↓
-Condition Evaluation
-    ↓
-Conflict Analysis
-    ↓
-Execution Plan
-    ↓
-Priority Ordering
-    ↓
-Execution Policy
-    ↓
-Action Execution
-    ↓
-Action Results
-    ↓
-Execution History
-    ↓
-Technical Logger
-```
-
-The engine should become:
-
-```text
-Predictable
-Deterministic
-Explainable
-Debuggable
-Extensible
+Priority UI / storage        🟡 Implemented / being validated
+Runtime Priority ordering    🟡 In validation
+Production-stable Priority   🔴 Not yet declared complete
 ```
 
 ---
 
-# Multiple Actions
+# 16. Condition Range / Between
 
-Current foundation:
-
-```text
-[x] Multiple Action storage
-[x] Multiple Action execution
-[x] Action Registry
-[x] Individual Action results
-[x] Reordering UI
-[x] Action-level conflict warnings
-```
-
-Target UX:
-
-```text
-THEN
-
-[ Action 1 ]
-[ Action 2 ]
-[ Action 3 ]
-
-+ افزودن عملیات
-```
-
-Users should be able to add, remove, reorder, configure, validate, preview, and understand every Action independently.
-
----
-
-# Condition Range / Between
-
-A planned high-value UX improvement is a first-class range condition.
-
-Instead of:
-
-```text
-Order Total > 1,000,000
-AND
-Order Total < 5,000,000
-```
-
-the user should eventually be able to select:
+A high-value next Condition feature is a first-class numeric range operator:
 
 ```text
 مبلغ سفارش
@@ -694,16 +1013,16 @@ min: 1000000
 max: 5000000
 ```
 
-This improves usability and makes monetary range analysis easier for Conflict Detection.
+This should later help both UX and Conflict Detection.
 
 ---
 
-# Multiple Conditions
+# 17. Multiple Conditions
 
 Current:
 
 ```text
-All conditions must pass.
+All configured conditions must pass.
 ```
 
 Next:
@@ -732,49 +1051,23 @@ Group B
     Condition
 ```
 
-Target capabilities:
+Target:
 
 ```text
 AND
 OR
-Nested groups
-Grouping
-Negation where useful
+Nested Groups
+Optional Negation
 Human-readable summaries
 ```
 
-The data model must be designed before implementation to avoid destructive future migrations.
+The data model should be designed before implementation to avoid destructive future migrations.
 
 ---
 
-# Human-Friendly UX
+# 18. Customer-Focused Product Features
 
-Core product principle:
-
-```text
-Powerful engine
-+
-Simple UI
-```
-
-Eventually an Automation should be explainable in natural language:
-
-```text
-وقتی سفارش ایجاد شد
-اگر مبلغ سفارش بین 1,000,000 تا 5,000,000 تومان بود
-و روش پرداخت کارت‌به‌کارت بود
-آنگاه:
-    وضعیت را در حال پردازش کن
-    و به مدیر اعلان بده
-```
-
-WooSmart should hide internal technical details unless they help the customer make a decision.
-
----
-
-# Customer-Focused Features
-
-These are product features, not just engineering tasks.
+The product must eventually feel easy enough for a non-technical store owner while remaining powerful enough for agencies and advanced WooCommerce users.
 
 ## Quick Start
 
@@ -785,7 +1078,7 @@ Choose Condition
     ↓
 Choose Action
     ↓
-Test
+Preview
     ↓
 Activate
 ```
@@ -798,6 +1091,7 @@ Before activation show:
 Trigger
 Conditions
 Actions
+Priority
 Execution Policy
 Possible conflicts
 Expected effects
@@ -805,26 +1099,20 @@ Expected effects
 
 ## Preview / Dry Run
 
+Allow previewing a rule against an existing order without modifying it.
+
 Example:
 
 ```text
-Preview this Automation against Order #73
-```
-
-Result should say:
-
-```text
-Condition: Pass
+Condition: ✓ Pass
 Action 1: Would execute
 Action 2: Would execute
 Conflict: None
 ```
 
-Dry Run must not mutate the order.
+## Human-Readable Summary
 
-## Human-readable Summary
-
-Generate a readable sentence/paragraph from the Automation configuration.
+Generate a natural-language explanation of the Automation configuration.
 
 ## Automation Templates
 
@@ -832,10 +1120,10 @@ Potential built-in recipes:
 
 ```text
 سفارش‌های گران
-سفارش‌های پرداخت‌نشده
-تغییر خودکار وضعیت سفارش
+سفارش پرداخت‌نشده
+سفارش ویژه
+اعلان سفارش جدید
 هشدار موجودی کم
-اعلان سفارش ویژه
 VIP customer workflow
 Failed payment alert
 Refund notification
@@ -843,25 +1131,21 @@ Refund notification
 
 ## Import / Export
 
-Future:
+Future Automation JSON export/import for:
 
 ```text
-Export Automation
-    ↓
-WooSmart JSON
-    ↓
-Import on another site
+Backups
+Agency migration
+Staging → Production
+Template packs
+Support diagnostics
 ```
-
-Useful for backups, agencies, migration, and template packs.
 
 Imports must validate compatibility and never blindly activate unsafe configurations.
 
----
+## Execution Trace
 
-# Planned Execution Trace
-
-For one order:
+Eventually, a user should be able to open an order and understand its automation history:
 
 ```text
 Order #42
@@ -869,375 +1153,24 @@ Order #42
 Automation Trace
 
 #40
-Conditions: Passed
+Condition: Passed
 Action: Status → Completed
 
 #35
-Conditions: Passed
+Condition: Passed
 Action: Status → Processing
 
 Final Status: Processing
-Reason: Automation #35 executed later under the selected plan.
-```
-
-This becomes especially important after Priority and Conflict Detection.
-
----
-
-# Planned Trigger Expansion
-
-## Orders
-
-```text
-[x] Order Created
-[ ] Order Paid
-[ ] Order Status Changed
-[ ] Order Completed
-[ ] Order Cancelled
-[ ] Order Failed
-[ ] Order Refunded
-[ ] Order On Hold
-```
-
-## Customers
-
-```text
-[ ] Customer Registered
-[ ] Customer Login
-[ ] Customer Role Changed
-```
-
-## Products
-
-```text
-[ ] Product Created
-[ ] Product Updated
-[ ] Product Stock Changed
-[ ] Product Becomes In Stock
-[ ] Product Becomes Out of Stock
-```
-
-## Cart / Checkout
-
-```text
-[ ] Cart Updated
-[ ] Checkout Started
-[ ] Checkout Completed
-[ ] Abandoned Cart
+Reason: #35 executed later under the selected execution plan.
 ```
 
 ---
 
-# Planned Condition Expansion
+# 19. Future Reliability Features
 
-## Orders
+## Retry
 
-```text
-[x] Order Total
-[ ] Order Subtotal
-[ ] Order Status
-[ ] Payment Method
-[ ] Shipping Method
-[ ] Coupon
-[ ] Customer
-[ ] Billing Country
-[ ] Shipping Country
-[ ] Order Item Count
-[ ] Product
-[ ] Product Category
-[ ] Product Quantity
-[ ] Order Total Between
-```
-
-## Customers
-
-```text
-[ ] Customer Role
-[ ] Customer Email
-[ ] Customer Order Count
-[ ] Customer Total Spent
-[ ] Customer Registration Date
-```
-
-## Products
-
-```text
-[ ] Product Price
-[ ] Stock Quantity
-[ ] Stock Status
-[ ] Category
-[ ] SKU
-[ ] Product Type
-```
-
-All future Conditions should be added through the Condition Registry.
-
----
-
-# Planned Action Expansion
-
-## Order Actions
-
-```text
-[x] Change Order Status
-[ ] Add Order Note
-[ ] Modify Order Metadata
-[ ] Apply Coupon
-[ ] Modify Order Items
-[ ] Add Product to Order
-[ ] Remove Product from Order
-```
-
-## Notifications
-
-```text
-[x] Notify Store Administrator by Email
-[ ] Customer Email
-[ ] Additional Admin Email
-[ ] SMS
-[ ] Telegram
-[ ] WhatsApp
-[ ] Push Notification
-```
-
-## External / Integration Actions
-
-```text
-[ ] Webhook
-[ ] HTTP Request
-[ ] REST API
-[ ] Slack
-[ ] Discord
-[ ] Google Sheets
-[ ] CRM integrations
-```
-
-External HTTP functionality must include endpoint validation, authentication, timeouts, SSRF protection, and rate limiting.
-
----
-
-# Notification Architecture
-
-WooSmart is provider-neutral.
-
-```text
-WooSmart
-    ↓
-wp_mail()
-    ↓
-WordPress Mail Transport
-    ↓
-Any compatible provider
-```
-
-Possible environments:
-
-```text
-SMTP hosting
-Resend
-Brevo
-Gmail
-Microsoft 365
-Amazon SES
-Other transactional providers
-```
-
-WooSmart manages recipient preference.
-
-The active WordPress Mail Transport manages sender and delivery.
-
-WooSmart does not implement SMTP.
-
----
-
-# Mail Diagnostics
-
-WooSmart captures `wp_mail_failed` / `WP_Error` information where available.
-
-Generic categories may include:
-
-```text
-خطای محدودیت گیرنده
-خطای احراز هویت سرویس ایمیل
-خطای اتصال به سرویس ایمیل
-خطای آدرس فرستنده
-خطای SSL / TLS
-خطای شبکه
-خطای عمومی سرویس ارسال ایمیل
-```
-
-Original provider diagnostics should be preserved.
-
-Sensitive credentials must never appear in diagnostics.
-
-A real provider-side recipient restriction was successfully captured during development, confirming the provider-neutral diagnostic path.
-
----
-
-# Currency Architecture
-
-WooCommerce is the source of truth.
-
-Current development currency:
-
-```text
-IRT
-```
-
-WooSmart display:
-
-```text
-تومان
-```
-
-For `IRR`:
-
-```text
-ریال
-```
-
-Rules:
-
-```text
-No parallel currency engine
-No ×10 conversion
-No ÷10 conversion
-No modification of product prices
-No modification of order totals
-No modification of payment amounts
-```
-
-Formatting is presentation only.
-
----
-
-# Logging vs Execution History
-
-## Logger
-
-```text
-Technical events
-Diagnostics
-Developer investigation
-Raw event history
-```
-
-## Execution History
-
-```text
-Store administrator view
-Execution overview
-Condition results
-Action results
-Duration
-Human-readable explanation
-```
-
-A normal store owner should not need to understand raw logs to know what happened to an order.
-
----
-
-# Security Principles
-
-Current controls:
-
-```text
-Capability checks
-Nonces
-Input sanitization
-Output escaping
-Trigger validation
-Condition validation
-Action validation
-Automation validation
-```
-
-Before external features are introduced:
-
-```text
-REST authentication
-Webhook authentication
-Secure credential storage
-Endpoint validation
-SSRF protection
-Timeouts
-Rate limiting
-Permission separation
-Action-level permissions
-```
-
-Security must be designed before external HTTP features are shipped.
-
----
-
-# Performance / Production Evolution
-
-The MVP favors clarity and safe behavior over premature optimization.
-
-Future production improvements may include:
-
-```text
-Automation caching
-Optimized candidate queries
-Trigger filtering
-Dedicated execution/log tables
-Background execution
-Execution queue
-Job batching
-Large-store optimization
-```
-
-Potential tables:
-
-```text
-wp_woosmart_automations
-wp_woosmart_executions
-wp_woosmart_logs
-wp_woosmart_jobs
-```
-
-Migration should be driven by real scale requirements.
-
----
-
-# Scheduling / Delayed Actions
-
-Future:
-
-```text
-Wait 1 hour
-Wait 24 hours
-Execute at a specific time
-Execute after a condition remains true
-```
-
-Example:
-
-```text
-Order Created
-    ↓
-Wait 24 hours
-    ↓
-Send Reminder
-```
-
-Potential infrastructure:
-
-```text
-WP-Cron
-Action Queue
-Background Processing
-Retry Mechanism
-Failed Job Handling
-```
-
-Scheduling should follow a stable synchronous execution model.
-
----
-
-# Retry System
-
-Future model:
+Potential model:
 
 ```text
 Action Failed
@@ -1251,550 +1184,675 @@ Retry #3
 Permanent Failure
 ```
 
-Target controls:
+Potential configuration:
 
 ```text
 Maximum retries
 Retry delay
 Exponential backoff
-Permanent failure
 Failure notification
 ```
 
-Retry semantics should depend on Action type; a local state mutation and an external HTTP call should not automatically share the same retry policy.
+## Scheduling / Delayed Actions
 
----
-
-# Extensibility / Developer API
-
-Long-term third-party extensibility should allow registration of:
+Examples:
 
 ```text
-Triggers
-Conditions
-Actions
-Notification channels
-Data providers
-Execution policies
+Wait 1 hour
+Wait 24 hours
+Execute at specific time
+Execute after a condition remains true
 ```
 
-The current Registry architecture is the foundation for this.
+Likely future infrastructure:
+
+```text
+WP-Cron / Action Scheduler / Background Queue
+```
+
+The exact implementation should be chosen when delayed execution becomes an active milestone.
+
+## Safe Failure
+
+The user should clearly distinguish:
+
+```text
+Condition failed
+```
+
+from:
+
+```text
+Condition passed
+Action 1 succeeded
+Action 2 failed
+```
+
+The current MVP already preserves this distinction and future features must retain it.
 
 ---
 
-# Testing Strategy
+# 20. Future Platform Architecture
 
-Development cycle:
+Long-term target:
 
 ```text
-Build
-  ↓
-Replace Complete File
-  ↓
-Check syntax / activation
-  ↓
+Trigger Registry
+       ↓
+Condition Registry
+       ↓
+Conflict Engine
+       ↓
+Execution Planner
+       ↓
+Priority
+       ↓
+Execution Policy
+       ↓
+Action Registry
+       ↓
+Execution
+       ↓
+Execution History
+       ↓
+Trace / Monitoring
+```
+
+Potential background infrastructure:
+
+```text
+Execution Queue
+Scheduled Jobs
+Retry Queue
+Failure Queue
+```
+
+Potential future dedicated tables:
+
+```text
+wp_woosmart_automations
+wp_woosmart_executions
+wp_woosmart_logs
+wp_woosmart_jobs
+```
+
+The current MVP intentionally uses WordPress Custom Post Type + Post Meta + WordPress Options where appropriate. Dedicated tables are a future scale decision, not an immediate requirement.
+
+---
+
+# 21. Security / Compatibility Principles
+
+Current security measures:
+
+```text
+Capability checks
+Nonces
+Input sanitization
+Output escaping
+Trigger validation
+Condition validation
+Action validation
+Automation configuration validation
+```
+
+Before external requests are implemented, security work must include:
+
+```text
+REST API authentication
+Webhook authentication
+Credential security
+External request validation
+SSRF protection
+Action-level permissions
+Rate limiting
+```
+
+WooSmart must remain compatible with normal WooCommerce behavior.
+
+---
+
+# 22. Email / Notification Architecture
+
+WooSmart uses:
+
+```text
+wp_mail()
+```
+
+It does not implement SMTP itself.
+
+Possible site transports include:
+
+```text
+Resend
+Brevo
+Gmail
+Microsoft 365
+Amazon SES
+SMTP hosting
+Other WordPress-compatible mail transports
+```
+
+WooSmart manages the recipient preference. The WordPress Mail Transport controls sender and delivery.
+
+WooSmart captures `wp_mail_failed` information for its own notifications and should preserve the original provider message whenever possible.
+
+Provider-specific credentials and secrets must never be shown in diagnostics.
+
+---
+
+# 23. Current Data Model
+
+Automation:
+
+```text
+post_type:
+    woosmart_automation
+```
+
+Current metadata:
+
+```text
+_woosmart_status
+_woosmart_trigger
+_woosmart_conditions
+_woosmart_actions
+```
+
+Priority property:
+
+```text
+_woosmart_priority
+```
+
+Execution History is stored separately and contains a historical snapshot of the relevant configuration.
+
+Important invariant:
+
+> Changing an Automation later must not rewrite historical Execution records.
+
+---
+
+# 24. Testing Philosophy
+
+The project is developed through real WooCommerce behavior, not UI-only testing.
+
+```text
+Review current source
+      ↓
+Change complete file
+      ↓
+Replace local file
+      ↓
+Check PHP / activation
+      ↓
 Test Admin UI
-  ↓
-Test real WooCommerce order
-  ↓
-Check Logger
-  ↓
-Check Execution History
-  ↓
-Fix
-  ↓
-Retest existing behavior
-  ↓
+      ↓
+Create real WooCommerce order
+      ↓
+Inspect Logger
+      ↓
+Inspect Execution History
+      ↓
+Inspect Execution Detail
+      ↓
+Fix / retest
+      ↓
 Commit stable milestone
-  ↓
+      ↓
 Update README
 ```
 
-A feature is not complete because the UI works. Runtime behavior must also be tested.
+A feature is not considered complete merely because its Admin UI works. Its runtime behavior must also be tested.
 
 ---
 
-# Confirmed Tests
+# 25. Confirmed Test Areas
 
 ```text
-[x] Create Automation
-[x] Edit Automation
+[x] Plugin activation
+[x] WooCommerce detection
+[x] Automation creation
+[x] Automation editing
 [x] Enable / Disable
 [x] Duplicate
 [x] Delete
-[x] Order Created trigger
-[x] Order Total condition
+[x] order_created trigger
+[x] order_total condition
 [x] Condition pass
 [x] Condition failure
 [x] Change Order Status
-[x] Multiple Action storage
-[x] Multiple Action execution
-[x] Action Registry resolution
-[x] Action success detection
+[x] Multiple Actions
+[x] Action ordering
+[x] Action-level results
 [x] Action failure detection
 [x] Automation failure detection
-[x] Persian RTL Admin UI
-[x] WooCommerce IRT display
-[x] تومان display without conversion
-[x] Notification Settings
-[x] Notification recipient fallback
-[x] wp_mail() notification
-[x] Real notification delivery in development
-[x] wp_mail_failed diagnostics
-[x] Provider-neutral mail classification
 [x] Multiple matching Automations
 [x] ALL policy
 [x] FIRST_MATCH policy
 [x] FIRST_SUCCESS policy
-[x] Execution History list
-[x] Execution Details
-[x] Per-Action result display
-```
-
----
-
-# Known Limitations
-
-```text
-Only one Trigger is implemented.
-Only one Condition family is implemented.
-No full Multiple Conditions / groups yet.
-Priority is not yet implemented.
-Full cross-Automation Conflict Engine is not yet implemented.
-Current Action conflict warnings are advisory.
-Advanced external Actions are not implemented.
-Scheduling is not implemented.
-Retry queue is not implemented.
-Automated test suite is not complete.
-```
-
-These limitations are deliberate roadmap items, not forgotten requirements.
-
----
-
-# Product Roadmap
-
-## Stage A — Foundation ✅
-
-```text
-[x] Plugin bootstrap
-[x] WooCommerce integration
-[x] Automation CRUD
-[x] Condition Registry
-[x] Action Registry
-[x] Basic Trigger
-[x] Basic Condition
-[x] Basic Actions
-[x] Persian RTL Admin UI
-```
-
-## Stage B — Execution Intelligence 🟡
-
-```text
-[x] Multiple Actions
-[x] Multiple Automation detection
-[x] Execution Policy MVP
 [x] Execution History
-[x] Execution Details
-[ ] Accurate final timing model
-[ ] Conflict Detection Engine
-[ ] Execution Priority
-[ ] Formal Execution Planning
+[x] Execution detail page
+[x] Historical Condition snapshot
+[x] Historical Action snapshot
+[x] Measured Execution duration
+[x] Measured Action duration
+[x] Notification Settings
+[x] Real wp_mail() delivery
+[x] Provider-neutral mail failure diagnostics
+[x] IRT → تومان presentation
+[x] No independent currency conversion
+[x] Action-level conflict warnings
 ```
 
-## Stage C — Rule Power
+Currently under validation:
 
 ```text
-[ ] Multiple Conditions
-[ ] AND / OR groups
-[ ] Nested groups
-[ ] Between / Range conditions
-[ ] More Order Conditions
-[ ] More Customer Conditions
-[ ] More Product Conditions
-```
-
-## Stage D — Action Power
-
-```text
-[ ] Order Note
-[ ] Order Metadata
-[ ] Coupon
-[ ] Customer Email
-[ ] Telegram
-[ ] Webhook
-[ ] HTTP Request
-[ ] Integration framework
-```
-
-## Stage E — User Experience
-
-```text
-[ ] Human-readable Automation summary
-[ ] Preview / Dry Run
-[ ] Safe Activation
-[ ] Better Conflict UX
-[ ] Automation Templates
-[ ] Quick Start
-[ ] Import / Export
-[ ] Recipe Library
-```
-
-## Stage F — Reliability
-
-```text
-[ ] Structured errors
-[ ] Retry system
-[ ] Scheduling
-[ ] Background execution
-[ ] Execution queue
-[ ] Dedicated production tables
-[ ] Performance optimization
-[ ] Automated tests
-```
-
-## Stage G — Platform
-
-```text
-[ ] Developer API
-[ ] Third-party Trigger Registry
-[ ] Third-party Condition Registry
-[ ] Third-party Action Registry
-[ ] Notification channel abstraction
-[ ] Advanced Automation Builder
+[~] Execution Priority
+[~] Priority-based runtime ordering
+[~] Cross-Automation Conflict Engine
 ```
 
 ---
 
-# Commercial Product Direction
+# 26. Known Limitations
 
-The plugin should not be positioned as:
+## No Generic Rollback
+
+Successful Actions are not automatically reversed when a later Action fails.
+
+## Cross-Automation Conflict Engine Is Not Final
+
+Current warnings cover mainly Action-level status-transition conflicts. The broader overlap-aware engine is still future work.
+
+## Priority Is Not Yet Production-Stable
+
+Priority infrastructure exists but is still being validated end-to-end with real orders.
+
+## One Current Trigger
+
+The current Trigger system has `order_created` as its implemented Trigger.
+
+## One Main Condition Domain
+
+The main implemented Condition is `order_total`.
+
+## Synchronous MVP
+
+Scheduling, retries, background jobs, and heavy execution queues are future infrastructure.
+
+---
+
+# 27. Roadmap
+
+The roadmap is intentionally ordered by architectural dependency and customer value:
 
 ```text
-"A plugin with many technical features"
+CURRENT
+│
+├── Priority stabilization
+│
+├── Cross-Automation Conflict Engine
+│
+├── Formal Execution Planning
+│
+├── Range / Between Conditions
+│
+├── Multiple Conditions
+│     ├── AND
+│     ├── OR
+│     └── Groups
+│
+├── More high-value Order Conditions
+│
+├── More high-value Order Actions
+│
+├── More Triggers
+│
+├── Professional Automation Builder
+│
+├── Preview / Dry Run
+│
+├── Safe Activation
+│
+├── Execution Trace / Monitoring
+│
+├── Automation Templates
+│
+├── Import / Export
+│
+├── Scheduling / Delayed Actions
+│
+├── Retry / Failure Queue
+│
+├── External Integrations
+│
+├── Developer API
+│
+└── Dedicated database / scale improvements
 ```
 
-The customer value proposition should be:
+The exact ordering may change after real-world testing, but architectural dependencies should be respected.
+
+---
+
+# 28. Commercial / Product Direction
+
+WooSmart is intended to become a commercially useful WooCommerce product, initially suitable for the Persian WordPress market and potentially internationalized later.
+
+Customer value should focus on:
 
 ```text
-"Automate WooCommerce work without coding."
-```
-
-Customer-facing strengths should be:
-
-```text
-Easy setup
+Less manual work
+Fewer repetitive tasks
+Safer automation
+Clear explanations
 Predictable execution
-Clear warnings
+Easy configuration
 Useful templates
-Readable history
-Safe activation
-No vendor lock-in
-WordPress mail compatibility
-Extensible architecture
+Good diagnostics
 ```
 
-Potential commercial layers:
+Potential premium-value areas:
+
+- Advanced Conditions.
+- Multiple Condition Groups.
+- Advanced Execution Planning.
+- Template / Recipe Library.
+- Dry Run and Preview.
+- Execution Trace.
+- Scheduling.
+- Retry Rules.
+- Webhooks.
+- SMS / Telegram / WhatsApp integrations.
+- Import / Export.
+- Agency / staging workflows.
+- Developer API.
+- Advanced reporting.
+
+The product must not become a random feature collection. Every major feature should solve a real store-owner problem.
+
+---
+
+# 29. Product UX Principles
+
+### Simple by default
+
+A beginner should be able to create a useful automation without understanding the architecture.
+
+### Powerful when needed
+
+Advanced users should be able to use Conditions, Policy, Priority, Groups, Templates, Trace, and integrations.
+
+### Explain before execution
+
+The user should know what the Automation is expected to do.
+
+### Explain after execution
+
+The user should know what actually happened.
+
+### Never silently overwrite intent
+
+Conflicts should be visible and understandable.
+
+### Preserve historical truth
+
+Old Executions must remain accurate even after an Automation is edited.
+
+### Keep WooCommerce as the source of truth
+
+Do not create unnecessary parallel systems for currency, order state, or other WooCommerce-owned concepts.
+
+### Keep providers replaceable
+
+Mail and future external integrations must not hard-code one vendor into the core engine.
+
+---
+
+# 30. Important Architectural Decisions
+
+## WooCommerce controls currency
+
+WooCommerce remains the monetary source of truth.
 
 ```text
-Core plugin
-    ↓
-Premium automation features
-    ↓
-Premium integrations
-    ↓
-Template / recipe packs
-    ↓
-Advanced execution features
+IRT → تومان
+IRR → ریال
 ```
 
-The architecture should allow commercial expansion without making the core engine fragile.
+These are display decisions, not hidden conversions.
 
----
+## No independent currency conversion
 
-# Important Product Principles
+WooSmart must never silently multiply or divide money values because of a display label.
 
-1. **Simple for the customer** — hide unnecessary technical complexity.
-2. **Predictable for the store** — ordering, policy, and side effects must be understandable.
-3. **Explainable after execution** — the customer must see what happened and why.
-4. **Safe by default** — warn before dangerous or confusing behavior.
-5. **Extensible internally** — prefer Registries over scattered hard-coded type lists.
-6. **Provider-neutral** — do not depend on one mail or integration provider.
-7. **WooCommerce remains the source of truth** — do not create parallel semantics unnecessarily.
-8. **No silent destructive behavior** — never silently rewrite or disable another Automation.
-9. **Measure before optimizing** — optimize observed bottlenecks.
-10. **Stabilize before expanding** — do not build a huge feature layer on unstable execution semantics.
+## SMTP is not the core
 
----
+WooSmart uses `wp_mail()` and the active WordPress Mail Transport.
 
-# Important Architectural Decisions
+## Recipient and sender are separate concerns
 
-## Currency
+WooSmart owns the notification recipient setting. The WordPress Mail Transport owns sender and delivery.
 
-WooCommerce controls monetary semantics. WooSmart only formats/display values for its own UI and never silently converts Rial/Toman.
+## Registries are the source of truth
 
-## Mail
+Conditions and Actions should be added through Registries rather than duplicated across classes.
 
-WooSmart uses `wp_mail()` and respects the active WordPress Mail Transport. SMTP is not part of the core engine.
+## Execution must become deterministic
 
-## Recipient vs Sender
-
-WooSmart manages the notification recipient preference. The Mail Transport controls sender and delivery.
-
-## Registry Architecture
-
-Conditions and Actions should be defined centrally and consumed by Admin, Manager, and Execution layers.
-
-## Deterministic Execution
-
-The final system must explicitly determine which Automation runs first, whether execution continues, whether execution stops, and which result is authoritative.
-
-## Conflict Safety
-
-Conflict analysis must explain risk, not silently rewrite customer configuration.
-
-## Execution History
-
-Execution History is the human-facing record; technical Logger entries are diagnostic evidence.
-
-## Root-Cause Diagnostics
-
-When WordPress / PHPMailer provides a concrete error, preserve it rather than reducing everything to `action_failed`.
-
----
-
-# Future Decision Register
-
-Ideas remain here until they are **Implemented**, **Rejected**, or **Replaced by a better design**.
+The system must explicitly decide:
 
 ```text
-Conflict Detection
-Execution Priority
+Which Automation runs first?
+Which Actions run?
+Does execution continue?
+Does execution stop?
+Is there a conflict?
+Which result is authoritative?
+```
+
+## Historical Executions are immutable snapshots
+
+Execution details describe what happened at execution time.
+
+## Conflicts must not silently rewrite configuration
+
+WooSmart must never silently disable, modify, or delete another Automation because of a detected conflict.
+
+---
+
+# 31. Development Rules
+
+1. Treat GitHub as the source of truth.
+2. Review the current file before modifying it.
+3. Do not assume an older file version is still current.
+4. Preserve existing working functionality unless a change is intentional.
+5. When a project file changes, provide the complete file for replacement.
+6. Test real WooCommerce behavior after major changes.
+7. Inspect both technical Logger and Execution History when runtime behavior changes.
+8. Commit stable milestones.
+9. Update README after meaningful milestones.
+10. Keep postponed ideas documented.
+11. Do not implement distant architecture prematurely when the current milestone is not stable.
+12. Keep Persian UI terminology consistent.
+13. Keep internal identifiers in English.
+14. Record the root cause of important runtime bugs before unrelated architecture changes.
+15. Keep WooSmart independent from specific email providers.
+16. Never introduce a second currency system when WooCommerce already supplies the required context.
+17. Do not silently convert Rial/Toman values.
+18. Do not use incidental database ordering as the permanent execution-order mechanism.
+19. Do not silently modify another Automation because of a conflict.
+20. Preserve historical Execution snapshots.
+21. Prefer product clarity over unnecessary technical complexity.
+22. Every major feature should have a customer-facing reason, not only an engineering reason.
+
+---
+
+# 32. Handoff Context for a New AI / Developer
+
+This section is the compact project context that should be read first when continuing WooSmart in another conversation or with another AI.
+
+## What are we building?
+
+A WooCommerce automation engine based on:
+
+```text
+WHEN → IF → THEN
+```
+
+with a Persian RTL UI and a long-term goal of becoming a professional, commercially useful automation platform.
+
+## Where did we start?
+
+A simple WooCommerce order automation MVP:
+
+```text
+order_created
+    ↓
+order_total
+    ↓
+Action
+    ↓
+Log
+```
+
+## What has been built?
+
+```text
+Foundation
+   ↓
+Condition Registry
+   ↓
+Condition Engine
+   ↓
+Action Registry
+   ↓
+Action Engine
+   ↓
+Multiple Actions
+   ↓
+Multiple matching Automations
+   ↓
+Execution Policy
+   ↓
+Execution History
+   ↓
+Historical snapshots
+   ↓
+Measured timing
+   ↓
+Action-level conflict warnings
+   ↓
+Priority / Execution Planning
+```
+
+## What is confirmed working?
+
+```text
+Automation CRUD
+order_created
+order_total
+Comparison operators
+change_order_status
+notify_admin
+Multiple Actions
+Multiple matching Automations
+ALL
+FIRST_MATCH
+FIRST_SUCCESS
+Execution History
+Execution Details
+Historical snapshots
+Measured duration
+Notification Settings
+Real wp_mail() delivery in development
+Provider-neutral mail diagnostics
+IRT / تومان display handling
+Action-level conflict warnings
+```
+
+## What is not complete?
+
+```text
+Cross-Automation Conflict Engine
+Priority runtime validation
 Formal Execution Planning
-Advanced Execution Policy
 Multiple Conditions
-AND / OR groups
-Between / Range conditions
-Human-readable summaries
-Safe Activation
-Dry Run
-Automation Trace
-Import / Export
-Automation Templates
-Recipe Library
+Condition Groups
+Range / Between
+Professional Builder
 Scheduling
-Retry System
-Background Processing
-Execution Queue
-More Triggers
-More Conditions
-More Actions
+Retry Queue
 External Integrations
 Developer API
-Dedicated production tables
-Automated tests
-Advanced Automation Builder
 ```
+
+## What is the next task?
+
+```text
+1. Validate Priority with real orders
+2. Build broader Conflict Detection
+3. Formalize Execution Planning
+4. Add Between / Range
+5. Add Multiple Conditions
+6. Expand useful Conditions / Actions / Triggers
+7. Build a professional, customer-friendly Builder
+```
+
+## What should another AI preserve?
+
+- Do not undo working architecture without evidence.
+- Review current files before modifying them.
+- Treat GitHub as the source of truth.
+- Provide complete changed files for local replacement.
+- Test real WooCommerce orders.
+- Preserve historical Execution snapshots.
+- Keep Execution timing measured and accurate.
+- Keep WooCommerce as currency/state source of truth.
+- Keep mail transport provider-neutral.
+- Do not silently change another Automation because of conflicts.
+- Do not confuse technical Logger entries with customer-facing Execution History.
+- Optimize for a product a store owner can actually understand and buy.
 
 ---
 
-# Recommended Version Strategy
+# 33. Final Product Architecture
 
-Version numbers represent milestones, not promises.
-
-Possible structure:
+Long-term target:
 
 ```text
-1.0.x  Foundation stabilization
-1.1.x  Execution Intelligence
-1.2.x  Conflict + Priority
-1.3.x  Multiple Conditions
-1.4.x  Action expansion
-1.5.x  UX / Templates / Dry Run
-1.6.x  Reliability / Retry / Scheduling
-2.x    Advanced Builder + Platform APIs
+                    WooCommerce
+                         ↓
+                   Trigger System
+                         ↓
+                Candidate Automations
+                         ↓
+                Condition Evaluation
+                         ↓
+                 Conflict Detection
+                         ↓
+                 Execution Planning
+                         ↓
+                      Priority
+                         ↓
+                 Execution Policy
+                         ↓
+                  Action Registry
+                         ↓
+                    Action Engine
+                         ↓
+                   Action Results
+                     ↙         ↘
+          Execution History   Logger
+                     ↓
+                Execution Trace
+                     ↓
+             Monitoring / Reports
 ```
 
-Actual versioning may change with product scope.
+The central promise is:
 
----
+> **When something happens, WooSmart understands the rules, executes the right actions safely, and clearly explains the result.**
 
-# Project Rules for Future Sessions
-
-1. GitHub and current project files are the source of truth.
-2. Review the actual current file before modifying it.
-3. Never assume an old version is still current.
-4. Preserve existing working behavior unless a change is intentional.
-5. Work incrementally.
-6. Test major changes with real WooCommerce behavior.
-7. Check both Logger and Execution History after execution changes.
-8. When a file changes, provide the complete file for replacement.
-9. Do not implement future features before the current milestone is stable.
-10. Update README after meaningful milestones.
-11. Keep postponed features documented.
-12. Keep Persian UI terminology consistent.
-13. Keep internal identifiers English and stable.
-14. Preserve runtime diagnostics whenever possible.
-15. Do not introduce independent currency conversion logic.
-16. Do not couple WooSmart core to a specific email provider.
-17. Do not silently alter or disable another Automation.
-18. Verify complete-file integrity before committing large replacements.
-19. Commit stable milestones rather than every experiment.
-20. Prefer measured runtime evidence over assumptions.
-
----
-
-# Current Development Target
-
-The next sequence is:
-
-```text
-1. Finalize Execution timing accuracy
-        ↓
-2. Conflict Detection Engine
-        ↓
-3. Execution Priority
-        ↓
-4. Formal Execution Planning
-        ↓
-5. Multiple Conditions
-        ↓
-6. Between / Range conditions
-        ↓
-7. More Conditions
-        ↓
-8. More Actions
-        ↓
-9. Human-readable summaries + Dry Run
-        ↓
-10. Templates / Recipe Library
-```
-
-The immediate goal is not to add dozens of unrelated features. The goal is to make this execution pipeline trustworthy:
-
-```text
-One Trigger
-    ↓
-Candidate Automations
-    ↓
-Conditions
-    ↓
-Conflict Analysis
-    ↓
-Priority
-    ↓
-Execution Policy
-    ↓
-Actions
-    ↓
-Accurate Results
-    ↓
-Readable Execution History
-```
-
----
-
-# Final Product Architecture
-
-```text
-Trigger
-    ↓
-Candidate Selection
-    ↓
-Condition Evaluation
-    ↓
-Conflict Analysis
-    ↓
-Execution Planning
-    ↓
-Priority Ordering
-    ↓
-Execution Policy
-    ↓
-Action Registry
-    ↓
-Action Execution
-    ↓
-Action Results
-    ↓
-Automation Result
-    ↓
-Execution History
-    ↓
-Technical Logger
-    ↓
-Monitoring / Trace
-```
-
-Everything else — more Conditions, more Actions, integrations, templates, scheduling, notifications, APIs, and builder improvements — should plug into this architecture rather than bypass it.
-
----
-
-# Definition of a Successful WooSmart
-
-A successful WooSmart installation should make these questions easy to answer:
-
-```text
-What should happen?
-Why should it happen?
-Which Automation will run?
-Which Automation will run first?
-Will another Automation conflict with it?
-What Actions will execute?
-What happened during execution?
-Did anything fail?
-Why did it fail?
-How long did it take?
-What was the final result?
-```
-
-The customer should not need to read PHP, inspect raw database records, or understand WooCommerce hooks to answer these questions.
-
-That is the product standard.
-
----
-
-# End
-
-WooSmart Automation is being developed as a real WooCommerce automation platform rather than a collection of unrelated features.
-
-The core remains:
-
-```text
-WHEN
-    Trigger
-
-IF
-    Conditions
-
-THEN
-    Actions
-```
-
-The product is now moving from basic execution toward **execution intelligence**:
-
-```text
-Multiple Automations
-        ↓
-Execution Policy
-        ↓
-Execution History
-        ↓
-Conflict Detection
-        ↓
-Priority
-        ↓
-Deterministic Execution Planning
-```
-
-Long-term objective:
-
-```text
-Powerful enough for advanced stores.
-Simple enough for normal store owners.
-Predictable enough to trust.
-Explainable enough to support.
-Extensible enough to grow.
-```
-
-WooSmart should eventually feel less like a technical rules engine and more like a dependable automation assistant built directly into WooCommerce.
+That is the product we are building.
