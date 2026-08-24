@@ -123,6 +123,19 @@ class WooSmart_Action_Engine {
     /**
      * Execute automation actions and return per-Action results.
      *
+     * IMPORTANT:
+     *
+     * Action execution is fail-fast.
+     *
+     * Once an Action fails, no later Action in the same Automation
+     * is executed.
+     *
+     * This makes the Automation execution behavior deterministic
+     * and avoids continuing with additional side effects after a
+     * known failure.
+     *
+     * WooSmart intentionally does not perform automatic rollback.
+     *
      * @param array $actions Actions configuration.
      * @param array $context Execution context.
      *
@@ -142,6 +155,15 @@ class WooSmart_Action_Engine {
 
             'actions_successful' =>
                 0,
+
+            'actions_executed' =>
+                0,
+
+            'failed_action_index' =>
+                0,
+
+            'actions_stopped' =>
+                false,
 
             'actions' =>
                 array(),
@@ -266,14 +288,6 @@ class WooSmart_Action_Engine {
                     $message =
                         'اجرای عملیات با شکست مواجه شد.';
                 }
-
-                /*
-                 * The detailed error is already available in
-                 * WooSmart Logger where supported.
-                 *
-                 * We intentionally do not duplicate sensitive
-                 * mail transport data here.
-                 */
             }
 
             $action_duration_ms =
@@ -315,7 +329,9 @@ class WooSmart_Action_Engine {
 
             if (
                 ! $success &&
-                ! empty( $error )
+                ! empty(
+                    $error
+                )
             ) {
 
                 $action_result[
@@ -328,6 +344,10 @@ class WooSmart_Action_Engine {
                 'actions'
             ][] =
                 $action_result;
+
+            $result[
+                'actions_executed'
+            ]++;
 
             if (
                 $success
@@ -343,13 +363,59 @@ class WooSmart_Action_Engine {
                     'success'
                 ] =
                     false;
+
+                $result[
+                    'failed_action_index'
+                ] =
+                    $action_number;
+
+                /*
+                 * Fail-fast behavior:
+                 *
+                 * Do not execute any Action after the first failed Action.
+                 */
+                $result[
+                    'actions_stopped'
+                ] =
+                    (
+                        $action_number <
+                        $action_total
+                    );
+
+                $this->logger->log(
+                    'automation_action_chain_stopped',
+                    'اجرای عملیات بعدی این اتوماسیون به دلیل شکست یک عملیات متوقف شد.',
+                    array(
+                        'action_index' =>
+                            $action_number,
+
+                        'action_total' =>
+                            $action_total,
+
+                        'action_type' =>
+                            $action_type,
+
+                        'context' =>
+                            $context,
+                    )
+                );
+
+                $this->log_action_result(
+                    $action_number,
+                    $action_total,
+                    $action_type,
+                    false,
+                    $context
+                );
+
+                break;
             }
 
             $this->log_action_result(
                 $action_number,
                 $action_total,
                 $action_type,
-                $success,
+                true,
                 $context
             );
         }
@@ -555,7 +621,7 @@ class WooSmart_Action_Engine {
     }
 
     /**
-     * Execute a single registered action.
+     * Execute a single registered Action.
      *
      * @param string $type    Action type.
      * @param array  $action  Action configuration.
@@ -871,6 +937,10 @@ class WooSmart_Action_Engine {
     /**
      * Send an email notification to the store administrator.
      *
+     * WooSmart intentionally does not set the From address here.
+     * The active WordPress mail transport is responsible for the
+     * final From address.
+     *
      * @param array $action  Action configuration.
      * @param array $context Execution context.
      *
@@ -1114,24 +1184,20 @@ class WooSmart_Action_Engine {
                 if (
                     is_array(
                         $error_data
+                    ) &&
+                    isset(
+                        $error_data[
+                            'phpmailer_exception_code'
+                        ]
                     )
                 ) {
 
-                    if (
-                        isset(
-                            $error_data[
-                                'phpmailer_exception_code'
-                            ]
-                        )
-                    ) {
-
-                        $error_context[
-                            'mail_error_code'
-                        ] =
-                            $error_data[
-                                'phpmailer_exception_code'
-                            ];
-                    }
+                    $error_context[
+                        'mail_error_code'
+                    ] =
+                        $error_data[
+                            'phpmailer_exception_code'
+                        ];
                 }
 
             } else {
@@ -1198,6 +1264,13 @@ class WooSmart_Action_Engine {
 
     /**
      * Replace order placeholders in notification message.
+     *
+     * Supported placeholders:
+     *
+     * {order_id}
+     * {order_total}
+     * {order_status}
+     * {customer_name}
      *
      * @param string $message Message template.
      * @param array  $context Execution context.
