@@ -29,7 +29,9 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-condition-re
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-condition-engine.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-action-registry.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-action-engine.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-execution-history.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-execution-engine.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-execution-admin.php';
 
 
 /**
@@ -58,13 +60,23 @@ function woosmart_automation_init() {
         new WooSmart_Action_Engine();
 
     /*
+     * Create one shared Execution History service.
+     *
+     * Both the Execution Engine and the admin history page
+     * use the same storage service and database table.
+     */
+    $execution_history =
+        new WooSmart_Execution_History();
+
+    /*
      * Create one execution engine using
-     * the shared condition and action engines.
+     * the shared condition, action, and history services.
      */
     $execution_engine =
         new WooSmart_Execution_Engine(
             $condition_engine,
-            $action_engine
+            $action_engine,
+            $execution_history
         );
 
     /*
@@ -73,6 +85,13 @@ function woosmart_automation_init() {
      */
     new WooSmart_Triggers(
         $execution_engine
+    );
+
+    /*
+     * Execution History and Execution Policy admin UI.
+     */
+    new WooSmart_Execution_Admin(
+        $execution_history
     );
 
     /*
@@ -112,6 +131,18 @@ function woosmart_automation_activate() {
             new WooSmart_Post_Types();
 
         $post_types->register_automation_post_type();
+    }
+
+    /*
+     * Ensure Execution History storage is available after activation.
+     */
+    if (
+        class_exists(
+            'WooSmart_Execution_History'
+        )
+    ) {
+
+        new WooSmart_Execution_History();
     }
 
     flush_rewrite_rules();
