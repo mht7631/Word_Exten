@@ -1394,6 +1394,7 @@ class WooSmart_Admin {
                 <div
                     id="woosmart-action-conflicts"
                     dir="rtl"
+                    aria-live="polite"
                     style="
                         display:none;
                         max-width:900px;
@@ -1849,10 +1850,6 @@ class WooSmart_Admin {
                                 conditionValue.value =
                                     rawValue;
 
-                                /*
-                                 * Keep the value visually LTR
-                                 * and restore the cursor to the end.
-                                 */
                                 amountDisplay.value =
                                     formatNumber(
                                         rawValue
@@ -2077,6 +2074,7 @@ class WooSmart_Admin {
 
                                         <select
                                             name="actions[${index}][status]"
+                                            class="woosmart-action-status"
                                             style="min-width:300px;"
                                         >
 
@@ -2224,8 +2222,6 @@ class WooSmart_Admin {
                                 }
                             );
                         }
-
-                        updateActionConflicts();
                     }
 
                     function getActionData() {
@@ -2250,7 +2246,7 @@ class WooSmart_Admin {
 
                                 const statusSelect =
                                     row.querySelector(
-                                        '.woosmart-status-fields select'
+                                        '.woosmart-action-status'
                                     );
 
                                 return {
@@ -2301,6 +2297,35 @@ class WooSmart_Admin {
                         return labels[
                             status
                         ] || status;
+                    }
+
+                    function escapeHtml(
+                        value
+                    ) {
+
+                        return String(
+                            value || ''
+                        )
+                            .replace(
+                                /&/g,
+                                '&amp;'
+                            )
+                            .replace(
+                                /</g,
+                                '&lt;'
+                            )
+                            .replace(
+                                />/g,
+                                '&gt;'
+                            )
+                            .replace(
+                                /"/g,
+                                '&quot;'
+                            )
+                            .replace(
+                                /'/g,
+                                '&#039;'
+                            );
                     }
 
                     function updateActionConflicts() {
@@ -2374,9 +2399,10 @@ class WooSmart_Admin {
                                 }
 
                                 if (
-                                    seenStatuses[
+                                    Object.prototype.hasOwnProperty.call(
+                                        seenStatuses,
                                         action.status
-                                    ]
+                                    )
                                 ) {
 
                                     conflicts.push(
@@ -2439,16 +2465,22 @@ class WooSmart_Admin {
                             );
                         }
 
+                        /*
+                         * Always clear the previous rendered content
+                         * before deciding whether a new warning exists.
+                         *
+                         * This guarantees that stale warnings cannot
+                         * remain after the Action configuration changes.
+                         */
+                        actionConflictsContainer.innerHTML =
+                            '';
+
+                        actionConflictsContainer.style.display =
+                            'none';
+
                         if (
                             conflicts.length === 0
                         ) {
-
-                            actionConflictsContainer.style.display =
-                                'none';
-
-                            actionConflictsContainer.innerHTML =
-                                '';
-
                             return;
                         }
 
@@ -2457,11 +2489,13 @@ class WooSmart_Admin {
 
                         html +=
                             '<div style="' +
-                            'border:1px solid #dba617;' +
-                            'border-right:4px solid #dba617;' +
-                            'background:#fff8e5;' +
+                            'border:1px solid #dba617 !important;' +
+                            'border-right:4px solid #dba617 !important;' +
+                            'background:#fff8e5 !important;' +
+                            'color:#3c434a !important;' +
                             'padding:16px 18px;' +
                             'margin-bottom:10px;' +
+                            'box-sizing:border-box;' +
                             '">';
 
                         html +=
@@ -2469,7 +2503,8 @@ class WooSmart_Admin {
                             'font-size:16px;' +
                             'font-weight:600;' +
                             'margin-bottom:12px;' +
-                            '">';
+                            'color:#3c434a !important;' +
+                            '">' ;
 
                         html +=
                             '⚠ هشدارهای این اتوماسیون';
@@ -2479,18 +2514,26 @@ class WooSmart_Admin {
 
                         conflicts.forEach(
                             function(
-                                conflict
+                                conflict,
+                                conflictIndex
                             ) {
 
                                 html +=
                                     '<div style="' +
                                     'margin-bottom:14px;' +
                                     'padding-bottom:14px;' +
-                                    'border-bottom:1px solid #e5d7a0;' +
+                                    (
+                                        conflictIndex <
+                                        conflicts.length - 1
+                                            ? 'border-bottom:1px solid #e5d7a0;'
+                                            : ''
+                                    ) +
                                     '">';
 
                                 html +=
-                                    '<strong>' +
+                                    '<strong style="' +
+                                    'color:#3c434a !important;' +
+                                    '">' +
                                     escapeHtml(
                                         conflict.title
                                     ) +
@@ -2499,6 +2542,7 @@ class WooSmart_Admin {
                                 html +=
                                     '<p style="' +
                                     'margin:6px 0 8px;' +
+                                    'color:#3c434a !important;' +
                                     '">';
 
                                 html +=
@@ -2515,7 +2559,10 @@ class WooSmart_Admin {
                                 ) {
 
                                     html +=
-                                        '<div style="font-size:13px;">';
+                                        '<div style="' +
+                                        'font-size:13px;' +
+                                        'color:#3c434a !important;' +
+                                        '">';
 
                                     conflict.actions.forEach(
                                         function(
@@ -2567,7 +2614,7 @@ class WooSmart_Admin {
                             '<p style="' +
                             'margin:0;' +
                             'font-size:13px;' +
-                            'color:#646970;' +
+                            'color:#646970 !important;' +
                             '">';
 
                         html +=
@@ -2584,35 +2631,6 @@ class WooSmart_Admin {
 
                         actionConflictsContainer.style.display =
                             'block';
-                    }
-
-                    function escapeHtml(
-                        value
-                    ) {
-
-                        return String(
-                            value || ''
-                        )
-                            .replace(
-                                /&/g,
-                                '&amp;'
-                            )
-                            .replace(
-                                /</g,
-                                '&lt;'
-                            )
-                            .replace(
-                                />/g,
-                                '&gt;'
-                            )
-                            .replace(
-                                /"/g,
-                                '&quot;'
-                            )
-                            .replace(
-                                /'/g,
-                                '&#039;'
-                            );
                     }
 
                     function updateActionMoveButtons() {
@@ -2669,6 +2687,11 @@ class WooSmart_Admin {
                                 '.woosmart-action-type'
                             );
 
+                        const statusSelect =
+                            row.querySelector(
+                                '.woosmart-action-status'
+                            );
+
                         const removeButton =
                             row.querySelector(
                                 '.woosmart-remove-action'
@@ -2693,6 +2716,29 @@ class WooSmart_Admin {
                                     updateActionFields(
                                         row
                                     );
+
+                                    updateActionConflicts();
+                                }
+                            );
+                        }
+
+                        /*
+                         * IMPORTANT:
+                         *
+                         * The previous implementation did not bind
+                         * a change event to the status selector.
+                         *
+                         * Because of that, changing:
+                         *
+                         * processing → completed
+                         *
+                         * did not refresh the Conflict UI.
+                         */
+                        if ( statusSelect ) {
+
+                            statusSelect.addEventListener(
+                                'change',
+                                function() {
 
                                     updateActionConflicts();
                                 }
@@ -2864,6 +2910,10 @@ class WooSmart_Admin {
 
                     renumberActionRows();
 
+                    /*
+                     * Render initial Conflict state from the
+                     * currently loaded Actions.
+                     */
                     updateActionConflicts();
 
                     addActionButton.addEventListener(
@@ -3078,6 +3128,7 @@ class WooSmart_Admin {
 
                         <select
                             name="actions[<?php echo esc_attr( $index ); ?>][status]"
+                            class="woosmart-action-status"
                             style="min-width:300px;"
                         >
 
