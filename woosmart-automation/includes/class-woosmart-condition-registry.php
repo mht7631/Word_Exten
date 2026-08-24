@@ -285,12 +285,15 @@ class WooSmart_Condition_Registry {
                     'number',
 
                 /*
-                 * The internal value remains Rial,
-                 * but WooSmart presents the value
-                 * to Iranian users in Toman.
+                 * WooSmart uses the numeric representation supplied
+                 * by WooCommerce and does not perform independent
+                 * Rial/Toman conversion.
+                 *
+                 * The displayed unit is resolved by the Admin/Currency
+                 * layer from the current WooCommerce currency context.
                  */
                 'value_unit' =>
-                    'toman',
+                    'store_currency',
 
                 'operators' =>
                     array(
@@ -311,6 +314,9 @@ class WooSmart_Condition_Registry {
 
                         'less_than_or_equal' =>
                             'کمتر یا مساوی با',
+
+                        'between' =>
+                            'بین',
                     ),
 
                 'evaluator' =>
@@ -334,7 +340,7 @@ class WooSmart_Condition_Registry {
      * Evaluate the WooCommerce order total condition.
      *
      * @param string $operator Operator key.
-     * @param mixed  $value    Configured amount.
+     * @param mixed  $value    Configured amount/range.
      * @param array  $context  Execution context.
      *
      * @return bool
@@ -382,22 +388,122 @@ class WooSmart_Condition_Registry {
         }
 
         /*
-         * IMPORTANT:
+         * WooCommerce remains the source of truth for the
+         * actual stored monetary value.
          *
-         * $value is already stored in the internal
-         * WooCommerce currency unit.
+         * WooSmart does not perform Rial/Toman conversion
+         * inside the Condition Engine.
+         */
+        $order_total =
+            (float)
+            $order->get_total();
+
+        /*
+         * BETWEEN
          *
-         * The conversion from Toman to Rial happens
-         * in the Admin layer before the value is stored.
+         * Expected structure:
          *
-         * Therefore the Condition Engine does not
-         * perform any currency conversion here.
+         * array(
+         *     'min' => '1000000',
+         *     'max' => '5000000',
+         * )
+         *
+         * The range is inclusive:
+         *
+         * 1,000,000 → true
+         * 5,000,000 → true
+         */
+        if (
+            'between' ===
+            $operator
+        ) {
+
+            if (
+                ! is_array(
+                    $value
+                )
+            ) {
+
+                return false;
+            }
+
+            $minimum =
+                isset(
+                    $value['min']
+                )
+                    ? str_replace(
+                        ',',
+                        '',
+                        (string)
+                        $value['min']
+                    )
+                    : '';
+
+            $maximum =
+                isset(
+                    $value['max']
+                )
+                    ? str_replace(
+                        ',',
+                        '',
+                        (string)
+                        $value['max']
+                    )
+                    : '';
+
+            if (
+                '' === $minimum ||
+                '' === $maximum ||
+                ! is_numeric(
+                    $minimum
+                ) ||
+                ! is_numeric(
+                    $maximum
+                )
+            ) {
+
+                return false;
+            }
+
+            $minimum =
+                (float)
+                $minimum;
+
+            $maximum =
+                (float)
+                $maximum;
+
+            /*
+             * Invalid range:
+             * minimum cannot be greater than maximum.
+             */
+            if (
+                $minimum >
+                $maximum
+            ) {
+
+                return false;
+            }
+
+            return (
+                $order_total >=
+                $minimum
+            ) &&
+            (
+                $order_total <=
+                $maximum
+            );
+        }
+
+        /*
+         * Standard scalar condition.
          */
         $configured_value =
             str_replace(
                 ',',
                 '',
-                (string) $value
+                (string)
+                $value
             );
 
         if (
@@ -409,10 +515,6 @@ class WooSmart_Condition_Registry {
 
             return false;
         }
-
-        $order_total =
-            (float)
-            $order->get_total();
 
         $condition_value =
             (float)
