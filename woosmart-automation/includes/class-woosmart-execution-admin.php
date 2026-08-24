@@ -111,7 +111,9 @@ class WooSmart_Execution_Admin {
                 true
             )
         ) {
-            $policy = 'all';
+
+            $policy =
+                'all';
         }
 
         update_option(
@@ -128,7 +130,9 @@ class WooSmart_Execution_Admin {
                     'policy_saved' =>
                         1,
                 ),
-                admin_url( 'admin.php' )
+                admin_url(
+                    'admin.php'
+                )
             )
         );
 
@@ -142,10 +146,11 @@ class WooSmart_Execution_Admin {
      */
     public function render_executions_page() {
 
-        $current_policy = get_option(
-            'woosmart_execution_policy',
-            'all'
-        );
+        $current_policy =
+            get_option(
+                'woosmart_execution_policy',
+                'all'
+            );
 
         $allowed_policies = array(
             'all',
@@ -160,29 +165,33 @@ class WooSmart_Execution_Admin {
                 true
             )
         ) {
-            $current_policy = 'all';
+
+            $current_policy =
+                'all';
         }
 
-        $current_page = isset(
-            $_GET['paged']
-        )
-            ? max(
-                1,
-                absint(
-                    $_GET['paged']
-                )
+        $current_page =
+            isset(
+                $_GET['paged']
             )
-            : 1;
+                ? max(
+                    1,
+                    absint(
+                        $_GET['paged']
+                    )
+                )
+                : 1;
 
-        $status_filter = isset(
-            $_GET['status']
-        )
-            ? sanitize_key(
-                wp_unslash(
-                    $_GET['status']
-                )
+        $status_filter =
+            isset(
+                $_GET['status']
             )
-            : '';
+                ? sanitize_key(
+                    wp_unslash(
+                        $_GET['status']
+                    )
+                )
+                : '';
 
         $allowed_statuses = array(
             '',
@@ -198,10 +207,13 @@ class WooSmart_Execution_Admin {
                 true
             )
         ) {
-            $status_filter = '';
+
+            $status_filter =
+                '';
         }
 
-        $per_page = 25;
+        $per_page =
+            25;
 
         $executions =
             $this->execution_history->get_executions(
@@ -219,7 +231,8 @@ class WooSmart_Execution_Admin {
             max(
                 1,
                 (int) ceil(
-                    $total_items / $per_page
+                    $total_items /
+                    $per_page
                 )
             );
 
@@ -283,7 +296,10 @@ class WooSmart_Execution_Admin {
                 );
                 ?>
 
-                <table class="form-table" style="margin:0;">
+                <table
+                    class="form-table"
+                    style="margin:0;"
+                >
 
                     <tr>
 
@@ -335,11 +351,17 @@ class WooSmart_Execution_Admin {
 
                             </select>
 
-                            <p class="description" style="max-width:760px;">
+                            <p
+                                class="description"
+                                style="max-width:760px;"
+                            >
                                 در حالت «اولین اتوماسیون منطبق»، به‌محض برقرار شدن شرایط یک اتوماسیون، بررسی اتوماسیون‌های بعدی متوقف می‌شود. در حالت «اولین اتوماسیون موفق»، فقط پس از اجرای موفق همه عملیات یک اتوماسیون، بررسی متوقف می‌شود.
                             </p>
 
-                            <p class="description" style="max-width:760px;">
+                            <p
+                                class="description"
+                                style="max-width:760px;"
+                            >
                                 در نسخه فعلی، ترتیب بررسی اتوماسیون‌ها جدیدترین اتوماسیون به قدیمی‌ترین است. Priority مستقل در مرحله بعد اضافه خواهد شد.
                             </p>
 
@@ -349,7 +371,11 @@ class WooSmart_Execution_Admin {
 
                 </table>
 
-                <?php submit_button( 'ذخیره سیاست اجرا' ); ?>
+                <?php
+                submit_button(
+                    'ذخیره سیاست اجرا'
+                );
+                ?>
 
             </form>
 
@@ -493,6 +519,10 @@ class WooSmart_Execution_Admin {
                             </th>
 
                             <th>
+                                مدت اجرا
+                            </th>
+
+                            <th>
                                 شروع
                             </th>
 
@@ -616,6 +646,22 @@ class WooSmart_Execution_Admin {
 
                                     <?php
                                     echo esc_html(
+                                        $this->format_duration(
+                                            isset(
+                                                $execution['duration_ms']
+                                            )
+                                                ? $execution['duration_ms']
+                                                : 0
+                                        )
+                                    );
+                                    ?>
+
+                                </td>
+
+                                <td>
+
+                                    <?php
+                                    echo esc_html(
                                         $execution['started_at']
                                     );
                                     ?>
@@ -676,7 +722,8 @@ class WooSmart_Execution_Admin {
                                                 )
                                             ),
 
-                                        'format' => '',
+                                        'format' =>
+                                            '',
 
                                         'current' =>
                                             $current_page,
@@ -716,10 +763,81 @@ class WooSmart_Execution_Admin {
     }
 
     /**
+     * Format execution duration.
+     *
+     * @param mixed $duration_ms Duration in milliseconds.
+     *
+     * @return string
+     */
+    private function format_duration(
+        $duration_ms
+    ) {
+
+        $duration_ms =
+            absint(
+                $duration_ms
+            );
+
+        if (
+            0 === $duration_ms
+        ) {
+
+            return 'کمتر از 0.001 ثانیه';
+        }
+
+        if (
+            $duration_ms < 1000
+        ) {
+
+            return number_format(
+                $duration_ms,
+                0
+            ) . ' ms';
+        }
+
+        $seconds =
+            $duration_ms / 1000;
+
+        if (
+            $seconds < 60
+        ) {
+
+            return number_format(
+                $seconds,
+                2
+            ) . ' ثانیه';
+        }
+
+        $minutes =
+            floor(
+                $seconds / 60
+            );
+
+        $remaining_seconds =
+            $seconds -
+            (
+                $minutes * 60
+            );
+
+        return (
+            number_format(
+                $minutes,
+                0
+            ) .
+            ' دقیقه و ' .
+            number_format(
+                $remaining_seconds,
+                2
+            ) .
+            ' ثانیه'
+        );
+    }
+
+    /**
      * Render summary card.
      *
-     * @param string $label       Card label.
-     * @param int    $value       Card value.
+     * @param string $label        Card label.
+     * @param int    $value        Card value.
      * @param string $border_color Card accent color.
      *
      * @return void
