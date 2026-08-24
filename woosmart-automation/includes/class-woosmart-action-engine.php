@@ -126,44 +126,130 @@ class WooSmart_Action_Engine {
         $all_successful =
             true;
 
+        $action_total =
+            count(
+                $actions
+            );
+
         foreach (
-            $actions as $action
+            $actions as $index =>
+            $action
         ) {
 
+            $action_number =
+                $index + 1;
+
+            $action_type =
+                '';
+
             if (
-                ! is_array( $action )
+                is_array(
+                    $action
+                ) &&
+                isset(
+                    $action['type']
+                )
+            ) {
+
+                $action_type =
+                    sanitize_key(
+                        $action['type']
+                    );
+            }
+
+            /*
+             * Build a per-Action execution context.
+             *
+             * The original trigger context remains available while
+             * the Action metadata makes logs and future diagnostics
+             * traceable to a specific Action.
+             */
+            $action_context =
+                $context;
+
+            $action_context[
+                'action_index'
+            ] =
+                $action_number;
+
+            $action_context[
+                'action_total'
+            ] =
+                $action_total;
+
+            $action_context[
+                'action_type'
+            ] =
+                $action_type;
+
+            /*
+             * Invalid Action structure.
+             */
+            if (
+                ! is_array(
+                    $action
+                )
             ) {
 
                 $all_successful =
                     false;
+
+                $this->log_action_result(
+                    $action_number,
+                    $action_total,
+                    $action_type,
+                    false,
+                    $context
+                );
 
                 continue;
             }
 
-            $type = isset(
-                $action['type']
-            )
-                ? sanitize_key(
-                    $action['type']
-                )
-                : '';
-
+            /*
+             * Missing Action type.
+             */
             if (
-                empty( $type )
+                empty( $action_type )
             ) {
 
                 $all_successful =
                     false;
+
+                $this->log_action_result(
+                    $action_number,
+                    $action_total,
+                    $action_type,
+                    false,
+                    $context
+                );
 
                 continue;
             }
 
             $result =
                 $this->execute_action(
-                    $type,
+                    $action_type,
                     $action,
-                    $context
+                    $action_context
                 );
+
+            $result =
+                (bool) $result;
+
+            /*
+             * Register the result of this specific Action.
+             *
+             * This does not alter the existing Action logs.
+             * It adds a separate machine-readable execution result
+             * so each Action can be identified independently.
+             */
+            $this->log_action_result(
+                $action_number,
+                $action_total,
+                $action_type,
+                $result,
+                $context
+            );
 
             if (
                 ! $result
@@ -175,6 +261,129 @@ class WooSmart_Action_Engine {
         }
 
         return $all_successful;
+    }
+
+    /**
+     * Log the result of one Action.
+     *
+     * @param int    $action_number Action number.
+     * @param int    $action_total  Total Action count.
+     * @param string $action_type   Action type.
+     * @param bool   $success       Action result.
+     * @param array  $context       Execution context.
+     *
+     * @return void
+     */
+    private function log_action_result(
+        $action_number,
+        $action_total,
+        $action_type,
+        $success,
+        $context
+    ) {
+
+        $this->logger->log(
+            'action_result',
+            $success
+                ? 'نتیجه عملیات با موفقیت ثبت شد.'
+                : 'نتیجه عملیات با شکست ثبت شد.',
+            array(
+                'action_index' =>
+                    absint(
+                        $action_number
+                    ),
+
+                'action_total' =>
+                    absint(
+                        $action_total
+                    ),
+
+                'action_type' =>
+                    sanitize_key(
+                        $action_type
+                    ),
+
+                'success' =>
+                    (bool) $success,
+
+                'context' =>
+                    $context,
+            )
+        );
+    }
+
+    /**
+     * Log a WooCommerce side effect caused by an Action.
+     *
+     * @param array $context Action execution context.
+     * @param array $data    Side effect data.
+     *
+     * @return void
+     */
+    private function log_side_effect(
+        $context,
+        $data
+    ) {
+
+        $base_context = array(
+            'action_index' =>
+                isset(
+                    $context['action_index']
+                )
+                    ? absint(
+                        $context['action_index']
+                    )
+                    : 0,
+
+            'action_total' =>
+                isset(
+                    $context['action_total']
+                )
+                    ? absint(
+                        $context['action_total']
+                    )
+                    : 0,
+
+            'action_type' =>
+                isset(
+                    $context['action_type']
+                )
+                    ? sanitize_key(
+                        $context['action_type']
+                    )
+                    : '',
+
+            'context' =>
+                isset(
+                    $context['order_id']
+                )
+                    ? array(
+                        'order_id' =>
+                            absint(
+                                $context['order_id']
+                            ),
+                    )
+                    : array(),
+        );
+
+        if (
+            is_array(
+                $data
+            )
+        ) {
+
+            $base_context =
+                array_merge(
+                    $base_context,
+                    $data
+                );
+        }
+
+        $this->logger->log(
+            'action_side_effect',
+            'عملیات باعث یک اثر جانبی در WooCommerce شد.',
+            $base_context
+        );
     }
 
     /**
@@ -193,7 +402,7 @@ class WooSmart_Action_Engine {
     ) {
 
         /*
-         * Resolve the action through the Registry.
+         * Resolve the Action through the Registry.
          */
         if (
             ! $this->action_registry->has(
@@ -377,6 +586,15 @@ class WooSmart_Action_Engine {
         $old_status =
             $order->get_status();
 
+        /*
+         * WooCommerce status changes can trigger downstream hooks,
+         * status-specific hooks, emails, and other plugin behavior.
+         *
+         * WooSmart intentionally does not suppress those effects here.
+         * The current phase is diagnostic: record the transition so
+         * downstream effects can be identified before introducing
+         * optional suppression or conflict policies.
+         */
         $result =
             $order->update_status(
                 $new_status,
@@ -402,11 +620,63 @@ class WooSmart_Action_Engine {
 
                     'new_status' =>
                         $new_status,
+
+                    'action_index' =>
+                        isset(
+                            $context['action_index']
+                        )
+                            ? absint(
+                                $context['action_index']
+                            )
+                            : 0,
+
+                    'action_total' =>
+                        isset(
+                            $context['action_total']
+                        )
+                            ? absint(
+                                $context['action_total']
+                            )
+                            : 0,
                 )
             );
 
             return false;
         }
+
+        /*
+         * Record the order-status transition as a WooCommerce
+         * side effect of this specific WooSmart Action.
+         */
+        $this->log_side_effect(
+            $context,
+            array(
+                'side_effect_type' =>
+                    'woocommerce_order_status_transition',
+
+                'order_id' =>
+                    $order_id,
+
+                'old_status' =>
+                    $old_status,
+
+                'new_status' =>
+                    $new_status,
+
+                'downstream_hooks' =>
+                    array(
+                        'woocommerce_order_status_changed',
+                        'woocommerce_order_status_' .
+                            $new_status,
+                    ),
+
+                'possible_downstream_effects' =>
+                    array(
+                        'woocommerce_transactional_emails',
+                        'other_plugin_hooks',
+                    ),
+            )
+        );
 
         $this->logger->log(
             'action_executed',
@@ -423,6 +693,24 @@ class WooSmart_Action_Engine {
 
                 'new_status' =>
                     $new_status,
+
+                'action_index' =>
+                    isset(
+                        $context['action_index']
+                    )
+                        ? absint(
+                            $context['action_index']
+                        )
+                        : 0,
+
+                'action_total' =>
+                    isset(
+                        $context['action_total']
+                    )
+                        ? absint(
+                            $context['action_total']
+                        )
+                        : 0,
             )
         );
 
@@ -458,6 +746,24 @@ class WooSmart_Action_Engine {
                 array(
                     'action_type' =>
                         'notify_admin',
+
+                    'action_index' =>
+                        isset(
+                            $context['action_index']
+                        )
+                            ? absint(
+                                $context['action_index']
+                            )
+                            : 0,
+
+                    'action_total' =>
+                        isset(
+                            $context['action_total']
+                        )
+                            ? absint(
+                                $context['action_total']
+                            )
+                            : 0,
                 )
             );
 
@@ -505,6 +811,24 @@ class WooSmart_Action_Engine {
                 array(
                     'action_type' =>
                         'notify_admin',
+
+                    'action_index' =>
+                        isset(
+                            $context['action_index']
+                        )
+                            ? absint(
+                                $context['action_index']
+                            )
+                            : 0,
+
+                    'action_total' =>
+                        isset(
+                            $context['action_total']
+                        )
+                            ? absint(
+                                $context['action_total']
+                            )
+                            : 0,
                 )
             );
 
@@ -612,6 +936,24 @@ class WooSmart_Action_Engine {
                             $context['order_id']
                         )
                         : 0,
+
+                'action_index' =>
+                    isset(
+                        $context['action_index']
+                    )
+                        ? absint(
+                            $context['action_index']
+                        )
+                        : 0,
+
+                'action_total' =>
+                    isset(
+                        $context['action_total']
+                    )
+                        ? absint(
+                            $context['action_total']
+                        )
+                        : 0,
             );
 
             /*
@@ -702,6 +1044,24 @@ class WooSmart_Action_Engine {
                     )
                         ? absint(
                             $context['order_id']
+                        )
+                        : 0,
+
+                'action_index' =>
+                    isset(
+                        $context['action_index']
+                    )
+                        ? absint(
+                            $context['action_index']
+                        )
+                        : 0,
+
+                'action_total' =>
+                    isset(
+                        $context['action_total']
+                    )
+                        ? absint(
+                            $context['action_total']
                         )
                         : 0,
             )
