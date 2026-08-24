@@ -41,8 +41,8 @@ class WooSmart_Execution_Engine {
      * Initialize execution engine.
      *
      * @param WooSmart_Condition_Engine       $condition_engine Condition engine.
-     * @param WooSmart_Action_Engine          $action_engine    Action engine.
-     * @param WooSmart_Execution_History|null $execution_history History.
+     * @param WooSmart_Action_Engine          $action_engine Action engine.
+     * @param WooSmart_Execution_History|null $execution_history History service.
      */
     public function __construct(
         WooSmart_Condition_Engine $condition_engine,
@@ -110,6 +110,10 @@ class WooSmart_Execution_Engine {
                     'posts_per_page' =>
                         -1,
 
+                    /*
+                     * First fetch in the historical order.
+                     * Priority sorting is applied below.
+                     */
                     'orderby' =>
                         'date',
 
@@ -146,31 +150,235 @@ class WooSmart_Execution_Engine {
                 )
             );
 
+        /*
+         * Preserve original date order as the tie-breaker.
+         */
+        $date_order =
+            array();
+
+        foreach (
+            $automations as $index =>
+            $automation
+        ) {
+
+            $date_order[
+                $automation->ID
+            ] =
+                $index;
+        }
+
+        /*
+         * Normalize priorities.
+         *
+         * Explicit priorities are respected.
+         * Automations without a stored Priority receive a fallback
+         * after all explicit priorities, while preserving their
+         * original newest-to-oldest order.
+         */
+        $explicit_priorities =
+            array();
+
+        $max_explicit_priority =
+            0;
+
+        foreach (
+            $automations as $automation
+        ) {
+
+            $priority =
+                get_post_meta(
+                    $automation->ID,
+                    '_woosmart_priority',
+                    true
+                );
+
+            if (
+                '' ===
+                $priority
+            ) {
+
+                continue;
+            }
+
+            $priority =
+                absint(
+                    $priority
+                );
+
+            if (
+                $priority < 1
+            ) {
+
+                continue;
+            }
+
+            $explicit_priorities[
+                $automation->ID
+            ] =
+                $priority;
+
+            if (
+                $priority >
+                $max_explicit_priority
+            ) {
+
+                $max_explicit_priority =
+                    $priority;
+            }
+        }
+
+        $fallback_priority_base =
+            max(
+                0,
+                $max_explicit_priority
+            ) + 10;
+
+        $fallback_index =
+            0;
+
+        $normalized_priorities =
+            array();
+
+        foreach (
+            $automations as $automation
+        ) {
+
+            if (
+                isset(
+                    $explicit_priorities[
+                        $automation->ID
+                    ]
+                )
+            ) {
+
+                $normalized_priorities[
+                    $automation->ID
+                ] =
+                    $explicit_priorities[
+                        $automation->ID
+                    ];
+
+                continue;
+            }
+
+            $normalized_priorities[
+                $automation->ID
+            ] =
+                $fallback_priority_base +
+                $fallback_index;
+
+            $fallback_index += 10;
+        }
+
+        usort(
+            $automations,
+            function(
+                $a,
+                $b
+            ) use (
+                $normalized_priorities,
+                $date_order
+            ) {
+
+                $priority_a =
+                    isset(
+                        $normalized_priorities[
+                            $a->ID
+                        ]
+                    )
+                        ? $normalized_priorities[
+                            $a->ID
+                        ]
+                        : PHP_INT_MAX;
+
+                $priority_b =
+                    isset(
+                        $normalized_priorities[
+                            $b->ID
+                        ]
+                    )
+                        ? $normalized_priorities[
+                            $b->ID
+                        ]
+                        : PHP_INT_MAX;
+
+                if (
+                    $priority_a !==
+                    $priority_b
+                ) {
+
+                    return
+                        $priority_a <
+                        $priority_b
+                            ? -1
+                            : 1;
+                }
+
+                $date_a =
+                    isset(
+                        $date_order[
+                            $a->ID
+                        ]
+                    )
+                        ? $date_order[
+                            $a->ID
+                        ]
+                        : PHP_INT_MAX;
+
+                $date_b =
+                    isset(
+                        $date_order[
+                            $b->ID
+                        ]
+                    )
+                        ? $date_order[
+                            $b->ID
+                        ]
+                        : PHP_INT_MAX;
+
+                if (
+                    $date_a ===
+                    $date_b
+                ) {
+
+                    return 0;
+                }
+
+                return
+                    $date_a <
+                    $date_b
+                        ? -1
+                        : 1;
+            }
+        );
+
         $automation_ids =
             array();
 
-        if (
-            is_array(
-                $automations
-            )
+        $automation_priorities =
+            array();
+
+        foreach (
+            $automations as $automation
         ) {
 
-            foreach (
-                $automations as $automation
-            ) {
+            $automation_ids[] =
+                absint(
+                    $automation->ID
+                );
 
-                if (
-                    isset(
+            $automation_priorities[
+                $automation->ID
+            ] =
+                isset(
+                    $normalized_priorities[
                         $automation->ID
-                    )
-                ) {
-
-                    $automation_ids[] =
-                        absint(
-                            $automation->ID
-                        );
-                }
-            }
+                    ]
+                )
+                    ? $normalized_priorities[
+                        $automation->ID
+                    ]
+                    : 0;
         }
 
         $this->logger->log(
@@ -190,6 +398,9 @@ class WooSmart_Execution_Engine {
 
                 'automation_ids' =>
                     $automation_ids,
+
+                'automation_priorities' =>
+                    $automation_priorities,
 
                 'execution_policy' =>
                     $execution_policy,
@@ -256,10 +467,10 @@ class WooSmart_Execution_Engine {
     /**
      * Execute one Automation.
      *
-     * @param int    $automation_id    Automation ID.
-     * @param string $trigger          Trigger name.
-     * @param array  $context          Trigger context.
-     * @param string $execution_policy Current policy.
+     * @param int    $automation_id Automation ID.
+     * @param string $trigger       Trigger name.
+     * @param array  $context       Trigger context.
+     * @param string $policy        Execution policy.
      *
      * @return array
      */
@@ -267,7 +478,7 @@ class WooSmart_Execution_Engine {
         $automation_id,
         $trigger,
         $context,
-        $execution_policy
+        $policy
     ) {
 
         $automation_id =
@@ -373,15 +584,12 @@ class WooSmart_Execution_Engine {
                 )
                 : 0;
 
-        /*
-         * Snapshot is captured before Conditions/Actions execute.
-         */
         $execution_id =
             $this->execution_history->start_execution(
                 $automation_id,
                 $order_id,
                 $trigger,
-                $execution_policy,
+                $policy,
                 $context,
                 $automation_title,
                 $conditions,
@@ -436,9 +644,6 @@ class WooSmart_Execution_Engine {
         ] =
             true;
 
-        /*
-         * Execute Actions and receive per-Action results.
-         */
         $action_execution =
             $this->action_engine->execute_with_results(
                 $actions,
