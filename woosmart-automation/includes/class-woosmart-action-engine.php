@@ -48,10 +48,6 @@ class WooSmart_Action_Engine {
         $this->action_registry =
             new WooSmart_Action_Registry();
 
-        /*
-         * Capture the real PHPMailer error when wp_mail()
-         * fails. WordPress provides this through wp_mail_failed.
-         */
         add_action(
             'wp_mail_failed',
             array(
@@ -74,10 +70,6 @@ class WooSmart_Action_Engine {
         $error
     ) {
 
-        /*
-         * Only capture the error when this Action Engine
-         * is actively sending its own administrator notification.
-         */
         if (
             ! $this->capturing_mail_error
         ) {
@@ -105,6 +97,8 @@ class WooSmart_Action_Engine {
     /**
      * Execute automation actions.
      *
+     * Backward-compatible public method.
+     *
      * @param array $actions Actions configuration.
      * @param array $context Execution context.
      *
@@ -115,21 +109,65 @@ class WooSmart_Action_Engine {
         $context = array()
     ) {
 
+        $result =
+            $this->execute_with_results(
+                $actions,
+                $context
+            );
+
+        return ! empty(
+            $result['success']
+        );
+    }
+
+    /**
+     * Execute automation actions and return per-Action results.
+     *
+     * @param array $actions Actions configuration.
+     * @param array $context Execution context.
+     *
+     * @return array
+     */
+    public function execute_with_results(
+        $actions,
+        $context = array()
+    ) {
+
+        $result = array(
+            'success' =>
+                true,
+
+            'actions_total' =>
+                0,
+
+            'actions_successful' =>
+                0,
+
+            'actions' =>
+                array(),
+        );
+
         if (
-            empty( $actions ) ||
-            ! is_array( $actions )
+            empty(
+                $actions
+            ) ||
+            ! is_array(
+                $actions
+            )
         ) {
 
-            return true;
+            return $result;
         }
-
-        $all_successful =
-            true;
 
         $action_total =
             count(
                 $actions
             );
+
+        $result[
+            'actions_total'
+        ] =
+            $action_total;
 
         foreach (
             $actions as $index =>
@@ -157,13 +195,6 @@ class WooSmart_Action_Engine {
                     );
             }
 
-            /*
-             * Build a per-Action execution context.
-             *
-             * The original trigger context remains available while
-             * the Action metadata makes logs and future diagnostics
-             * traceable to a specific Action.
-             */
             $action_context =
                 $context;
 
@@ -182,85 +213,222 @@ class WooSmart_Action_Engine {
             ] =
                 $action_type;
 
-            /*
-             * Invalid Action structure.
-             */
+            $action_started =
+                microtime(
+                    true
+                );
+
+            $success =
+                false;
+
+            $message =
+                '';
+
+            $error =
+                '';
+
             if (
                 ! is_array(
                     $action
                 )
             ) {
 
-                $all_successful =
-                    false;
+                $message =
+                    'ساختار عملیات نامعتبر است.';
 
-                $this->log_action_result(
-                    $action_number,
-                    $action_total,
-                    $action_type,
-                    false,
-                    $context
-                );
-
-                continue;
-            }
-
-            /*
-             * Missing Action type.
-             */
-            if (
-                empty( $action_type )
+            } elseif (
+                empty(
+                    $action_type
+                )
             ) {
 
-                $all_successful =
-                    false;
+                $message =
+                    'نوع عملیات مشخص نشده است.';
 
-                $this->log_action_result(
-                    $action_number,
-                    $action_total,
-                    $action_type,
-                    false,
-                    $context
-                );
+            } else {
 
-                continue;
+                $success =
+                    $this->execute_action(
+                        $action_type,
+                        $action,
+                        $action_context
+                    );
+
+                if (
+                    $success
+                ) {
+
+                    $message =
+                        'عملیات با موفقیت اجرا شد.';
+
+                } else {
+
+                    $message =
+                        'اجرای عملیات با شکست مواجه شد.';
+                }
+
+                /*
+                 * The detailed error is already available in
+                 * WooSmart Logger where supported.
+                 *
+                 * We intentionally do not duplicate sensitive
+                 * mail transport data here.
+                 */
             }
 
-            $result =
-                $this->execute_action(
-                    $action_type,
-                    $action,
-                    $action_context
+            $action_duration_ms =
+                (int)
+                round(
+                    (
+                        microtime(
+                            true
+                        ) -
+                        $action_started
+                    ) *
+                    1000
                 );
 
-            $result =
-                (bool) $result;
+            $action_result = array(
+                'index' =>
+                    $action_number,
 
-            /*
-             * Register the result of this specific Action.
-             *
-             * This does not alter the existing Action logs.
-             * It adds a separate machine-readable execution result
-             * so each Action can be identified independently.
-             */
+                'type' =>
+                    $action_type,
+
+                'success' =>
+                    (bool) $success,
+
+                'duration_ms' =>
+                    max(
+                        0,
+                        $action_duration_ms
+                    ),
+
+                'message' =>
+                    $message,
+
+                'configuration' =>
+                    $this->sanitize_action_snapshot(
+                        $action
+                    ),
+            );
+
+            if (
+                ! $success &&
+                ! empty( $error )
+            ) {
+
+                $action_result[
+                    'error'
+                ] =
+                    $error;
+            }
+
+            $result[
+                'actions'
+            ][] =
+                $action_result;
+
+            if (
+                $success
+            ) {
+
+                $result[
+                    'actions_successful'
+                ]++;
+
+            } else {
+
+                $result[
+                    'success'
+                ] =
+                    false;
+            }
+
             $this->log_action_result(
                 $action_number,
                 $action_total,
                 $action_type,
-                $result,
+                $success,
                 $context
             );
-
-            if (
-                ! $result
-            ) {
-
-                $all_successful =
-                    false;
-            }
         }
 
-        return $all_successful;
+        return $result;
+    }
+
+    /**
+     * Sanitize an Action configuration for historical storage.
+     *
+     * @param mixed $action Action configuration.
+     *
+     * @return array
+     */
+    private function sanitize_action_snapshot(
+        $action
+    ) {
+
+        if (
+            ! is_array(
+                $action
+            )
+        ) {
+
+            return array();
+        }
+
+        $snapshot =
+            array();
+
+        if (
+            isset(
+                $action['type']
+            )
+        ) {
+
+            $snapshot['type'] =
+                sanitize_key(
+                    $action['type']
+                );
+        }
+
+        if (
+            isset(
+                $action['status']
+            )
+        ) {
+
+            $snapshot['status'] =
+                sanitize_key(
+                    $action['status']
+                );
+        }
+
+        if (
+            isset(
+                $action['subject']
+            )
+        ) {
+
+            $snapshot['subject'] =
+                sanitize_text_field(
+                    $action['subject']
+                );
+        }
+
+        if (
+            isset(
+                $action['message']
+            )
+        ) {
+
+            $snapshot['message'] =
+                sanitize_textarea_field(
+                    $action['message']
+                );
+        }
+
+        return $snapshot;
     }
 
     /**
@@ -401,9 +569,6 @@ class WooSmart_Action_Engine {
         $context
     ) {
 
-        /*
-         * Resolve the Action through the Registry.
-         */
         if (
             ! $this->action_registry->has(
                 $type
@@ -425,16 +590,15 @@ class WooSmart_Action_Engine {
             return false;
         }
 
-        /*
-         * Get the registered handler method.
-         */
         $handler =
             $this->action_registry->get_handler(
                 $type
             );
 
         if (
-            empty( $handler ) ||
+            empty(
+                $handler
+            ) ||
             ! method_exists(
                 $this,
                 $handler
@@ -459,9 +623,6 @@ class WooSmart_Action_Engine {
             return false;
         }
 
-        /*
-         * Execute the registered handler.
-         */
         return (bool) call_user_func(
             array(
                 $this,
@@ -541,7 +702,9 @@ class WooSmart_Action_Engine {
         }
 
         if (
-            empty( $new_status )
+            empty(
+                $new_status
+            )
         ) {
 
             $this->logger->log(
@@ -586,15 +749,6 @@ class WooSmart_Action_Engine {
         $old_status =
             $order->get_status();
 
-        /*
-         * WooCommerce status changes can trigger downstream hooks,
-         * status-specific hooks, emails, and other plugin behavior.
-         *
-         * WooSmart intentionally does not suppress those effects here.
-         * The current phase is diagnostic: record the transition so
-         * downstream effects can be identified before introducing
-         * optional suppression or conflict policies.
-         */
         $result =
             $order->update_status(
                 $new_status,
@@ -602,7 +756,8 @@ class WooSmart_Action_Engine {
             );
 
         if (
-            false === $result
+            false ===
+            $result
         ) {
 
             $this->logger->log(
@@ -644,10 +799,6 @@ class WooSmart_Action_Engine {
             return false;
         }
 
-        /*
-         * Record the order-status transition as a WooCommerce
-         * side effect of this specific WooSmart Action.
-         */
         $this->log_side_effect(
             $context,
             array(
@@ -720,10 +871,6 @@ class WooSmart_Action_Engine {
     /**
      * Send an email notification to the store administrator.
      *
-     * WooSmart intentionally does not set the From address here.
-     * The active WordPress mail transport is responsible for the
-     * final From address.
-     *
      * @param array $action  Action configuration.
      * @param array $context Execution context.
      *
@@ -770,11 +917,6 @@ class WooSmart_Action_Engine {
             return false;
         }
 
-        /*
-         * Use the WooSmart notification recipient when configured.
-         * Fall back to the WordPress administrator email so existing
-         * installations continue working without additional setup.
-         */
         $recipient =
             sanitize_email(
                 get_option(
@@ -784,7 +926,9 @@ class WooSmart_Action_Engine {
             );
 
         if (
-            empty( $recipient )
+            empty(
+                $recipient
+            )
         ) {
 
             $recipient =
@@ -854,7 +998,9 @@ class WooSmart_Action_Engine {
                 : '';
 
         if (
-            empty( $subject )
+            empty(
+                $subject
+            )
         ) {
 
             $subject =
@@ -862,7 +1008,9 @@ class WooSmart_Action_Engine {
         }
 
         if (
-            empty( $message )
+            empty(
+                $message
+            )
         ) {
 
             $message =
@@ -878,30 +1026,12 @@ class WooSmart_Action_Engine {
                 $context
             );
 
-        /*
-         * Reset the previous mail error before each attempt.
-         */
         $this->last_mail_error =
             null;
 
-        /*
-         * Enable mail error capture only for this
-         * WooSmart notification attempt.
-         */
         $this->capturing_mail_error =
             true;
 
-        /*
-         * IMPORTANT:
-         *
-         * Do NOT add wp_mail_from or wp_mail_from_name filters here.
-         *
-         * WooSmart must not override the mail transport's
-         * configured From address.
-         *
-         * WP Mail SMTP / Resend will determine the final
-         * From address.
-         */
         $headers = array(
             'Content-Type: text/plain; charset=UTF-8',
         );
@@ -956,10 +1086,6 @@ class WooSmart_Action_Engine {
                         : 0,
             );
 
-            /*
-             * Add the real PHPMailer error when WordPress
-             * provides it through wp_mail_failed.
-             */
             if (
                 $this->last_mail_error
                 instanceof WP_Error
@@ -1073,13 +1199,6 @@ class WooSmart_Action_Engine {
     /**
      * Replace order placeholders in notification message.
      *
-     * Supported placeholders:
-     *
-     * {order_id}
-     * {order_total}
-     * {order_status}
-     * {customer_name}
-     *
      * @param string $message Message template.
      * @param array  $context Execution context.
      *
@@ -1152,7 +1271,8 @@ class WooSmart_Action_Engine {
                 $order_id,
 
             '{order_total}' =>
-                $order_total . ' تومان',
+                $order_total .
+                ' تومان',
 
             '{order_status}' =>
                 $order_status,
