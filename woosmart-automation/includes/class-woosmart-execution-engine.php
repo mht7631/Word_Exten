@@ -31,14 +31,23 @@ class WooSmart_Execution_Engine {
     private $action_engine;
 
     /**
+     * Execution History instance.
+     *
+     * @var WooSmart_Execution_History
+     */
+    private $execution_history;
+
+    /**
      * Initialize execution engine.
      *
-     * @param WooSmart_Condition_Engine $condition_engine Condition engine.
-     * @param WooSmart_Action_Engine    $action_engine    Action engine.
+     * @param WooSmart_Condition_Engine          $condition_engine Condition engine.
+     * @param WooSmart_Action_Engine             $action_engine    Action engine.
+     * @param WooSmart_Execution_History|null    $execution_history Execution history.
      */
     public function __construct(
         WooSmart_Condition_Engine $condition_engine,
-        WooSmart_Action_Engine $action_engine
+        WooSmart_Action_Engine $action_engine,
+        $execution_history = null
     ) {
 
         $this->logger =
@@ -49,6 +58,14 @@ class WooSmart_Execution_Engine {
 
         $this->action_engine =
             $action_engine;
+
+        $this->execution_history =
+            (
+                $execution_history instanceof
+                WooSmart_Execution_History
+            )
+                ? $execution_history
+                : new WooSmart_Execution_History();
     }
 
     /**
@@ -75,9 +92,16 @@ class WooSmart_Execution_Engine {
             return;
         }
 
+        $execution_policy =
+            $this->get_execution_policy();
+
         /*
          * Find all active, published Automations
          * that use the received Trigger.
+         *
+         * Current MVP ordering is newest first.
+         * A dedicated per-Automation Priority UI will be
+         * added in the next phase.
          */
         $automations =
             get_posts(
@@ -90,6 +114,12 @@ class WooSmart_Execution_Engine {
 
                     'posts_per_page' =>
                         -1,
+
+                    'orderby' =>
+                        'date',
+
+                    'order' =>
+                        'DESC',
 
                     'meta_query' =>
                         array(
@@ -121,14 +151,6 @@ class WooSmart_Execution_Engine {
                 )
             );
 
-        /*
-         * Diagnostic logging:
-         * record exactly how many Automations were found
-         * and which Automation IDs were returned.
-         *
-         * This is temporary and will be removed after
-         * the query problem is identified.
-         */
         $automation_ids =
             array();
 
@@ -174,6 +196,9 @@ class WooSmart_Execution_Engine {
 
                 'automation_ids' =>
                     $automation_ids,
+
+                'execution_policy' =>
+                    $execution_policy,
             )
         );
 
@@ -185,35 +210,77 @@ class WooSmart_Execution_Engine {
             return;
         }
 
-        /*
-         * Execute every matching Automation.
-         */
         foreach (
             $automations
             as $automation
         ) {
 
-            $this->execute_automation(
-                $automation->ID,
-                $trigger,
-                $context
-            );
+            $result =
+                $this->execute_automation(
+                    $automation->ID,
+                    $trigger,
+                    $context,
+                    $execution_policy
+                );
+
+            if (
+                ! is_array( $result )
+            ) {
+                continue;
+            }
+
+            /*
+             * FIRST_MATCH:
+             * Stop as soon as one Automation's Conditions pass.
+             * Action success is not required for the policy to stop.
+             */
+            if (
+                'first_match' ===
+                $execution_policy &&
+                ! empty(
+                    $result['matched']
+                )
+            ) {
+
+                break;
+            }
+
+            /*
+             * FIRST_SUCCESS:
+             * Stop only after a matching Automation completes
+             * all configured Actions successfully.
+             */
+            if (
+                'first_success' ===
+                $execution_policy &&
+                ! empty(
+                    $result['matched']
+                ) &&
+                ! empty(
+                    $result['successful']
+                )
+            ) {
+
+                break;
+            }
         }
     }
 
     /**
      * Execute a single automation.
      *
-     * @param int    $automation_id Automation ID.
-     * @param string $trigger       Trigger name.
-     * @param array  $context       Trigger context.
+     * @param int    $automation_id    Automation ID.
+     * @param string $trigger          Trigger name.
+     * @param array  $context          Trigger context.
+     * @param string $execution_policy Current execution policy.
      *
-     * @return void
+     * @return array
      */
     private function execute_automation(
         $automation_id,
         $trigger,
-        $context
+        $context,
+        $execution_policy
     ) {
 
         $automation_id =
@@ -221,10 +288,21 @@ class WooSmart_Execution_Engine {
                 $automation_id
             );
 
+        $result = array(
+            'matched' =>
+                false,
+
+            'successful' =>
+                false,
+
+            'status' =>
+                'skipped',
+        );
+
         if (
             ! $automation_id
         ) {
-            return;
+            return $result;
         }
 
         $status =
@@ -234,11 +312,9 @@ class WooSmart_Execution_Engine {
                 true
             );
 
-        /*
-         * Safety check.
-         */
         if (
-            'active' !== $status
+            'active' !==
+            $status
         ) {
 
             $this->logger->log(
@@ -253,12 +329,9 @@ class WooSmart_Execution_Engine {
                 )
             );
 
-            return;
+            return $result;
         }
 
-        /*
-         * Get conditions.
-         */
         $conditions =
             get_post_meta(
                 $automation_id,
@@ -277,8 +350,27 @@ class WooSmart_Execution_Engine {
         }
 
         /*
-         * Evaluate conditions.
+         * Create a History record before evaluating Conditions.
+         * This makes Conditions Failed visible to the user.
          */
+        $order_id =
+            isset(
+                $context['order_id']
+            )
+                ? absint(
+                    $context['order_id']
+                )
+                : 0;
+
+        $execution_id =
+            $this->execution_history->start_execution(
+                $automation_id,
+                $order_id,
+                $trigger,
+                $execution_policy,
+                $context
+            );
+
         $conditions_passed =
             $this->condition_engine->evaluate(
                 $conditions,
@@ -304,12 +396,25 @@ class WooSmart_Execution_Engine {
                 )
             );
 
-            return;
+            if (
+                $execution_id
+            ) {
+
+                $this->execution_history->finish_execution(
+                    $execution_id,
+                    'conditions_failed',
+                    0,
+                    false,
+                    'شرایط اتوماسیون برقرار نبود.'
+                );
+            }
+
+            return $result;
         }
 
-        /*
-         * Get actions.
-         */
+        $result['matched'] =
+            true;
+
         $actions =
             get_post_meta(
                 $automation_id,
@@ -327,18 +432,25 @@ class WooSmart_Execution_Engine {
                 array();
         }
 
-        /*
-         * Execute actions.
-         */
+        $actions_total =
+            count(
+                $actions
+            );
+
         $actions_successful =
             $this->action_engine->execute(
                 $actions,
                 $context
             );
 
-        /*
-         * Log execution result.
-         */
+        $result['successful'] =
+            (bool) $actions_successful;
+
+        $result['status'] =
+            $actions_successful
+                ? 'completed'
+                : 'failed';
+
         if (
             $actions_successful
         ) {
@@ -381,5 +493,60 @@ class WooSmart_Execution_Engine {
                 )
             );
         }
+
+        if (
+            $execution_id
+        ) {
+
+            $this->execution_history->finish_execution(
+                $execution_id,
+
+                $actions_successful
+                    ? 'completed'
+                    : 'failed',
+
+                $actions_total,
+
+                $actions_successful,
+
+                $actions_successful
+                    ? 'تمام عملیات اتوماسیون با موفقیت اجرا شدند.'
+                    : 'حداقل یکی از عملیات اتوماسیون با شکست مواجه شد.'
+            );
+        }
+
+        return $result;
+    }
+
+    /**
+     * Get current Execution Policy.
+     *
+     * @return string
+     */
+    private function get_execution_policy() {
+
+        $policy = get_option(
+            'woosmart_execution_policy',
+            'all'
+        );
+
+        $allowed_policies = array(
+            'all',
+            'first_match',
+            'first_success',
+        );
+
+        if (
+            ! in_array(
+                $policy,
+                $allowed_policies,
+                true
+            )
+        ) {
+
+            $policy = 'all';
+        }
+
+        return $policy;
     }
 }
