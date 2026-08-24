@@ -1983,18 +1983,38 @@ class WooSmart_Admin {
 
                         row.innerHTML =
                             `
-                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;gap:15px;">
 
                                 <strong>
                                     عملیات ${index + 1}
                                 </strong>
 
-                                <button
-                                    type="button"
-                                    class="button-link-delete woosmart-remove-action"
-                                >
-                                    حذف عملیات
-                                </button>
+                                <div style="display:flex;align-items:center;gap:6px;">
+
+                                    <button
+                                        type="button"
+                                        class="button woosmart-move-up"
+                                        title="انتقال عملیات به بالا"
+                                    >
+                                        ↑ بالا
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        class="button woosmart-move-down"
+                                        title="انتقال عملیات به پایین"
+                                    >
+                                        ↓ پایین
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        class="button-link-delete woosmart-remove-action"
+                                    >
+                                        حذف عملیات
+                                    </button>
+
+                                </div>
 
                             </div>
 
@@ -2191,6 +2211,51 @@ class WooSmart_Admin {
                         }
                     }
 
+                    function updateActionMoveButtons() {
+
+                        const rows =
+                            Array.from(
+                                actionsContainer.querySelectorAll(
+                                    '.woosmart-action-row'
+                                )
+                            );
+
+                        rows.forEach(
+                            function(
+                                row,
+                                rowIndex
+                            ) {
+
+                                const moveUpButton =
+                                    row.querySelector(
+                                        '.woosmart-move-up'
+                                    );
+
+                                const moveDownButton =
+                                    row.querySelector(
+                                        '.woosmart-move-down'
+                                    );
+
+                                if (
+                                    moveUpButton
+                                ) {
+
+                                    moveUpButton.disabled =
+                                        rowIndex === 0;
+                                }
+
+                                if (
+                                    moveDownButton
+                                ) {
+
+                                    moveDownButton.disabled =
+                                        rowIndex ===
+                                        rows.length - 1;
+                                }
+                            }
+                        );
+                    }
+
                     function bindActionRow(
                         row
                     ) {
@@ -2203,6 +2268,16 @@ class WooSmart_Admin {
                         const removeButton =
                             row.querySelector(
                                 '.woosmart-remove-action'
+                            );
+
+                        const moveUpButton =
+                            row.querySelector(
+                                '.woosmart-move-up'
+                            );
+
+                        const moveDownButton =
+                            row.querySelector(
+                                '.woosmart-move-down'
                             );
 
                         if ( typeSelect ) {
@@ -2241,6 +2316,62 @@ class WooSmart_Admin {
                                     }
 
                                     row.remove();
+
+                                    renumberActionRows();
+                                }
+                            );
+                        }
+
+                        if ( moveUpButton ) {
+
+                            moveUpButton.addEventListener(
+                                'click',
+                                function() {
+
+                                    const previousRow =
+                                        row.previousElementSibling;
+
+                                    if (
+                                        ! previousRow ||
+                                        ! previousRow.classList.contains(
+                                            'woosmart-action-row'
+                                        )
+                                    ) {
+                                        return;
+                                    }
+
+                                    actionsContainer.insertBefore(
+                                        row,
+                                        previousRow
+                                    );
+
+                                    renumberActionRows();
+                                }
+                            );
+                        }
+
+                        if ( moveDownButton ) {
+
+                            moveDownButton.addEventListener(
+                                'click',
+                                function() {
+
+                                    const nextRow =
+                                        row.nextElementSibling;
+
+                                    if (
+                                        ! nextRow ||
+                                        ! nextRow.classList.contains(
+                                            'woosmart-action-row'
+                                        )
+                                    ) {
+                                        return;
+                                    }
+
+                                    actionsContainer.insertBefore(
+                                        nextRow,
+                                        row
+                                    );
 
                                     renumberActionRows();
                                 }
@@ -2302,6 +2433,8 @@ class WooSmart_Admin {
                                 );
                             }
                         );
+
+                        updateActionMoveButtons();
                     }
 
                     actionsContainer.querySelectorAll(
@@ -2316,6 +2449,8 @@ class WooSmart_Admin {
                             );
                         }
                     );
+
+                    renumberActionRows();
 
                     addActionButton.addEventListener(
                         'click',
@@ -2340,6 +2475,8 @@ class WooSmart_Admin {
                             updateActionFields(
                                 row
                             );
+
+                            renumberActionRows();
                         }
                     );
                 }
@@ -2416,6 +2553,7 @@ class WooSmart_Admin {
                     justify-content:space-between;
                     align-items:center;
                     margin-bottom:15px;
+                    gap:15px;
                 "
             >
 
@@ -2423,12 +2561,38 @@ class WooSmart_Admin {
                     عملیات <?php echo esc_html( $index + 1 ); ?>
                 </strong>
 
-                <button
-                    type="button"
-                    class="button-link-delete woosmart-remove-action"
+                <div
+                    style="
+                        display:flex;
+                        align-items:center;
+                        gap:6px;
+                    "
                 >
-                    حذف عملیات
-                </button>
+
+                    <button
+                        type="button"
+                        class="button woosmart-move-up"
+                        title="انتقال عملیات به بالا"
+                    >
+                        ↑ بالا
+                    </button>
+
+                    <button
+                        type="button"
+                        class="button woosmart-move-down"
+                        title="انتقال عملیات به پایین"
+                    >
+                        ↓ پایین
+                    </button>
+
+                    <button
+                        type="button"
+                        class="button-link-delete woosmart-remove-action"
+                    >
+                        حذف عملیات
+                    </button>
+
+                </div>
 
             </div>
 
