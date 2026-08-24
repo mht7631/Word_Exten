@@ -88,15 +88,16 @@ class WooSmart_Execution_Admin {
             'woosmart_execution_policy_nonce'
         );
 
-        $policy = isset(
-            $_POST['execution_policy']
-        )
-            ? sanitize_key(
-                wp_unslash(
-                    $_POST['execution_policy']
-                )
+        $policy =
+            isset(
+                $_POST['execution_policy']
             )
-            : 'all';
+                ? sanitize_key(
+                    wp_unslash(
+                        $_POST['execution_policy']
+                    )
+                )
+                : 'all';
 
         $allowed_policies = array(
             'all',
@@ -140,11 +141,42 @@ class WooSmart_Execution_Admin {
     }
 
     /**
-     * Render Execution History page.
+     * Render Execution History or Detail page.
      *
      * @return void
      */
     public function render_executions_page() {
+
+        $view =
+            isset(
+                $_GET['view']
+            )
+                ? sanitize_key(
+                    wp_unslash(
+                        $_GET['view']
+                    )
+                )
+                : '';
+
+        if (
+            'detail' ===
+            $view
+        ) {
+
+            $this->render_execution_detail_page();
+
+            return;
+        }
+
+        $this->render_execution_list_page();
+    }
+
+    /**
+     * Render Execution History list page.
+     *
+     * @return void
+     */
+    private function render_execution_list_page() {
 
         $current_policy =
             get_option(
@@ -542,17 +574,61 @@ class WooSmart_Execution_Admin {
 
                         <?php foreach ( $executions as $execution ) : ?>
 
+                            <?php
+                            $detail_url =
+                                admin_url(
+                                    'admin.php?page=woosmart-executions&view=detail&execution_id=' .
+                                    absint(
+                                        $execution['id']
+                                    )
+                                );
+
+                            $status_data =
+                                $this->get_status_data(
+                                    $execution['status']
+                                );
+                            ?>
+
                             <tr>
 
                                 <td>
-                                    #<?php echo esc_html( $execution['id'] ); ?>
+
+                                    <a
+                                        href="<?php echo esc_url( $detail_url ); ?>"
+                                        style="font-weight:600;"
+                                    >
+                                        #<?php echo esc_html( $execution['id'] ); ?>
+                                    </a>
+
                                 </td>
 
                                 <td>
 
-                                    <strong>
-                                        #<?php echo esc_html( $execution['automation_id'] ); ?>
-                                    </strong>
+                                    <a
+                                        href="<?php echo esc_url( $detail_url ); ?>"
+                                    >
+                                        <strong>
+                                            #<?php echo esc_html( $execution['automation_id'] ); ?>
+                                        </strong>
+                                    </a>
+
+                                    <?php if ( ! empty( $execution['automation_title'] ) ) : ?>
+
+                                        <div
+                                            style="
+                                                margin-top:4px;
+                                                color:#646970;
+                                                font-size:12px;
+                                            "
+                                        >
+                                            <?php
+                                            echo esc_html(
+                                                $execution['automation_title']
+                                            );
+                                            ?>
+                                        </div>
+
+                                    <?php endif; ?>
 
                                 </td>
 
@@ -595,13 +671,6 @@ class WooSmart_Execution_Admin {
                                 </td>
 
                                 <td>
-
-                                    <?php
-                                    $status_data =
-                                        $this->get_status_data(
-                                            $execution['status']
-                                        );
-                                    ?>
 
                                     <span
                                         style="
@@ -659,13 +728,11 @@ class WooSmart_Execution_Admin {
                                 </td>
 
                                 <td>
-
                                     <?php
                                     echo esc_html(
                                         $execution['started_at']
                                     );
                                     ?>
-
                                 </td>
 
                                 <td>
@@ -732,7 +799,8 @@ class WooSmart_Execution_Admin {
                                             $total_pages,
 
                                         'add_args' =>
-                                            '' !== $status_filter
+                                            '' !==
+                                            $status_filter
                                                 ? array(
                                                     'status' =>
                                                         $status_filter,
@@ -763,6 +831,1008 @@ class WooSmart_Execution_Admin {
     }
 
     /**
+     * Render one Execution detail page.
+     *
+     * @return void
+     */
+    private function render_execution_detail_page() {
+
+        $execution_id =
+            isset(
+                $_GET['execution_id']
+            )
+                ? absint(
+                    $_GET['execution_id']
+                )
+                : 0;
+
+        if (
+            ! $execution_id
+        ) {
+
+            wp_die(
+                'شناسه اجرای نامعتبر است.'
+            );
+        }
+
+        $execution =
+            $this->execution_history->get_execution(
+                $execution_id
+            );
+
+        if (
+            ! is_array(
+                $execution
+            )
+        ) {
+
+            wp_die(
+                'اجرای موردنظر پیدا نشد.'
+            );
+        }
+
+        $status_data =
+            $this->get_status_data(
+                $execution['status']
+            );
+
+        $back_url =
+            admin_url(
+                'admin.php?page=woosmart-executions'
+            );
+        ?>
+
+        <div
+            class="wrap"
+            dir="rtl"
+        >
+
+            <p>
+
+                <a
+                    href="<?php echo esc_url( $back_url ); ?>"
+                    class="button"
+                >
+                    ← بازگشت به تاریخچه اجرا
+                </a>
+
+            </p>
+
+            <h1>
+                جزئیات اجرای #<?php echo esc_html( $execution['id'] ); ?>
+            </h1>
+
+            <hr>
+
+            <div
+                style="
+                    max-width:1000px;
+                "
+            >
+
+                <div
+                    style="
+                        background:#fff;
+                        border:1px solid #ccd0d4;
+                        padding:20px;
+                        margin-bottom:20px;
+                    "
+                >
+
+                    <h2
+                        style="
+                            margin-top:0;
+                        "
+                    >
+                        خلاصه اجرا
+                    </h2>
+
+                    <table
+                        class="widefat"
+                        style="
+                            border:0;
+                            box-shadow:none;
+                        "
+                    >
+
+                        <tbody>
+
+                            <tr>
+                                <td
+                                    style="
+                                        width:220px;
+                                        font-weight:600;
+                                    "
+                                >
+                                    شناسه اجرا
+                                </td>
+
+                                <td>
+                                    #<?php echo esc_html( $execution['id'] ); ?>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td
+                                    style="
+                                        font-weight:600;
+                                    "
+                                >
+                                    اتوماسیون
+                                </td>
+
+                                <td>
+
+                                    <strong>
+                                        #<?php echo esc_html( $execution['automation_id'] ); ?>
+                                    </strong>
+
+                                    <?php if ( ! empty( $execution['automation_title'] ) ) : ?>
+
+                                        —
+                                        <?php
+                                        echo esc_html(
+                                            $execution['automation_title']
+                                        );
+                                        ?>
+
+                                    <?php endif; ?>
+
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td
+                                    style="
+                                        font-weight:600;
+                                    "
+                                >
+                                    سفارش
+                                </td>
+
+                                <td>
+
+                                    <?php if ( ! empty( $execution['order_id'] ) ) : ?>
+
+                                        #<?php
+                                        echo esc_html(
+                                            $execution['order_id']
+                                        );
+                                        ?>
+
+                                    <?php else : ?>
+
+                                        —
+
+                                    <?php endif; ?>
+
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td
+                                    style="
+                                        font-weight:600;
+                                    "
+                                >
+                                    رویداد
+                                </td>
+
+                                <td>
+                                    <?php
+                                    echo esc_html(
+                                        $this->get_trigger_label(
+                                            $execution['trigger_key']
+                                        )
+                                    );
+                                    ?>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td
+                                    style="
+                                        font-weight:600;
+                                    "
+                                >
+                                    سیاست اجرا
+                                </td>
+
+                                <td>
+                                    <?php
+                                    echo esc_html(
+                                        $this->get_policy_label(
+                                            $execution['execution_policy']
+                                        )
+                                    );
+                                    ?>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td
+                                    style="
+                                        font-weight:600;
+                                    "
+                                >
+                                    نتیجه
+                                </td>
+
+                                <td>
+
+                                    <span
+                                        style="
+                                            display:inline-block;
+                                            padding:5px 10px;
+                                            border:1px solid <?php echo esc_attr( $status_data['border'] ); ?>;
+                                            background:<?php echo esc_attr( $status_data['background'] ); ?>;
+                                            color:<?php echo esc_attr( $status_data['color'] ); ?>;
+                                            font-weight:600;
+                                        "
+                                    >
+                                        <?php
+                                        echo esc_html(
+                                            $status_data['label']
+                                        );
+                                        ?>
+                                    </span>
+
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td
+                                    style="
+                                        font-weight:600;
+                                    "
+                                >
+                                    مدت اجرا
+                                </td>
+
+                                <td>
+                                    <?php
+                                    echo esc_html(
+                                        $this->format_duration(
+                                            isset(
+                                                $execution['duration_ms']
+                                            )
+                                                ? $execution['duration_ms']
+                                                : 0
+                                        )
+                                    );
+                                    ?>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td
+                                    style="
+                                        font-weight:600;
+                                    "
+                                >
+                                    شروع
+                                </td>
+
+                                <td>
+                                    <?php
+                                    echo esc_html(
+                                        $execution['started_at']
+                                    );
+                                    ?>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td
+                                    style="
+                                        font-weight:600;
+                                    "
+                                >
+                                    پایان
+                                </td>
+
+                                <td>
+
+                                    <?php
+                                    echo esc_html(
+                                        ! empty(
+                                            $execution['completed_at']
+                                        )
+                                            ? $execution['completed_at']
+                                            : '—'
+                                    );
+                                    ?>
+
+                                </td>
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+                <div
+                    style="
+                        background:#fff;
+                        border:1px solid #ccd0d4;
+                        padding:20px;
+                        margin-bottom:20px;
+                    "
+                >
+
+                    <h2
+                        style="
+                            margin-top:0;
+                        "
+                    >
+                        شرایط
+                    </h2>
+
+                    <?php
+                    $conditions =
+                        isset(
+                            $execution['conditions']
+                        ) &&
+                        is_array(
+                            $execution['conditions']
+                        )
+                            ? $execution['conditions']
+                            : array();
+                    ?>
+
+                    <?php if ( empty( $conditions ) ) : ?>
+
+                        <div class="notice notice-info inline">
+
+                            <p>
+                                این اتوماسیون بدون شرط اجرا شده است.
+                            </p>
+
+                        </div>
+
+                    <?php else : ?>
+
+                        <?php foreach ( $conditions as $index => $condition ) : ?>
+
+                            <?php
+                            $field =
+                                isset(
+                                    $condition['field']
+                                )
+                                    ? sanitize_key(
+                                        $condition['field']
+                                    )
+                                    : '';
+
+                            $operator =
+                                isset(
+                                    $condition['operator']
+                                )
+                                    ? sanitize_key(
+                                        $condition['operator']
+                                    )
+                                    : '';
+
+                            $value =
+                                isset(
+                                    $condition['value']
+                                )
+                                    ? $condition['value']
+                                    : '';
+
+                            $condition_passed =
+                                null !==
+                                $execution['condition_result']
+                                    ? (bool)
+                                        $execution['condition_result']
+                                    : null;
+                            ?>
+
+                            <div
+                                style="
+                                    margin-bottom:12px;
+                                    padding:14px;
+                                    border:1px solid #e2e4e7;
+                                    background:#f9f9f9;
+                                "
+                            >
+
+                                <div
+                                    style="
+                                        display:flex;
+                                        align-items:center;
+                                        justify-content:space-between;
+                                        gap:15px;
+                                    "
+                                >
+
+                                    <div>
+
+                                        <strong>
+                                            شرط <?php echo esc_html( $index + 1 ); ?>
+                                        </strong>
+
+                                        <div
+                                            style="
+                                                margin-top:6px;
+                                            "
+                                        >
+
+                                            <?php
+                                            echo esc_html(
+                                                $this->get_condition_display(
+                                                    $field,
+                                                    $operator,
+                                                    $value
+                                                )
+                                            );
+                                            ?>
+
+                                        </div>
+
+                                    </div>
+
+                                    <?php
+                                    $this->render_result_badge(
+                                        $condition_passed
+                                    );
+                                    ?>
+
+                                </div>
+
+                            </div>
+
+                        <?php endforeach; ?>
+
+                    <?php endif; ?>
+
+                </div>
+
+                <div
+                    style="
+                        background:#fff;
+                        border:1px solid #ccd0d4;
+                        padding:20px;
+                        margin-bottom:20px;
+                    "
+                >
+
+                    <h2
+                        style="
+                            margin-top:0;
+                        "
+                    >
+                        عملیات
+                    </h2>
+
+                    <?php
+                    $actions =
+                        isset(
+                            $execution['actions']
+                        ) &&
+                        is_array(
+                            $execution['actions']
+                        )
+                            ? $execution['actions']
+                            : array();
+
+                    $action_results =
+                        isset(
+                            $execution['action_results']
+                        ) &&
+                        is_array(
+                            $execution['action_results']
+                        )
+                            ? $execution['action_results']
+                            : array();
+
+                    $action_results_by_index =
+                        array();
+
+                    foreach (
+                        $action_results
+                        as $action_result
+                    ) {
+
+                        if (
+                            ! isset(
+                                $action_result['index']
+                            )
+                        ) {
+                            continue;
+                        }
+
+                        $action_results_by_index[
+                            absint(
+                                $action_result['index']
+                            )
+                        ] =
+                            $action_result;
+                    }
+                    ?>
+
+                    <?php if ( empty( $actions ) ) : ?>
+
+                        <div class="notice notice-warning inline">
+
+                            <p>
+                                هیچ عملیاتی برای این اجرا ثبت نشده است.
+                            </p>
+
+                        </div>
+
+                    <?php else : ?>
+
+                        <?php foreach ( $actions as $index => $action ) : ?>
+
+                            <?php
+                            $action_number =
+                                $index + 1;
+
+                            $type =
+                                isset(
+                                    $action['type']
+                                )
+                                    ? sanitize_key(
+                                        $action['type']
+                                    )
+                                    : '';
+
+                            $action_result =
+                                isset(
+                                    $action_results_by_index[
+                                        $action_number
+                                    ]
+                                )
+                                    ? $action_results_by_index[
+                                        $action_number
+                                    ]
+                                    : array(
+                                        'success' =>
+                                            null,
+                                    );
+                            ?>
+
+                            <div
+                                style="
+                                    margin-bottom:15px;
+                                    padding:16px;
+                                    border:1px solid #ccd0d4;
+                                    background:#fafafa;
+                                "
+                            >
+
+                                <div
+                                    style="
+                                        display:flex;
+                                        justify-content:space-between;
+                                        align-items:flex-start;
+                                        gap:20px;
+                                    "
+                                >
+
+                                    <div>
+
+                                        <strong
+                                            style="
+                                                font-size:15px;
+                                            "
+                                        >
+                                            عملیات <?php echo esc_html( $action_number ); ?>
+                                        </strong>
+
+                                        <div
+                                            style="
+                                                margin-top:7px;
+                                            "
+                                        >
+                                            <?php
+                                            echo esc_html(
+                                                $this->get_action_display(
+                                                    $action
+                                                )
+                                            );
+                                            ?>
+                                        </div>
+
+                                    </div>
+
+                                    <div>
+
+                                        <?php
+                                        $action_success =
+                                            isset(
+                                                $action_result['success']
+                                            )
+                                                ? $action_result['success']
+                                                : null;
+
+                                        $this->render_result_badge(
+                                            $action_success
+                                        );
+                                        ?>
+
+                                    </div>
+
+                                </div>
+
+                                <?php if ( 'notify_admin' === $type ) : ?>
+
+                                    <?php if ( ! empty( $action['subject'] ) ) : ?>
+
+                                        <div
+                                            style="
+                                                margin-top:12px;
+                                                padding-top:10px;
+                                                border-top:1px solid #e2e4e7;
+                                            "
+                                        >
+
+                                            <strong>
+                                                موضوع:
+                                            </strong>
+
+                                            <?php
+                                            echo esc_html(
+                                                $action['subject']
+                                            );
+                                            ?>
+
+                                        </div>
+
+                                    <?php endif; ?>
+
+                                <?php endif; ?>
+
+                                <?php if ( isset( $action_result['message'] ) ) : ?>
+
+                                    <div
+                                        style="
+                                            margin-top:10px;
+                                            color:#646970;
+                                            font-size:13px;
+                                        "
+                                    >
+
+                                        <?php
+                                        echo esc_html(
+                                            $action_result['message']
+                                        );
+                                        ?>
+
+                                        <?php if ( isset( $action_result['duration_ms'] ) ) : ?>
+
+                                            —
+                                            مدت:
+                                            <?php
+                                            echo esc_html(
+                                                $this->format_duration(
+                                                    $action_result['duration_ms']
+                                                )
+                                            );
+                                            ?>
+
+                                        <?php endif; ?>
+
+                                    </div>
+
+                                <?php endif; ?>
+
+                            </div>
+
+                        <?php endforeach; ?>
+
+                    <?php endif; ?>
+
+                </div>
+
+                <div
+                    style="
+                        background:#fff;
+                        border:1px solid #ccd0d4;
+                        padding:20px;
+                    "
+                >
+
+                    <h2
+                        style="
+                            margin-top:0;
+                        "
+                    >
+                        اطلاعات تکمیلی
+                    </h2>
+
+                    <p>
+                        <strong>
+                            توضیح:
+                        </strong>
+
+                        <?php
+                        echo esc_html(
+                            $execution['message']
+                        );
+                        ?>
+                    </p>
+
+                    <?php if ( ! empty( $execution['context'] ) ) : ?>
+
+                        <details>
+
+                            <summary>
+                                نمایش Context فنی
+                            </summary>
+
+                            <pre
+                                style="
+                                    margin-top:12px;
+                                    padding:15px;
+                                    background:#f6f7f7;
+                                    overflow:auto;
+                                    direction:ltr;
+                                    text-align:left;
+                                    white-space:pre-wrap;
+                                "
+                            ><?php
+                            echo esc_html(
+                                wp_json_encode(
+                                    $execution['context'],
+                                    JSON_PRETTY_PRINT |
+                                    JSON_UNESCAPED_UNICODE |
+                                    JSON_UNESCAPED_SLASHES
+                                )
+                            );
+                            ?></pre>
+
+                        </details>
+
+                    <?php endif; ?>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <?php
+    }
+
+    /**
+     * Get condition display text.
+     *
+     * @param string $field    Condition field.
+     * @param string $operator Operator.
+     * @param mixed  $value    Condition value.
+     *
+     * @return string
+     */
+    private function get_condition_display(
+        $field,
+        $operator,
+        $value
+    ) {
+
+        $field_labels = array(
+            'order_total' =>
+                'مبلغ سفارش',
+        );
+
+        $operator_labels = array(
+            'is_equal' =>
+                'برابر با',
+
+            'is_not_equal' =>
+                'نابرابر با',
+
+            'greater_than' =>
+                'بیشتر از',
+
+            'greater_than_or_equal' =>
+                'بیشتر یا مساوی',
+
+            'less_than' =>
+                'کمتر از',
+
+            'less_than_or_equal' =>
+                'کمتر یا مساوی',
+        );
+
+        $field_label =
+            isset(
+                $field_labels[
+                    $field
+                ]
+            )
+                ? $field_labels[
+                    $field
+                ]
+                : $field;
+
+        $operator_label =
+            isset(
+                $operator_labels[
+                    $operator
+                ]
+            )
+                ? $operator_labels[
+                    $operator
+                ]
+                : $operator;
+
+        if (
+            'order_total' ===
+            $field
+        ) {
+
+            $numeric_value =
+                str_replace(
+                    ',',
+                    '',
+                    (string) $value
+                );
+
+            if (
+                is_numeric(
+                    $numeric_value
+                )
+            ) {
+
+                $value =
+                    number_format(
+                        (float)
+                        $numeric_value,
+                        0,
+                        '.',
+                        ','
+                    ) .
+                    ' تومان';
+            }
+        }
+
+        return (
+            $field_label .
+            ' ' .
+            $operator_label .
+            ' ' .
+            $value
+        );
+    }
+
+    /**
+     * Get Action display text.
+     *
+     * @param array $action Action snapshot.
+     *
+     * @return string
+     */
+    private function get_action_display(
+        $action
+    ) {
+
+        $type =
+            isset(
+                $action['type']
+            )
+                ? sanitize_key(
+                    $action['type']
+                )
+                : '';
+
+        if (
+            'change_order_status' ===
+            $type
+        ) {
+
+            $status =
+                isset(
+                    $action['status']
+                )
+                    ? sanitize_key(
+                        $action['status']
+                    )
+                    : '';
+
+            return (
+                'تغییر وضعیت سفارش → ' .
+                $this->get_order_status_label(
+                    $status
+                )
+            );
+        }
+
+        if (
+            'notify_admin' ===
+            $type
+        ) {
+
+            return 'ارسال اعلان به مدیر فروشگاه';
+        }
+
+        return $type;
+    }
+
+    /**
+     * Render result badge.
+     *
+     * @param mixed $success Result.
+     *
+     * @return void
+     */
+    private function render_result_badge(
+        $success
+    ) {
+
+        if (
+            null ===
+            $success
+        ) {
+
+            $label =
+                'نتیجه ثبت نشده';
+
+            $background =
+                '#f6f7f7';
+
+            $border =
+                '#ccd0d4';
+
+            $color =
+                '#646970';
+
+        } elseif (
+            $success
+        ) {
+
+            $label =
+                '✓ موفق';
+
+            $background =
+                '#edfaef';
+
+            $border =
+                '#68a56d';
+
+            $color =
+                '#176b1f';
+
+        } else {
+
+            $label =
+                '✕ ناموفق';
+
+            $background =
+                '#fcf0f1';
+
+            $border =
+                '#d63638';
+
+            $color =
+                '#8a1c1f';
+        }
+        ?>
+
+        <span
+            style="
+                display:inline-block;
+                padding:5px 10px;
+                background:<?php echo esc_attr( $background ); ?>;
+                border:1px solid <?php echo esc_attr( $border ); ?>;
+                color:<?php echo esc_attr( $color ); ?>;
+                font-weight:600;
+                white-space:nowrap;
+            "
+        >
+            <?php
+            echo esc_html(
+                $label
+            );
+            ?>
+        </span>
+
+        <?php
+    }
+
+    /**
      * Format execution duration.
      *
      * @param mixed $duration_ms Duration in milliseconds.
@@ -779,7 +1849,8 @@ class WooSmart_Execution_Admin {
             );
 
         if (
-            0 === $duration_ms
+            0 ===
+            $duration_ms
         ) {
 
             return 'کمتر از 0.001 ثانیه';
@@ -789,34 +1860,43 @@ class WooSmart_Execution_Admin {
             $duration_ms < 1000
         ) {
 
-            return number_format(
-                $duration_ms,
-                0
-            ) . ' ms';
+            return (
+                number_format(
+                    $duration_ms,
+                    0
+                ) .
+                ' ms'
+            );
         }
 
         $seconds =
-            $duration_ms / 1000;
+            $duration_ms /
+            1000;
 
         if (
             $seconds < 60
         ) {
 
-            return number_format(
-                $seconds,
-                2
-            ) . ' ثانیه';
+            return (
+                number_format(
+                    $seconds,
+                    2
+                ) .
+                ' ثانیه'
+            );
         }
 
         $minutes =
             floor(
-                $seconds / 60
+                $seconds /
+                60
             );
 
         $remaining_seconds =
             $seconds -
             (
-                $minutes * 60
+                $minutes *
+                60
             );
 
         return (
@@ -920,9 +2000,13 @@ class WooSmart_Execution_Admin {
         );
 
         return isset(
-            $labels[ $policy ]
+            $labels[
+                $policy
+            ]
         )
-            ? $labels[ $policy ]
+            ? $labels[
+                $policy
+            ]
             : $policy;
     }
 
@@ -943,10 +2027,59 @@ class WooSmart_Execution_Admin {
         );
 
         return isset(
-            $labels[ $trigger ]
+            $labels[
+                $trigger
+            ]
         )
-            ? $labels[ $trigger ]
+            ? $labels[
+                $trigger
+            ]
             : $trigger;
+    }
+
+    /**
+     * Get order status label.
+     *
+     * @param string $status_slug Status slug.
+     *
+     * @return string
+     */
+    private function get_order_status_label(
+        $status_slug
+    ) {
+
+        $labels = array(
+            'pending' =>
+                'در انتظار پرداخت',
+
+            'processing' =>
+                'در حال پردازش',
+
+            'on-hold' =>
+                'در انتظار',
+
+            'completed' =>
+                'تکمیل‌شده',
+
+            'cancelled' =>
+                'لغوشده',
+
+            'refunded' =>
+                'مستردشده',
+
+            'failed' =>
+                'ناموفق',
+        );
+
+        return isset(
+            $labels[
+                $status_slug
+            ]
+        )
+            ? $labels[
+                $status_slug
+            ]
+            : $status_slug;
     }
 
     /**
@@ -1019,9 +2152,13 @@ class WooSmart_Execution_Admin {
         );
 
         return isset(
-            $statuses[ $status ]
+            $statuses[
+                $status
+            ]
         )
-            ? $statuses[ $status ]
+            ? $statuses[
+                $status
+            ]
             : array(
                 'label' =>
                     $status,
