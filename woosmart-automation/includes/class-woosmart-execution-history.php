@@ -19,8 +19,6 @@ class WooSmart_Execution_History {
     /**
      * Runtime execution start times.
      *
-     * Used for precise duration measurement with microtime().
-     *
      * @var array
      */
     private $runtime_start_times = array();
@@ -70,6 +68,7 @@ class WooSmart_Execution_History {
         $sql = "CREATE TABLE {$this->table_name} (
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
             automation_id bigint(20) unsigned NOT NULL DEFAULT 0,
+            automation_title text NULL,
             order_id bigint(20) unsigned NOT NULL DEFAULT 0,
             trigger_key varchar(100) NOT NULL DEFAULT '',
             execution_policy varchar(50) NOT NULL DEFAULT 'all',
@@ -79,6 +78,10 @@ class WooSmart_Execution_History {
             duration_ms bigint(20) unsigned NOT NULL DEFAULT 0,
             actions_total int(11) unsigned NOT NULL DEFAULT 0,
             actions_successful tinyint(1) NOT NULL DEFAULT 0,
+            condition_result tinyint(1) NULL DEFAULT NULL,
+            conditions_json longtext NULL,
+            actions_json longtext NULL,
+            action_results_json longtext NULL,
             context_json longtext NULL,
             message text NULL,
             PRIMARY KEY  (id),
@@ -93,43 +96,30 @@ class WooSmart_Execution_History {
             $sql
         );
 
-        /*
-         * Database schema version.
-         *
-         * 1.0.0:
-         * Initial Execution History table.
-         *
-         * 1.1.0:
-         * Added precise duration_ms measurement.
-         */
         if (
             version_compare(
                 $installed_version,
-                '1.1.0',
+                '1.2.0',
                 '<'
             )
         ) {
 
             update_option(
                 'woosmart_execution_history_db_version',
-                '1.1.0'
+                '1.2.0'
             );
 
             return;
         }
 
-        /*
-         * Keep the option synchronized even if the
-         * installation was already at a newer version.
-         */
         if (
-            '1.1.0' !==
+            '1.2.0' !==
             $installed_version
         ) {
 
             update_option(
                 'woosmart_execution_history_db_version',
-                '1.1.0'
+                '1.2.0'
             );
         }
     }
@@ -137,14 +127,14 @@ class WooSmart_Execution_History {
     /**
      * Start an execution record.
      *
-     * Duration is measured with microtime(true), not by comparing
-     * the displayed database timestamps.
-     *
      * @param int    $automation_id    Automation ID.
      * @param int    $order_id         Order ID.
      * @param string $trigger          Trigger key.
      * @param string $execution_policy Execution policy.
      * @param array  $context          Trigger context.
+     * @param string $automation_title Automation title snapshot.
+     * @param array  $conditions       Conditions snapshot.
+     * @param array  $actions          Actions snapshot.
      *
      * @return int
      */
@@ -153,14 +143,18 @@ class WooSmart_Execution_History {
         $order_id,
         $trigger,
         $execution_policy,
-        $context
+        $context,
+        $automation_title = '',
+        $conditions = array(),
+        $actions = array()
     ) {
 
         global $wpdb;
 
-        $started_at = current_time(
-            'mysql'
-        );
+        $started_at =
+            current_time(
+                'mysql'
+            );
 
         $result =
             $wpdb->insert(
@@ -169,6 +163,11 @@ class WooSmart_Execution_History {
                     'automation_id' =>
                         absint(
                             $automation_id
+                        ),
+
+                    'automation_title' =>
+                        sanitize_text_field(
+                            $automation_title
                         ),
 
                     'order_id' =>
@@ -195,6 +194,30 @@ class WooSmart_Execution_History {
                     'duration_ms' =>
                         0,
 
+                    'condition_result' =>
+                        null,
+
+                    'conditions_json' =>
+                        wp_json_encode(
+                            $conditions,
+                            JSON_UNESCAPED_UNICODE |
+                            JSON_UNESCAPED_SLASHES
+                        ),
+
+                    'actions_json' =>
+                        wp_json_encode(
+                            $actions,
+                            JSON_UNESCAPED_UNICODE |
+                            JSON_UNESCAPED_SLASHES
+                        ),
+
+                    'action_results_json' =>
+                        wp_json_encode(
+                            array(),
+                            JSON_UNESCAPED_UNICODE |
+                            JSON_UNESCAPED_SLASHES
+                        ),
+
                     'context_json' =>
                         wp_json_encode(
                             $context,
@@ -207,18 +230,24 @@ class WooSmart_Execution_History {
                 ),
                 array(
                     '%d',
+                    '%s',
+                    '%d',
+                    '%s',
+                    '%s',
+                    '%s',
+                    '%s',
                     '%d',
                     '%s',
                     '%s',
-                    '%s',
-                    '%s',
-                    '%d',
                     '%s',
                     '%s',
                 )
             );
 
-        if ( false === $result ) {
+        if (
+            false ===
+            $result
+        ) {
 
             return 0;
         }
@@ -232,13 +261,6 @@ class WooSmart_Execution_History {
             $execution_id
         ) {
 
-            /*
-             * Store the high-resolution runtime start.
-             *
-             * This value exists only for the current PHP request
-             * and is used when finish_execution() is called later
-             * in the same execution.
-             */
             $this->runtime_start_times[
                 $execution_id
             ] =
@@ -251,13 +273,15 @@ class WooSmart_Execution_History {
     }
 
     /**
-     * Complete an execution record.
+     * Finish an execution record.
      *
-     * @param int    $execution_id       Execution ID.
-     * @param string $status             Final status.
-     * @param int    $actions_total      Total Action count.
-     * @param bool   $actions_successful Whether all Actions succeeded.
-     * @param string $message            Human-readable message.
+     * @param int        $execution_id       Execution ID.
+     * @param string     $status             Final status.
+     * @param int        $actions_total      Total Action count.
+     * @param bool       $actions_successful Whether all Actions succeeded.
+     * @param string     $message            Human-readable message.
+     * @param bool|null  $condition_result   Overall Condition result.
+     * @param array      $action_results     Per-Action results.
      *
      * @return void
      */
@@ -266,7 +290,9 @@ class WooSmart_Execution_History {
         $status,
         $actions_total,
         $actions_successful,
-        $message
+        $message,
+        $condition_result = null,
+        $action_results = array()
     ) {
 
         global $wpdb;
@@ -306,17 +332,8 @@ class WooSmart_Execution_History {
                 'mysql'
             );
 
-        /*
-         * Calculate precise execution duration.
-         *
-         * Primary source:
-         * microtime(true) captured by start_execution().
-         *
-         * Fallback:
-         * database timestamps, in case the runtime start
-         * value is unavailable.
-         */
-        $duration_ms = 0;
+        $duration_ms =
+            0;
 
         $completed_microtime =
             microtime(
@@ -346,8 +363,10 @@ class WooSmart_Execution_History {
             ) {
 
                 $duration_ms =
-                    (int) round(
-                        $elapsed_seconds * 1000
+                    (int)
+                    round(
+                        $elapsed_seconds *
+                        1000
                     );
             }
 
@@ -356,13 +375,12 @@ class WooSmart_Execution_History {
                     $execution_id
                 ]
             );
+
         } else {
 
             /*
-             * Fallback for safety.
-             *
-             * We intentionally keep this only as a fallback;
-             * the normal path always uses microtime().
+             * Fallback only for safety.
+             * Normal executions always use microtime().
              */
             $started_at =
                 $wpdb->get_var(
@@ -373,7 +391,9 @@ class WooSmart_Execution_History {
                 );
 
             if (
-                ! empty( $started_at )
+                ! empty(
+                    $started_at
+                )
             ) {
 
                 $started_timestamp =
@@ -387,19 +407,47 @@ class WooSmart_Execution_History {
                     );
 
                 if (
-                    false !== $started_timestamp &&
-                    false !== $completed_timestamp &&
+                    false !==
+                    $started_timestamp &&
+                    false !==
+                    $completed_timestamp &&
                     $completed_timestamp >=
-                        $started_timestamp
+                    $started_timestamp
                 ) {
 
                     $duration_ms =
                         (
                             $completed_timestamp -
                             $started_timestamp
-                        ) * 1000;
+                        ) *
+                        1000;
                 }
             }
+        }
+
+        $action_results_json =
+            wp_json_encode(
+                is_array(
+                    $action_results
+                )
+                    ? $action_results
+                    : array(),
+                JSON_UNESCAPED_UNICODE |
+                JSON_UNESCAPED_SLASHES
+            );
+
+        $condition_result_value =
+            null;
+
+        if (
+            null !==
+            $condition_result
+        ) {
+
+            $condition_result_value =
+                $condition_result
+                    ? 1
+                    : 0;
         }
 
         $wpdb->update(
@@ -426,6 +474,12 @@ class WooSmart_Execution_History {
                         ? 1
                         : 0,
 
+                'condition_result' =>
+                    $condition_result_value,
+
+                'action_results_json' =>
+                    $action_results_json,
+
                 'message' =>
                     sanitize_textarea_field(
                         $message
@@ -441,12 +495,162 @@ class WooSmart_Execution_History {
                 '%d',
                 '%d',
                 '%d',
+                '%d',
+                '%s',
                 '%s',
             ),
             array(
                 '%d',
             )
         );
+    }
+
+    /**
+     * Get one execution record.
+     *
+     * @param int $execution_id Execution ID.
+     *
+     * @return array|null
+     */
+    public function get_execution(
+        $execution_id
+    ) {
+
+        global $wpdb;
+
+        $execution_id =
+            absint(
+                $execution_id
+            );
+
+        if (
+            ! $execution_id
+        ) {
+
+            return null;
+        }
+
+        $execution =
+            $wpdb->get_row(
+                $wpdb->prepare(
+                    "SELECT * FROM {$this->table_name} WHERE id = %d",
+                    $execution_id
+                ),
+                ARRAY_A
+            );
+
+        if (
+            ! is_array(
+                $execution
+            )
+        ) {
+
+            return null;
+        }
+
+        $execution[
+            'conditions'
+        ] =
+            $this->decode_json_array(
+                isset(
+                    $execution['conditions_json']
+                )
+                    ? $execution['conditions_json']
+                    : ''
+            );
+
+        $execution[
+            'actions'
+        ] =
+            $this->decode_json_array(
+                isset(
+                    $execution['actions_json']
+                )
+                    ? $execution['actions_json']
+                    : ''
+            );
+
+        $execution[
+            'action_results'
+        ] =
+            $this->decode_json_array(
+                isset(
+                    $execution['action_results_json']
+                )
+                    ? $execution['action_results_json']
+                    : ''
+            );
+
+        $execution[
+            'context'
+        ] =
+            $this->decode_json_array(
+                isset(
+                    $execution['context_json']
+                )
+                    ? $execution['context_json']
+                    : ''
+            );
+
+        if (
+            '' !==
+            $execution['condition_result'] &&
+            null !==
+            $execution['condition_result']
+        ) {
+
+            $execution[
+                'condition_result'
+            ] =
+                (bool)
+                absint(
+                    $execution[
+                        'condition_result'
+                    ]
+                );
+
+        } else {
+
+            $execution[
+                'condition_result'
+            ] =
+                null;
+        }
+
+        return $execution;
+    }
+
+    /**
+     * Decode a JSON array safely.
+     *
+     * @param string $json JSON string.
+     *
+     * @return array
+     */
+    private function decode_json_array(
+        $json
+    ) {
+
+        if (
+            empty(
+                $json
+            )
+        ) {
+
+            return array();
+        }
+
+        $decoded =
+            json_decode(
+                $json,
+                true
+            );
+
+        return is_array(
+            $decoded
+        )
+            ? $decoded
+            : array();
     }
 
     /**
@@ -466,22 +670,24 @@ class WooSmart_Execution_History {
 
         global $wpdb;
 
-        $page = max(
-            1,
-            absint(
-                $page
-            )
-        );
-
-        $per_page = max(
-            1,
-            min(
-                100,
+        $page =
+            max(
+                1,
                 absint(
-                    $per_page
+                    $page
                 )
-            )
-        );
+            );
+
+        $per_page =
+            max(
+                1,
+                min(
+                    100,
+                    absint(
+                        $per_page
+                    )
+                )
+            );
 
         $offset =
             (
