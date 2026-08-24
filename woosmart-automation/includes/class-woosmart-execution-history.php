@@ -17,6 +17,15 @@ class WooSmart_Execution_History {
     private $table_name;
 
     /**
+     * Runtime execution start times.
+     *
+     * Used for precise duration measurement with microtime().
+     *
+     * @var array
+     */
+    private $runtime_start_times = array();
+
+    /**
      * Initialize execution history storage.
      */
     public function __construct() {
@@ -53,12 +62,6 @@ class WooSmart_Execution_History {
             ''
         );
 
-        if (
-            '1.0.0' === $installed_version
-        ) {
-            return;
-        }
-
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
         $charset_collate =
@@ -73,6 +76,7 @@ class WooSmart_Execution_History {
             status varchar(50) NOT NULL DEFAULT 'running',
             started_at datetime NOT NULL,
             completed_at datetime NULL DEFAULT NULL,
+            duration_ms bigint(20) unsigned NOT NULL DEFAULT 0,
             actions_total int(11) unsigned NOT NULL DEFAULT 0,
             actions_successful tinyint(1) NOT NULL DEFAULT 0,
             context_json longtext NULL,
@@ -81,23 +85,64 @@ class WooSmart_Execution_History {
             KEY automation_id (automation_id),
             KEY order_id (order_id),
             KEY status (status),
-            KEY started_at (started_at)
+            KEY started_at (started_at),
+            KEY duration_ms (duration_ms)
         ) {$charset_collate};";
 
-        dbDelta( $sql );
-
-        update_option(
-            'woosmart_execution_history_db_version',
-            '1.0.0'
+        dbDelta(
+            $sql
         );
+
+        /*
+         * Database schema version.
+         *
+         * 1.0.0:
+         * Initial Execution History table.
+         *
+         * 1.1.0:
+         * Added precise duration_ms measurement.
+         */
+        if (
+            version_compare(
+                $installed_version,
+                '1.1.0',
+                '<'
+            )
+        ) {
+
+            update_option(
+                'woosmart_execution_history_db_version',
+                '1.1.0'
+            );
+
+            return;
+        }
+
+        /*
+         * Keep the option synchronized even if the
+         * installation was already at a newer version.
+         */
+        if (
+            '1.1.0' !==
+            $installed_version
+        ) {
+
+            update_option(
+                'woosmart_execution_history_db_version',
+                '1.1.0'
+            );
+        }
     }
 
     /**
      * Start an execution record.
      *
+     * Duration is measured with microtime(true), not by comparing
+     * the displayed database timestamps.
+     *
      * @param int    $automation_id    Automation ID.
      * @param int    $order_id         Order ID.
-     * @param string $trigger           Trigger key.
+     * @param string $trigger          Trigger key.
      * @param string $execution_policy Execution policy.
      * @param array  $context          Trigger context.
      *
@@ -122,22 +167,33 @@ class WooSmart_Execution_History {
                 $this->table_name,
                 array(
                     'automation_id' =>
-                        absint( $automation_id ),
+                        absint(
+                            $automation_id
+                        ),
 
                     'order_id' =>
-                        absint( $order_id ),
+                        absint(
+                            $order_id
+                        ),
 
                     'trigger_key' =>
-                        sanitize_key( $trigger ),
+                        sanitize_key(
+                            $trigger
+                        ),
 
                     'execution_policy' =>
-                        sanitize_key( $execution_policy ),
+                        sanitize_key(
+                            $execution_policy
+                        ),
 
                     'status' =>
                         'running',
 
                     'started_at' =>
                         $started_at,
+
+                    'duration_ms' =>
+                        0,
 
                     'context_json' =>
                         wp_json_encode(
@@ -156,18 +212,42 @@ class WooSmart_Execution_History {
                     '%s',
                     '%s',
                     '%s',
+                    '%d',
                     '%s',
                     '%s',
                 )
             );
 
         if ( false === $result ) {
+
             return 0;
         }
 
-        return absint(
-            $wpdb->insert_id
-        );
+        $execution_id =
+            absint(
+                $wpdb->insert_id
+            );
+
+        if (
+            $execution_id
+        ) {
+
+            /*
+             * Store the high-resolution runtime start.
+             *
+             * This value exists only for the current PHP request
+             * and is used when finish_execution() is called later
+             * in the same execution.
+             */
+            $this->runtime_start_times[
+                $execution_id
+            ] =
+                microtime(
+                    true
+                );
+        }
+
+        return $execution_id;
     }
 
     /**
@@ -191,6 +271,18 @@ class WooSmart_Execution_History {
 
         global $wpdb;
 
+        $execution_id =
+            absint(
+                $execution_id
+            );
+
+        if (
+            ! $execution_id
+        ) {
+
+            return;
+        }
+
         $allowed_statuses = array(
             'completed',
             'failed',
@@ -204,7 +296,110 @@ class WooSmart_Execution_History {
                 true
             )
         ) {
-            $status = 'failed';
+
+            $status =
+                'failed';
+        }
+
+        $completed_at =
+            current_time(
+                'mysql'
+            );
+
+        /*
+         * Calculate precise execution duration.
+         *
+         * Primary source:
+         * microtime(true) captured by start_execution().
+         *
+         * Fallback:
+         * database timestamps, in case the runtime start
+         * value is unavailable.
+         */
+        $duration_ms = 0;
+
+        $completed_microtime =
+            microtime(
+                true
+            );
+
+        if (
+            isset(
+                $this->runtime_start_times[
+                    $execution_id
+                ]
+            )
+        ) {
+
+            $started_microtime =
+                (float)
+                $this->runtime_start_times[
+                    $execution_id
+                ];
+
+            $elapsed_seconds =
+                $completed_microtime -
+                $started_microtime;
+
+            if (
+                $elapsed_seconds >= 0
+            ) {
+
+                $duration_ms =
+                    (int) round(
+                        $elapsed_seconds * 1000
+                    );
+            }
+
+            unset(
+                $this->runtime_start_times[
+                    $execution_id
+                ]
+            );
+        } else {
+
+            /*
+             * Fallback for safety.
+             *
+             * We intentionally keep this only as a fallback;
+             * the normal path always uses microtime().
+             */
+            $started_at =
+                $wpdb->get_var(
+                    $wpdb->prepare(
+                        "SELECT started_at FROM {$this->table_name} WHERE id = %d",
+                        $execution_id
+                    )
+                );
+
+            if (
+                ! empty( $started_at )
+            ) {
+
+                $started_timestamp =
+                    strtotime(
+                        $started_at
+                    );
+
+                $completed_timestamp =
+                    strtotime(
+                        $completed_at
+                    );
+
+                if (
+                    false !== $started_timestamp &&
+                    false !== $completed_timestamp &&
+                    $completed_timestamp >=
+                        $started_timestamp
+                ) {
+
+                    $duration_ms =
+                        (
+                            $completed_timestamp -
+                            $started_timestamp
+                        ) * 1000;
+                }
+            }
         }
 
         $wpdb->update(
@@ -214,13 +409,22 @@ class WooSmart_Execution_History {
                     $status,
 
                 'completed_at' =>
-                    current_time( 'mysql' ),
+                    $completed_at,
+
+                'duration_ms' =>
+                    absint(
+                        $duration_ms
+                    ),
 
                 'actions_total' =>
-                    absint( $actions_total ),
+                    absint(
+                        $actions_total
+                    ),
 
                 'actions_successful' =>
-                    $actions_successful ? 1 : 0,
+                    $actions_successful
+                        ? 1
+                        : 0,
 
                 'message' =>
                     sanitize_textarea_field(
@@ -229,11 +433,12 @@ class WooSmart_Execution_History {
             ),
             array(
                 'id' =>
-                    absint( $execution_id ),
+                    $execution_id,
             ),
             array(
                 '%s',
                 '%s',
+                '%d',
                 '%d',
                 '%d',
                 '%s',
@@ -263,26 +468,39 @@ class WooSmart_Execution_History {
 
         $page = max(
             1,
-            absint( $page )
+            absint(
+                $page
+            )
         );
 
         $per_page = max(
             1,
             min(
                 100,
-                absint( $per_page )
+                absint(
+                    $per_page
+                )
             )
         );
 
         $offset =
-            ( $page - 1 ) * $per_page;
+            (
+                $page - 1
+            ) *
+            $per_page;
 
-        if ( ! empty( $status ) ) {
+        if (
+            ! empty(
+                $status
+            )
+        ) {
 
             return $wpdb->get_results(
                 $wpdb->prepare(
                     "SELECT * FROM {$this->table_name} WHERE status = %s ORDER BY started_at DESC, id DESC LIMIT %d OFFSET %d",
-                    sanitize_key( $status ),
+                    sanitize_key(
+                        $status
+                    ),
                     $per_page,
                     $offset
                 ),
@@ -313,13 +531,19 @@ class WooSmart_Execution_History {
 
         global $wpdb;
 
-        if ( ! empty( $status ) ) {
+        if (
+            ! empty(
+                $status
+            )
+        ) {
 
             return absint(
                 $wpdb->get_var(
                     $wpdb->prepare(
                         "SELECT COUNT(*) FROM {$this->table_name} WHERE status = %s",
-                        sanitize_key( $status )
+                        sanitize_key(
+                            $status
+                        )
                     )
                 )
             );
