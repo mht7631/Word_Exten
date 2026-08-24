@@ -1391,6 +1391,16 @@ class WooSmart_Admin {
 
                 </div>
 
+                <div
+                    id="woosmart-action-conflicts"
+                    dir="rtl"
+                    style="
+                        display:none;
+                        max-width:900px;
+                        margin:0 0 20px 0;
+                    "
+                ></div>
+
                 <p>
 
                     <button
@@ -1916,6 +1926,11 @@ class WooSmart_Admin {
                             'woosmart-add-action'
                         );
 
+                    const actionConflictsContainer =
+                        document.getElementById(
+                            'woosmart-action-conflicts'
+                        );
+
                     if (
                         ! actionsContainer ||
                         ! addActionButton
@@ -2209,6 +2224,395 @@ class WooSmart_Admin {
                                 }
                             );
                         }
+
+                        updateActionConflicts();
+                    }
+
+                    function getActionData() {
+
+                        const rows =
+                            Array.from(
+                                actionsContainer.querySelectorAll(
+                                    '.woosmart-action-row'
+                                )
+                            );
+
+                        return rows.map(
+                            function(
+                                row,
+                                rowIndex
+                            ) {
+
+                                const typeSelect =
+                                    row.querySelector(
+                                        '.woosmart-action-type'
+                                    );
+
+                                const statusSelect =
+                                    row.querySelector(
+                                        '.woosmart-status-fields select'
+                                    );
+
+                                return {
+                                    index:
+                                        rowIndex + 1,
+
+                                    type:
+                                        typeSelect
+                                            ? typeSelect.value
+                                            : '',
+
+                                    status:
+                                        statusSelect
+                                            ? statusSelect.value
+                                            : '',
+                                };
+                            }
+                        );
+                    }
+
+                    function getActionStatusLabel(
+                        status
+                    ) {
+
+                        const labels = {
+                            pending:
+                                'در انتظار پرداخت',
+
+                            processing:
+                                'در حال پردازش',
+
+                            'on-hold':
+                                'در انتظار',
+
+                            completed:
+                                'تکمیل‌شده',
+
+                            cancelled:
+                                'لغوشده',
+
+                            refunded:
+                                'مستردشده',
+
+                            failed:
+                                'ناموفق'
+                        };
+
+                        return labels[
+                            status
+                        ] || status;
+                    }
+
+                    function updateActionConflicts() {
+
+                        if (
+                            ! actionConflictsContainer
+                        ) {
+                            return;
+                        }
+
+                        const actions =
+                            getActionData();
+
+                        const statusActions =
+                            actions.filter(
+                                function(
+                                    action
+                                ) {
+
+                                    return (
+                                        action.type ===
+                                        'change_order_status'
+                                    );
+                                }
+                            );
+
+                        const conflicts =
+                            [];
+
+                        /*
+                         * Conflict 1:
+                         * Multiple order-status changes.
+                         */
+                        if (
+                            statusActions.length > 1
+                        ) {
+
+                            conflicts.push(
+                                {
+                                    type:
+                                        'multiple_order_status_changes',
+
+                                    title:
+                                        'چند بار تغییر وضعیت سفارش',
+
+                                    message:
+                                        'این اتوماسیون چند بار وضعیت سفارش را تغییر می‌دهد و ممکن است چند Hook یا رفتار وابسته به وضعیت سفارش را فعال کند.',
+
+                                    actions:
+                                        statusActions
+                                }
+                            );
+                        }
+
+                        /*
+                         * Conflict 2:
+                         * Duplicate target statuses.
+                         */
+                        const seenStatuses =
+                            {};
+
+                        statusActions.forEach(
+                            function(
+                                action
+                            ) {
+
+                                if (
+                                    ! action.status
+                                ) {
+                                    return;
+                                }
+
+                                if (
+                                    seenStatuses[
+                                        action.status
+                                    ]
+                                ) {
+
+                                    conflicts.push(
+                                        {
+                                            type:
+                                                'duplicate_order_status_target',
+
+                                            title:
+                                                'تکرار وضعیت مقصد',
+
+                                            message:
+                                                'بیش از یک عملیات، سفارش را به یک وضعیت یکسان تغییر می‌دهد.',
+
+                                            status:
+                                                action.status,
+
+                                            actions:
+                                                [
+                                                    seenStatuses[
+                                                        action.status
+                                                    ],
+
+                                                    action
+                                                ]
+                                        }
+                                    );
+
+                                } else {
+
+                                    seenStatuses[
+                                        action.status
+                                    ] =
+                                        action;
+                                }
+                            }
+                        );
+
+                        /*
+                         * Conflict 3:
+                         * Sequential order-status transitions.
+                         */
+                        if (
+                            statusActions.length > 1
+                        ) {
+
+                            conflicts.push(
+                                {
+                                    type:
+                                        'sequential_order_status_transitions',
+
+                                    title:
+                                        'تغییرات متوالی وضعیت سفارش',
+
+                                    message:
+                                        'چند تغییر متوالی وضعیت سفارش تعریف شده است. هر تغییر ممکن است Hookها، ایمیل‌ها یا رفتارهای افزونه‌های دیگر را فعال کند.',
+
+                                    actions:
+                                        statusActions
+                                }
+                            );
+                        }
+
+                        if (
+                            conflicts.length === 0
+                        ) {
+
+                            actionConflictsContainer.style.display =
+                                'none';
+
+                            actionConflictsContainer.innerHTML =
+                                '';
+
+                            return;
+                        }
+
+                        let html =
+                            '';
+
+                        html +=
+                            '<div style="' +
+                            'border:1px solid #dba617;' +
+                            'border-right:4px solid #dba617;' +
+                            'background:#fff8e5;' +
+                            'padding:16px 18px;' +
+                            'margin-bottom:10px;' +
+                            '">';
+
+                        html +=
+                            '<div style="' +
+                            'font-size:16px;' +
+                            'font-weight:600;' +
+                            'margin-bottom:12px;' +
+                            '">';
+
+                        html +=
+                            '⚠ هشدارهای این اتوماسیون';
+
+                        html +=
+                            '</div>';
+
+                        conflicts.forEach(
+                            function(
+                                conflict
+                            ) {
+
+                                html +=
+                                    '<div style="' +
+                                    'margin-bottom:14px;' +
+                                    'padding-bottom:14px;' +
+                                    'border-bottom:1px solid #e5d7a0;' +
+                                    '">';
+
+                                html +=
+                                    '<strong>' +
+                                    escapeHtml(
+                                        conflict.title
+                                    ) +
+                                    '</strong>';
+
+                                html +=
+                                    '<p style="' +
+                                    'margin:6px 0 8px;' +
+                                    '">';
+
+                                html +=
+                                    escapeHtml(
+                                        conflict.message
+                                    );
+
+                                html +=
+                                    '</p>';
+
+                                if (
+                                    conflict.actions &&
+                                    conflict.actions.length
+                                ) {
+
+                                    html +=
+                                        '<div style="font-size:13px;">';
+
+                                    conflict.actions.forEach(
+                                        function(
+                                            action
+                                        ) {
+
+                                            if (
+                                                ! action
+                                            ) {
+                                                return;
+                                            }
+
+                                            html +=
+                                                '<div style="margin-top:4px;">';
+
+                                            html +=
+                                                'عملیات ' +
+                                                escapeHtml(
+                                                    String(
+                                                        action.index
+                                                    )
+                                                ) +
+                                                ' → ';
+
+                                            html +=
+                                                escapeHtml(
+                                                    getActionStatusLabel(
+                                                        action.status ||
+                                                        action.target_status ||
+                                                        ''
+                                                    )
+                                                );
+
+                                            html +=
+                                                '</div>';
+                                        }
+                                    );
+
+                                    html +=
+                                        '</div>';
+                                }
+
+                                html +=
+                                    '</div>';
+                            }
+                        );
+
+                        html +=
+                            '<p style="' +
+                            'margin:0;' +
+                            'font-size:13px;' +
+                            'color:#646970;' +
+                            '">';
+
+                        html +=
+                            'این هشدارها فعلاً مانع ذخیره یا اجرای اتوماسیون نمی‌شوند.';
+
+                        html +=
+                            '</p>';
+
+                        html +=
+                            '</div>';
+
+                        actionConflictsContainer.innerHTML =
+                            html;
+
+                        actionConflictsContainer.style.display =
+                            'block';
+                    }
+
+                    function escapeHtml(
+                        value
+                    ) {
+
+                        return String(
+                            value || ''
+                        )
+                            .replace(
+                                /&/g,
+                                '&amp;'
+                            )
+                            .replace(
+                                /</g,
+                                '&lt;'
+                            )
+                            .replace(
+                                />/g,
+                                '&gt;'
+                            )
+                            .replace(
+                                /"/g,
+                                '&quot;'
+                            )
+                            .replace(
+                                /'/g,
+                                '&#039;'
+                            );
                     }
 
                     function updateActionMoveButtons() {
@@ -2289,6 +2693,8 @@ class WooSmart_Admin {
                                     updateActionFields(
                                         row
                                     );
+
+                                    updateActionConflicts();
                                 }
                             );
                         }
@@ -2318,6 +2724,8 @@ class WooSmart_Admin {
                                     row.remove();
 
                                     renumberActionRows();
+
+                                    updateActionConflicts();
                                 }
                             );
                         }
@@ -2346,6 +2754,8 @@ class WooSmart_Admin {
                                     );
 
                                     renumberActionRows();
+
+                                    updateActionConflicts();
                                 }
                             );
                         }
@@ -2374,6 +2784,8 @@ class WooSmart_Admin {
                                     );
 
                                     renumberActionRows();
+
+                                    updateActionConflicts();
                                 }
                             );
                         }
@@ -2452,6 +2864,8 @@ class WooSmart_Admin {
 
                     renumberActionRows();
 
+                    updateActionConflicts();
+
                     addActionButton.addEventListener(
                         'click',
                         function() {
@@ -2477,6 +2891,8 @@ class WooSmart_Admin {
                             );
 
                             renumberActionRows();
+
+                            updateActionConflicts();
                         }
                     );
                 }
@@ -3317,6 +3733,15 @@ class WooSmart_Admin {
 
             'action_executed' =>
                 'اجرای عملیات',
+
+            'action_result' =>
+                'نتیجه عملیات',
+
+            'action_side_effect' =>
+                'اثر جانبی عملیات',
+
+            'automation_conflict_detected' =>
+                'تعارض اتوماسیون',
         );
 
         return isset(
@@ -3375,6 +3800,15 @@ class WooSmart_Admin {
 
             'action_executed' =>
                 'عملیات با موفقیت اجرا شد.',
+
+            'action_result' =>
+                'نتیجه هر عملیات به‌صورت مستقل ثبت شد.',
+
+            'action_side_effect' =>
+                'عملیات باعث یک اثر جانبی در WooCommerce شد.',
+
+            'automation_conflict_detected' =>
+                'در پیکربندی عملیات اتوماسیون تعارض یا اثر جانبی بالقوه شناسایی شد.',
         );
 
         return isset(
