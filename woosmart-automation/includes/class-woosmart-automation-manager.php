@@ -148,15 +148,6 @@ class WooSmart_Automation_Manager {
                 $actions
             );
 
-        if ( ! empty( $conflicts ) ) {
-
-            $this->log_action_conflicts(
-                0,
-                $trigger,
-                $conflicts
-            );
-        }
-
         $automation_id = wp_insert_post(
             array(
                 'post_type'   => 'woosmart_automation',
@@ -199,8 +190,8 @@ class WooSmart_Automation_Manager {
         );
 
         /*
-         * If conflicts were detected before the Automation ID existed,
-         * record them again with the final Automation ID.
+         * Log detected conflicts only after the Automation
+         * has been created and a valid Automation ID exists.
          */
         if ( ! empty( $conflicts ) ) {
 
