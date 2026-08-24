@@ -738,6 +738,24 @@ class WooSmart_Automation_Manager {
     /**
      * Get conditions from request.
      *
+     * Supports both:
+     *
+     * 1. Standard scalar condition values:
+     *
+     *    condition_value=1000000
+     *
+     * 2. Range condition values:
+     *
+     *    condition_value_min=1000000
+     *    condition_value_max=5000000
+     *
+     * A range is stored as:
+     *
+     * array(
+     *     'min' => '1000000',
+     *     'max' => '5000000',
+     * )
+     *
      * @return array
      */
     private function get_conditions_from_request() {
@@ -745,50 +763,234 @@ class WooSmart_Automation_Manager {
         $conditions = array();
 
         if (
-            isset( $_POST['condition_field'] ) &&
-            isset( $_POST['condition_operator'] ) &&
-            isset( $_POST['condition_value'] )
+            ! isset( $_POST['condition_field'] ) ||
+            ! isset( $_POST['condition_operator'] )
         ) {
 
-            $field = sanitize_key(
-                wp_unslash(
-                    $_POST['condition_field']
-                )
-            );
+            return $conditions;
+        }
 
-            $operator = sanitize_key(
-                wp_unslash(
-                    $_POST['condition_operator']
-                )
-            );
+        $field = sanitize_key(
+            wp_unslash(
+                $_POST['condition_field']
+            )
+        );
 
-            $value = sanitize_text_field(
-                wp_unslash(
-                    $_POST['condition_value']
-                )
-            );
+        $operator = sanitize_key(
+            wp_unslash(
+                $_POST['condition_operator']
+            )
+        );
 
-            $value = str_replace(
-                ',',
-                '',
-                $value
-            );
+        if (
+            empty( $field ) ||
+            empty( $operator )
+        ) {
+
+            return $conditions;
+        }
+
+        /*
+         * Range condition.
+         *
+         * This is intentionally handled separately from the scalar
+         * condition value so existing Automations remain compatible.
+         */
+        if (
+            'between' ===
+            $operator
+        ) {
+
+            $minimum =
+                isset(
+                    $_POST['condition_value_min']
+                )
+                    ? sanitize_text_field(
+                        wp_unslash(
+                            $_POST['condition_value_min']
+                        )
+                    )
+                    : '';
+
+            $maximum =
+                isset(
+                    $_POST['condition_value_max']
+                )
+                    ? sanitize_text_field(
+                        wp_unslash(
+                            $_POST['condition_value_max']
+                        )
+                    )
+                    : '';
+
+            $minimum =
+                $this->normalize_numeric_input(
+                    $minimum
+                );
+
+            $maximum =
+                $this->normalize_numeric_input(
+                    $maximum
+                );
 
             if (
-                ! empty( $field ) &&
-                ! empty( $operator ) &&
-                '' !== $value
+                '' !== $minimum &&
+                '' !== $maximum
             ) {
 
                 $conditions[] = array(
                     'field'    => $field,
                     'operator' => $operator,
-                    'value'    => $value,
+                    'value'    => array(
+                        'min' =>
+                            $minimum,
+
+                        'max' =>
+                            $maximum,
+                    ),
                 );
             }
+
+            return $conditions;
+        }
+
+        /*
+         * Existing scalar condition behavior.
+         */
+        if (
+            ! isset(
+                $_POST['condition_value']
+            )
+        ) {
+
+            return $conditions;
+        }
+
+        $value = sanitize_text_field(
+            wp_unslash(
+                $_POST['condition_value']
+            )
+        );
+
+        $value =
+            $this->normalize_numeric_input_for_condition(
+                $field,
+                $value
+            );
+
+        if (
+            '' !== $value
+        ) {
+
+            $conditions[] = array(
+                'field'    => $field,
+                'operator' => $operator,
+                'value'    => $value,
+            );
         }
 
         return $conditions;
+    }
+
+    /**
+     * Normalize a numeric input.
+     *
+     * @param mixed $value Numeric input.
+     *
+     * @return string
+     */
+    private function normalize_numeric_input(
+        $value
+    ) {
+
+        $value =
+            (string) $value;
+
+        $value =
+            str_replace(
+                ',',
+                '',
+                $value
+            );
+
+        $value =
+            preg_replace(
+                '/[^\d.]/',
+                '',
+                $value
+            );
+
+        if (
+            null === $value
+        ) {
+
+            return '';
+        }
+
+        $first_dot =
+            strpos(
+                $value,
+                '.'
+            );
+
+        if (
+            false !== $first_dot
+        ) {
+
+            $value =
+                substr(
+                    $value,
+                    0,
+                    $first_dot + 1
+                ) .
+                str_replace(
+                    '.',
+                    '',
+                    substr(
+                        $value,
+                        $first_dot + 1
+                    )
+                );
+        }
+
+        return $value;
+    }
+
+    /**
+     * Normalize condition values while preserving non-numeric values.
+     *
+     * @param string $field Condition field.
+     * @param mixed  $value Condition value.
+     *
+     * @return mixed
+     */
+    private function normalize_numeric_input_for_condition(
+        $field,
+        $value
+    ) {
+
+        $definition =
+            $this->condition_registry->get(
+                $field
+            );
+
+        if (
+            is_array( $definition ) &&
+            isset(
+                $definition['value_type']
+            ) &&
+            'number' ===
+                $definition['value_type']
+        ) {
+
+            return $this->normalize_numeric_input(
+                $value
+            );
+        }
+
+        return trim(
+            (string) $value
+        );
     }
 
     /**
@@ -1123,6 +1325,103 @@ class WooSmart_Automation_Manager {
                 )
                 : 'text';
 
+            if ( 'between' === $operator ) {
+
+                /*
+                 * Range conditions require an array:
+                 *
+                 * min
+                 * max
+                 */
+                if (
+                    ! is_array(
+                        $value
+                    )
+                ) {
+
+                    return new WP_Error(
+                        'invalid_condition_range',
+                        'ساختار بازه شرط نامعتبر است.'
+                    );
+                }
+
+                $minimum =
+                    isset(
+                        $value['min']
+                    )
+                        ? $this->normalize_numeric_input(
+                            $value['min']
+                        )
+                        : '';
+
+                $maximum =
+                    isset(
+                        $value['max']
+                    )
+                        ? $this->normalize_numeric_input(
+                            $value['max']
+                        )
+                        : '';
+
+                if (
+                    '' === $minimum ||
+                    '' === $maximum
+                ) {
+
+                    return new WP_Error(
+                        'incomplete_condition_range',
+                        'حداقل و حداکثر بازه باید مشخص شوند.'
+                    );
+                }
+
+                if (
+                    ! is_numeric(
+                        $minimum
+                    ) ||
+                    ! is_numeric(
+                        $maximum
+                    )
+                ) {
+
+                    return new WP_Error(
+                        'invalid_condition_range_value',
+                        'مقادیر حداقل و حداکثر باید عدد معتبر باشند.'
+                    );
+                }
+
+                $minimum =
+                    (float)
+                    $minimum;
+
+                $maximum =
+                    (float)
+                    $maximum;
+
+                if (
+                    $minimum < 0 ||
+                    $maximum < 0
+                ) {
+
+                    return new WP_Error(
+                        'negative_condition_range_value',
+                        'مقادیر بازه نمی‌توانند منفی باشند.'
+                    );
+                }
+
+                if (
+                    $minimum >
+                    $maximum
+                ) {
+
+                    return new WP_Error(
+                        'invalid_condition_range_order',
+                        'مقدار حداقل نمی‌تواند از مقدار حداکثر بیشتر باشد.'
+                    );
+                }
+
+                continue;
+            }
+
             if ( 'number' === $value_type ) {
 
                 $value = str_replace(
@@ -1292,20 +1591,34 @@ class WooSmart_Automation_Manager {
                     );
                 }
 
-                $admin_email = sanitize_email(
-                    get_option(
-                        'admin_email',
-                        ''
-                    )
-                );
+                $notification_email =
+                    sanitize_email(
+                        get_option(
+                            'woosmart_notification_email',
+                            ''
+                        )
+                    );
 
                 if (
-                    empty( $admin_email ) ||
-                    ! is_email( $admin_email )
+                    empty( $notification_email )
+                ) {
+
+                    $notification_email =
+                        sanitize_email(
+                            get_option(
+                                'admin_email',
+                                ''
+                            )
+                        );
+                }
+
+                if (
+                    empty( $notification_email ) ||
+                    ! is_email( $notification_email )
                 ) {
                     return new WP_Error(
                         'invalid_admin_email',
-                        'ایمیل مدیر فروشگاه در تنظیمات وردپرس معتبر نیست.'
+                        'ایمیل دریافت اعلان WooSmart در تنظیمات وردپرس معتبر نیست.'
                     );
                 }
             }
