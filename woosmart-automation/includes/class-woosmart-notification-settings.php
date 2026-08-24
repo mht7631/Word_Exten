@@ -852,6 +852,76 @@ class WooSmart_Notification_Settings {
                 $message . ' ' . $code
             );
 
+        /*
+         * Recipient restrictions and recipient validation must
+         * be checked before generic "from" / "sender" patterns.
+         *
+         * Some providers mention the sender or testing mode in
+         * the same error message even though the actual restriction
+         * is applied to the recipient.
+         */
+        if (
+            false !== strpos(
+                $haystack,
+                'recipient'
+            ) ||
+            false !== strpos(
+                $haystack,
+                'to address'
+            ) ||
+            false !== strpos(
+                $haystack,
+                'recipient rejected'
+            ) ||
+            false !== strpos(
+                $haystack,
+                'recipient not allowed'
+            ) ||
+            false !== strpos(
+                $haystack,
+                'recipient is not allowed'
+            ) ||
+            false !== strpos(
+                $haystack,
+                'recipient is not permitted'
+            ) ||
+            false !== strpos(
+                $haystack,
+                'recipient not permitted'
+            ) ||
+            false !== strpos(
+                $haystack,
+                'testing emails'
+            ) ||
+            false !== strpos(
+                $haystack,
+                'test emails'
+            ) ||
+            false !== strpos(
+                $haystack,
+                'only to your own email'
+            ) ||
+            false !== strpos(
+                $haystack,
+                'only send testing'
+            ) ||
+            false !== strpos(
+                $haystack,
+                'send emails to other recipients'
+            ) ||
+            false !== strpos(
+                $haystack,
+                'other recipients'
+            ) ||
+            false !== strpos(
+                $haystack,
+                'address rejected'
+            )
+        ) {
+
+            return 'خطای محدودیت گیرنده';
+        }
+
         if (
             false !== strpos(
                 $haystack,
@@ -912,24 +982,6 @@ class WooSmart_Notification_Settings {
         ) {
 
             return 'خطای آدرس فرستنده';
-        }
-
-        if (
-            false !== strpos(
-                $haystack,
-                'recipient'
-            ) ||
-            false !== strpos(
-                $haystack,
-                'to address'
-            ) ||
-            false !== strpos(
-                $haystack,
-                'address rejected'
-            )
-        ) {
-
-            return 'خطای آدرس گیرنده';
         }
 
         if (
