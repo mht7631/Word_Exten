@@ -171,7 +171,7 @@ The system uses shared Condition, Action, and Execution History / Engine instanc
 woosmart-automation/
 │
 ├── woosmart-automation.php
-├── Readme.md
+├── README.md
 │
 └── includes/
     ├── class-woosmart-core.php
