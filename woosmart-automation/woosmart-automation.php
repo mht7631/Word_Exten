@@ -33,7 +33,6 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-execution-hi
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-execution-engine.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-execution-admin.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-priority-admin.php';
-require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-condition-admin.php';
 
 
 /**
@@ -51,11 +50,6 @@ function woosmart_automation_init() {
     new WooSmart_Notification_Settings();
     new WooSmart_Post_Types();
     new WooSmart_Automation_Manager();
-
-    /*
-     * Multiple Conditions admin support.
-     */
-    new WooSmart_Condition_Admin();
 
     /*
      * Create shared automation services.
