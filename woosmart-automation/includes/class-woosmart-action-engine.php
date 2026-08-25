@@ -815,11 +815,145 @@ class WooSmart_Action_Engine {
         $old_status =
             $order->get_status();
 
+        /*
+         * IMPORTANT:
+         *
+         * If the order is already in the requested status,
+         * do not call update_status().
+         *
+         * Calling update_status() with the same status can still
+         * cause unnecessary WooCommerce processing and downstream
+         * hooks. This was visible in the execution logs as:
+         *
+         * processing -> processing
+         *
+         * and was responsible for several seconds of unnecessary
+         * execution time.
+         */
+        if (
+            $old_status ===
+            $new_status
+        ) {
+
+            $this->logger->log(
+                'action_skipped',
+                'وضعیت سفارش از قبل همان وضعیت درخواستی بود و تغییری انجام نشد.',
+                array(
+                    'action_type' =>
+                        'change_order_status',
+
+                    'order_id' =>
+                        $order_id,
+
+                    'old_status' =>
+                        $old_status,
+
+                    'new_status' =>
+                        $new_status,
+
+                    'action_index' =>
+                        isset(
+                            $context['action_index']
+                        )
+                            ? absint(
+                                $context['action_index']
+                            )
+                            : 0,
+
+                    'action_total' =>
+                        isset(
+                            $context['action_total']
+                        )
+                            ? absint(
+                                $context['action_total']
+                            )
+                            : 0,
+
+                    'skipped_reason' =>
+                        'status_already_set',
+                )
+            );
+
+            return true;
+        }
+
+        /*
+         * Measure ONLY the WooCommerce update_status() call.
+         *
+         * This allows us to determine whether the long execution
+         * time originates inside WooCommerce status transition
+         * processing / downstream hooks.
+         */
+        $status_update_started =
+            microtime(
+                true
+            );
+
         $result =
             $order->update_status(
                 $new_status,
                 'WooSmart Automation changed the order status.'
             );
+
+        $status_update_duration_ms =
+            (int)
+            round(
+                (
+                    microtime(
+                        true
+                    ) -
+                    $status_update_started
+                ) *
+                1000
+            );
+
+        /*
+         * Diagnostic timing log.
+         *
+         * This is intentionally separate from action_executed so
+         * the expensive part of status processing can be identified.
+         */
+        $this->logger->log(
+            'order_status_update_timing',
+            'مدت زمان پردازش تغییر وضعیت سفارش ثبت شد.',
+            array(
+                'action_type' =>
+                    'change_order_status',
+
+                'order_id' =>
+                    $order_id,
+
+                'old_status' =>
+                    $old_status,
+
+                'new_status' =>
+                    $new_status,
+
+                'duration_ms' =>
+                    max(
+                        0,
+                        $status_update_duration_ms
+                    ),
+
+                'action_index' =>
+                    isset(
+                        $context['action_index']
+                    )
+                        ? absint(
+                            $context['action_index']
+                        )
+                        : 0,
+
+                'action_total' =>
+                    isset(
+                        $context['action_total']
+                    )
+                        ? absint(
+                            $context['action_total']
+                        )
+                        : 0,
+            )
+        );
 
         if (
             false ===
@@ -841,6 +975,12 @@ class WooSmart_Action_Engine {
 
                     'new_status' =>
                         $new_status,
+
+                    'duration_ms' =>
+                        max(
+                            0,
+                            $status_update_duration_ms
+                        ),
 
                     'action_index' =>
                         isset(
@@ -910,6 +1050,12 @@ class WooSmart_Action_Engine {
 
                 'new_status' =>
                     $new_status,
+
+                'duration_ms' =>
+                    max(
+                        0,
+                        $status_update_duration_ms
+                    ),
 
                 'action_index' =>
                     isset(
@@ -1106,12 +1252,29 @@ class WooSmart_Action_Engine {
             'Content-Type: text/plain; charset=UTF-8',
         );
 
+        $mail_started =
+            microtime(
+                true
+            );
+
         $mail_sent =
             wp_mail(
                 $recipient,
                 $subject,
                 $message,
                 $headers
+            );
+
+        $mail_duration_ms =
+            (int)
+            round(
+                (
+                    microtime(
+                        true
+                    ) -
+                    $mail_started
+                ) *
+                1000
             );
 
         $this->capturing_mail_error =
@@ -1154,6 +1317,12 @@ class WooSmart_Action_Engine {
                             $context['action_total']
                         )
                         : 0,
+
+                'duration_ms' =>
+                    max(
+                        0,
+                        $mail_duration_ms
+                    ),
             );
 
             if (
@@ -1256,6 +1425,12 @@ class WooSmart_Action_Engine {
                             $context['action_total']
                         )
                         : 0,
+
+                'duration_ms' =>
+                    max(
+                        0,
+                        $mail_duration_ms
+                    ),
             )
         );
 
