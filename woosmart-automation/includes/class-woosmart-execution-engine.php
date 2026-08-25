@@ -49,7 +49,6 @@ class WooSmart_Execution_Engine {
         WooSmart_Action_Engine $action_engine,
         $execution_history = null
     ) {
-
         $this->logger =
             new WooSmart_Logger();
 
@@ -80,7 +79,6 @@ class WooSmart_Execution_Engine {
         $trigger,
         $context = array()
     ) {
-
         $trigger =
             sanitize_key(
                 $trigger
@@ -91,7 +89,6 @@ class WooSmart_Execution_Engine {
                 $trigger
             )
         ) {
-
             return;
         }
 
@@ -111,8 +108,11 @@ class WooSmart_Execution_Engine {
                         -1,
 
                     /*
-                     * First fetch in historical date order.
-                     * Explicit Priority sorting is applied below.
+                     * Initial deterministic order.
+                     *
+                     * Priority is handled explicitly below.
+                     * Date DESC provides a stable fallback for
+                     * automations that have the same Priority.
                      */
                     'orderby' =>
                         'date',
@@ -150,31 +150,20 @@ class WooSmart_Execution_Engine {
                 )
             );
 
-        /*
-         * Preserve original date order as the tie-breaker.
-         */
-        $date_order =
-            array();
-
-        foreach (
-            $automations as $index =>
-            $automation
+        if (
+            empty(
+                $automations
+            )
         ) {
-
-            $date_order[
-                $automation->ID
-            ] =
-                $index;
+            return;
         }
 
         /*
-         * Normalize priorities.
+         * Collect explicit priorities.
          *
-         * Explicit priorities are respected.
-         *
-         * Automations without an explicit Priority receive
-         * a fallback Priority after all explicit priorities
-         * while preserving the original newest-to-oldest order.
+         * Priority:
+         * - Must be a positive integer.
+         * - Lower number executes first.
          */
         $explicit_priorities =
             array();
@@ -185,7 +174,6 @@ class WooSmart_Execution_Engine {
         foreach (
             $automations as $automation
         ) {
-
             $priority =
                 get_post_meta(
                     $automation->ID,
@@ -197,7 +185,6 @@ class WooSmart_Execution_Engine {
                 '' ===
                 $priority
             ) {
-
                 continue;
             }
 
@@ -209,7 +196,6 @@ class WooSmart_Execution_Engine {
             if (
                 $priority < 1
             ) {
-
                 continue;
             }
 
@@ -222,17 +208,28 @@ class WooSmart_Execution_Engine {
                 $priority >
                 $max_explicit_priority
             ) {
-
                 $max_explicit_priority =
                     $priority;
             }
         }
 
+        /*
+         * Automations without an explicit Priority are placed
+         * after all explicit priorities.
+         *
+         * Their original newest-to-oldest order is preserved
+         * through their generated fallback priorities.
+         */
         $fallback_priority_base =
-            max(
-                0,
-                $max_explicit_priority
-            ) + 10;
+            $max_explicit_priority +
+            10;
+
+        if (
+            $fallback_priority_base < 10
+        ) {
+            $fallback_priority_base =
+                10;
+        }
 
         $fallback_index =
             0;
@@ -243,27 +240,30 @@ class WooSmart_Execution_Engine {
         foreach (
             $automations as $automation
         ) {
+            $automation_id =
+                absint(
+                    $automation->ID
+                );
 
             if (
                 isset(
                     $explicit_priorities[
-                        $automation->ID
+                        $automation_id
                     ]
                 )
             ) {
-
                 $normalized_priorities[
-                    $automation->ID
+                    $automation_id
                 ] =
                     $explicit_priorities[
-                        $automation->ID
+                        $automation_id
                     ];
 
                 continue;
             }
 
             $normalized_priorities[
-                $automation->ID
+                $automation_id
             ] =
                 $fallback_priority_base +
                 $fallback_index;
@@ -271,85 +271,145 @@ class WooSmart_Execution_Engine {
             $fallback_index += 10;
         }
 
+        /*
+         * Deterministic sorting.
+         *
+         * Sort order:
+         *
+         * 1. Lower Priority first.
+         * 2. If Priority is equal:
+         *    newer post date first.
+         * 3. If post dates are exactly equal:
+         *    higher ID first.
+         *
+         * The previous implementation used the array index from
+         * get_posts() as the second comparison key. Since every
+         * automation had a unique index, the ID comparison was
+         * effectively unreachable.
+         *
+         * This implementation performs a real deterministic
+         * tie-break:
+         *
+         * Priority → post_date_gmt/post_date → ID
+         */
         usort(
             $automations,
             function(
                 $a,
                 $b
             ) use (
-                $normalized_priorities,
-                $date_order
+                $normalized_priorities
             ) {
+
+                $automation_id_a =
+                    absint(
+                        $a->ID
+                    );
+
+                $automation_id_b =
+                    absint(
+                        $b->ID
+                    );
 
                 $priority_a =
                     isset(
                         $normalized_priorities[
-                            $a->ID
+                            $automation_id_a
                         ]
                     )
-                        ? $normalized_priorities[
-                            $a->ID
-                        ]
+                        ? (int)
+                            $normalized_priorities[
+                                $automation_id_a
+                            ]
                         : PHP_INT_MAX;
 
                 $priority_b =
                     isset(
                         $normalized_priorities[
-                            $b->ID
+                            $automation_id_b
                         ]
                     )
-                        ? $normalized_priorities[
-                            $b->ID
-                        ]
+                        ? (int)
+                            $normalized_priorities[
+                                $automation_id_b
+                            ]
                         : PHP_INT_MAX;
 
+                /*
+                 * Primary sort:
+                 * Lower Priority executes first.
+                 */
                 if (
-                    $priority_a !==
+                    $priority_a <
                     $priority_b
                 ) {
-
-                    return
-                        $priority_a <
-                        $priority_b
-                            ? -1
-                            : 1;
+                    return -1;
                 }
-
-                $date_a =
-                    isset(
-                        $date_order[
-                            $a->ID
-                        ]
-                    )
-                        ? $date_order[
-                            $a->ID
-                        ]
-                        : PHP_INT_MAX;
-
-                $date_b =
-                    isset(
-                        $date_order[
-                            $b->ID
-                        ]
-                    )
-                        ? $date_order[
-                            $b->ID
-                        ]
-                        : PHP_INT_MAX;
 
                 if (
-                    $date_a ===
-                    $date_b
+                    $priority_a >
+                    $priority_b
                 ) {
-
-                    return 0;
+                    return 1;
                 }
 
-                return
+                /*
+                 * Secondary sort:
+                 * Newer creation date first.
+                 *
+                 * Prefer GMT date because it gives a stable
+                 * canonical timestamp independent of site timezone.
+                 */
+                $date_a =
+                    ! empty(
+                        $a->post_date_gmt
+                    )
+                        ? $a->post_date_gmt
+                        : $a->post_date;
+
+                $date_b =
+                    ! empty(
+                        $b->post_date_gmt
+                    )
+                        ? $b->post_date_gmt
+                        : $b->post_date;
+
+                if (
+                    $date_a >
+                    $date_b
+                ) {
+                    return -1;
+                }
+
+                if (
                     $date_a <
                     $date_b
-                        ? -1
-                        : 1;
+                ) {
+                    return 1;
+                }
+
+                /*
+                 * Final deterministic tie-breaker:
+                 * Higher ID first.
+                 *
+                 * This is reached when Priority and creation
+                 * timestamp are identical.
+                 */
+                if (
+                    $automation_id_a >
+                    $automation_id_b
+                ) {
+                    return -1;
+                }
+
+                if (
+                    $automation_id_a <
+                    $automation_id_b
+                ) {
+                    return 1;
+                }
+
+                return 0;
             }
         );
 
@@ -362,29 +422,31 @@ class WooSmart_Execution_Engine {
         foreach (
             $automations as $automation
         ) {
-
-            $automation_ids[] =
+            $automation_id =
                 absint(
                     $automation->ID
                 );
 
+            $automation_ids[] =
+                $automation_id;
+
             $automation_priorities[
-                $automation->ID
+                $automation_id
             ] =
                 isset(
                     $normalized_priorities[
-                        $automation->ID
+                        $automation_id
                     ]
                 )
                     ? $normalized_priorities[
-                        $automation->ID
+                        $automation_id
                     ]
                     : 0;
         }
 
         $this->logger->log(
             'automation_scan',
-            'بررسی اتوماسیون‌های فعال برای رویداد انجام شد.',
+            'بررسی اتوماسیونهای فعال برای رویداد انجام شد.',
             array(
                 'trigger' =>
                     $trigger,
@@ -408,19 +470,9 @@ class WooSmart_Execution_Engine {
             )
         );
 
-        if (
-            empty(
-                $automations
-            )
-        ) {
-
-            return;
-        }
-
         foreach (
             $automations as $automation
         ) {
-
             $result =
                 $this->execute_automation(
                     $automation->ID,
@@ -434,10 +486,15 @@ class WooSmart_Execution_Engine {
                     $result
                 )
             ) {
-
                 continue;
             }
 
+            /*
+             * first_match:
+             *
+             * Stop immediately after the first automation whose
+             * conditions are satisfied.
+             */
             if (
                 'first_match' ===
                 $execution_policy &&
@@ -445,10 +502,15 @@ class WooSmart_Execution_Engine {
                     $result['matched']
                 )
             ) {
-
                 break;
             }
 
+            /*
+             * first_success:
+             *
+             * Continue after a condition match if execution fails.
+             * Stop only after a complete successful execution.
+             */
             if (
                 'first_success' ===
                 $execution_policy &&
@@ -459,7 +521,6 @@ class WooSmart_Execution_Engine {
                     $result['successful']
                 )
             ) {
-
                 break;
             }
         }
@@ -481,7 +542,6 @@ class WooSmart_Execution_Engine {
         $context,
         $policy
     ) {
-
         $automation_id =
             absint(
                 $automation_id
@@ -501,7 +561,6 @@ class WooSmart_Execution_Engine {
         if (
             ! $automation_id
         ) {
-
             return $result;
         }
 
@@ -516,7 +575,6 @@ class WooSmart_Execution_Engine {
             'active' !==
             $status
         ) {
-
             $this->logger->log(
                 'automation_skipped',
                 'اتوماسیون به دلیل غیرفعال بودن اجرا نشد.',
@@ -542,6 +600,9 @@ class WooSmart_Execution_Engine {
                 ? $automation->post_title
                 : '';
 
+        /*
+         * Load the current stored Conditions.
+         */
         $conditions =
             get_post_meta(
                 $automation_id,
@@ -554,33 +615,30 @@ class WooSmart_Execution_Engine {
                 $conditions
             )
         ) {
-
             $conditions =
                 array();
         }
 
         /*
-         * Current MVP supports one Condition per Automation.
+         * Normalize only for runtime compatibility.
          *
-         * Older development data may contain more than one
-         * condition because the Condition model evolved during
-         * Range implementation.
+         * IMPORTANT:
          *
-         * To prevent stale legacy conditions from being evaluated
-         * together with the current condition, normalize the stored
-         * configuration before execution.
+         * This method does NOT update the Automation metadata.
+         * Execution must never silently modify the user's
+         * Automation configuration.
          *
-         * The last condition is treated as the current condition
-         * because the latest edited/added condition is the most
-         * likely intended configuration in the current one-condition
-         * MVP.
+         * The exact normalized structure is then passed to
+         * Execution History as the immutable execution snapshot.
          */
         $conditions =
             $this->normalize_conditions_for_current_mvp(
-                $automation_id,
                 $conditions
             );
 
+        /*
+         * Load Actions.
+         */
         $actions =
             get_post_meta(
                 $automation_id,
@@ -593,10 +651,18 @@ class WooSmart_Execution_Engine {
                 $actions
             )
         ) {
-
             $actions =
                 array();
         }
+
+        /*
+         * Normalize action array indexes so the snapshot and
+         * execution-result indexes remain deterministic.
+         */
+        $actions =
+            array_values(
+                $actions
+            );
 
         $order_id =
             isset(
@@ -607,6 +673,13 @@ class WooSmart_Execution_Engine {
                 )
                 : 0;
 
+        /*
+         * Start immutable execution snapshot BEFORE condition
+         * evaluation and action execution.
+         *
+         * This guarantees that the history represents exactly
+         * the configuration used for this execution.
+         */
         $execution_id =
             $this->execution_history->start_execution(
                 $automation_id,
@@ -619,6 +692,9 @@ class WooSmart_Execution_Engine {
                 $actions
             );
 
+        /*
+         * Evaluate Conditions.
+         */
         $conditions_passed =
             $this->condition_engine->evaluate(
                 $conditions,
@@ -628,7 +704,6 @@ class WooSmart_Execution_Engine {
         if (
             ! $conditions_passed
         ) {
-
             $this->logger->log(
                 'automation_conditions_failed',
                 'شرایط اتوماسیون برقرار نبود.',
@@ -647,7 +722,6 @@ class WooSmart_Execution_Engine {
             if (
                 $execution_id
             ) {
-
                 $this->execution_history->finish_execution(
                     $execution_id,
                     'conditions_failed',
@@ -667,6 +741,9 @@ class WooSmart_Execution_Engine {
         ] =
             true;
 
+        /*
+         * Execute Actions.
+         */
         $action_execution =
             $this->action_engine->execute_with_results(
                 $actions,
@@ -699,6 +776,14 @@ class WooSmart_Execution_Engine {
                 ? $action_execution['actions']
                 : array();
 
+        /*
+         * Keep action result indexes stable.
+         */
+        $action_results =
+            array_values(
+                $action_results
+            );
+
         $result[
             'successful'
         ] =
@@ -714,7 +799,6 @@ class WooSmart_Execution_Engine {
         if (
             $actions_successful
         ) {
-
             $this->logger->log(
                 'automation_executed',
                 'اتوماسیون با موفقیت اجرا شد.',
@@ -732,9 +816,7 @@ class WooSmart_Execution_Engine {
                         true,
                 )
             );
-
         } else {
-
             $this->logger->log(
                 'automation_failed',
                 'اجرای اتوماسیون با شکست مواجه شد.',
@@ -757,24 +839,17 @@ class WooSmart_Execution_Engine {
         if (
             $execution_id
         ) {
-
             $this->execution_history->finish_execution(
                 $execution_id,
-
                 $actions_successful
                     ? 'completed'
                     : 'failed',
-
                 $actions_total,
-
                 $actions_successful,
-
                 $actions_successful
                     ? 'تمام عملیات اتوماسیون با موفقیت اجرا شدند.'
                     : 'حداقل یکی از عملیات اتوماسیون با شکست مواجه شد.',
-
                 true,
-
                 $action_results
             );
         }
@@ -783,42 +858,25 @@ class WooSmart_Execution_Engine {
     }
 
     /**
-     * Normalize Conditions for the current MVP.
+     * Normalize Conditions for current MVP runtime.
      *
-     * The current product UI supports one Condition per Automation.
-     * This method protects runtime execution from stale development
-     * data that may contain multiple Conditions.
+     * The current MVP supports one Condition per Automation.
      *
-     * Example legacy data:
+     * IMPORTANT:
+     * This method is intentionally read-only.
      *
-     * [
-     *     [
-     *         'field'    => 'order_total',
-     *         'operator' => 'is_equal',
-     *         'value'    => '3000000',
-     *     ],
-     *     [
-     *         'field'    => 'order_total',
-     *         'operator' => 'between',
-     *         'value'    => array(
-     *             'min' => '1700000',
-     *             'max' => '3000000',
-     *         ),
-     *     ],
-     * ]
+     * It never calls update_post_meta().
+     * Execution History must contain a snapshot of the actual
+     * configuration used during execution without changing the
+     * Automation itself.
      *
-     * The last configured Condition becomes authoritative.
-     *
-     * @param int   $automation_id Automation ID.
-     * @param array $conditions    Stored Conditions.
+     * @param array $conditions Stored Conditions.
      *
      * @return array
      */
     private function normalize_conditions_for_current_mvp(
-        $automation_id,
         $conditions
     ) {
-
         if (
             ! is_array(
                 $conditions
@@ -827,12 +885,12 @@ class WooSmart_Execution_Engine {
                 $conditions
             )
         ) {
-
             return array();
         }
 
         /*
-         * Filter out malformed Condition entries.
+         * Remove malformed entries while preserving the original
+         * order of valid Conditions.
          */
         $valid_conditions =
             array();
@@ -840,13 +898,11 @@ class WooSmart_Execution_Engine {
         foreach (
             $conditions as $condition
         ) {
-
             if (
                 ! is_array(
                     $condition
                 )
             ) {
-
                 continue;
             }
 
@@ -876,7 +932,6 @@ class WooSmart_Execution_Engine {
                     $operator
                 )
             ) {
-
                 continue;
             }
 
@@ -885,6 +940,29 @@ class WooSmart_Execution_Engine {
 
             $condition['operator'] =
                 $operator;
+
+            /*
+             * Preserve the Condition value exactly.
+             *
+             * This is important for operators such as:
+             *
+             * between:
+             * [
+             *     'min' => '1700000',
+             *     'max' => '7000000',
+             * ]
+             *
+             * Do not cast this to a scalar.
+             */
+            if (
+                ! array_key_exists(
+                    'value',
+                    $condition
+                )
+            ) {
+                $condition['value'] =
+                    '';
+            }
 
             $valid_conditions[] =
                 $condition;
@@ -895,52 +973,25 @@ class WooSmart_Execution_Engine {
                 $valid_conditions
             )
         ) {
-
             return array();
         }
 
         /*
-         * Only one Condition is supported by the current MVP.
+         * Current MVP:
+         * one authoritative Condition.
+         *
+         * If legacy development data contains multiple Conditions,
+         * use the last valid Condition without modifying the
+         * original Automation metadata.
          */
-        $normalized_condition =
+        $current_condition =
             end(
                 $valid_conditions
             );
 
-        /*
-         * Re-index the array so the stored structure is:
-         *
-         * [
-         *     0 => current condition
-         * ]
-         */
-        $normalized_conditions =
-            array(
-                $normalized_condition,
-            );
-
-        /*
-         * If legacy/stale data contains more than one Condition,
-         * permanently clean the Automation metadata so future
-         * executions and admin screens see the same configuration.
-         */
-        if (
-            count(
-                $conditions
-            ) !== 1 ||
-            count(
-                $valid_conditions
-            ) !== 1
-        ) {
-
-            update_post_meta(
-                $automation_id,
-                '_woosmart_conditions',
-                $normalized_conditions
-            );
-        }
-
-        return $normalized_conditions;
+        return array(
+            $current_condition,
+        );
     }
 
     /**
@@ -949,7 +1000,6 @@ class WooSmart_Execution_Engine {
      * @return string
      */
     private function get_execution_policy() {
-
         $policy =
             get_option(
                 'woosmart_execution_policy',
@@ -969,7 +1019,6 @@ class WooSmart_Execution_Engine {
                 true
             )
         ) {
-
             $policy =
                 'all';
         }
