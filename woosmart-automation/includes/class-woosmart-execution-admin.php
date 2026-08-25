@@ -427,7 +427,9 @@ class WooSmart_Execution_Admin {
                 <?php
                 $this->render_summary_card(
                     'کل اجراها',
-                    $summary['all'],
+                    isset( $summary['all'] )
+                        ? $summary['all']
+                        : 0,
                     '#2271b1'
                 );
                 ?>
@@ -435,7 +437,9 @@ class WooSmart_Execution_Admin {
                 <?php
                 $this->render_summary_card(
                     'موفق',
-                    $summary['completed'],
+                    isset( $summary['completed'] )
+                        ? $summary['completed']
+                        : 0,
                     '#008a20'
                 );
                 ?>
@@ -443,7 +447,9 @@ class WooSmart_Execution_Admin {
                 <?php
                 $this->render_summary_card(
                     'ناموفق',
-                    $summary['failed'],
+                    isset( $summary['failed'] )
+                        ? $summary['failed']
+                        : 0,
                     '#b32d2e'
                 );
                 ?>
@@ -451,7 +457,9 @@ class WooSmart_Execution_Admin {
                 <?php
                 $this->render_summary_card(
                     'شرایط برقرار نبود',
-                    $summary['conditions_failed'],
+                    isset( $summary['conditions_failed'] )
+                        ? $summary['conditions_failed']
+                        : 0,
                     '#996800'
                 );
                 ?>
@@ -585,7 +593,9 @@ class WooSmart_Execution_Admin {
 
                             $status_data =
                                 $this->get_status_data(
-                                    $execution['status']
+                                    isset( $execution['status'] )
+                                        ? $execution['status']
+                                        : ''
                                 );
                             ?>
 
@@ -651,7 +661,9 @@ class WooSmart_Execution_Admin {
                                     <?php
                                     echo esc_html(
                                         $this->get_trigger_label(
-                                            $execution['trigger_key']
+                                            isset( $execution['trigger_key'] )
+                                                ? $execution['trigger_key']
+                                                : ''
                                         )
                                     );
                                     ?>
@@ -663,7 +675,9 @@ class WooSmart_Execution_Admin {
                                     <?php
                                     echo esc_html(
                                         $this->get_policy_label(
-                                            $execution['execution_policy']
+                                            isset( $execution['execution_policy'] )
+                                                ? $execution['execution_policy']
+                                                : ''
                                         )
                                     );
                                     ?>
@@ -695,7 +709,9 @@ class WooSmart_Execution_Admin {
 
                                     <?php
                                     echo esc_html(
-                                        $execution['actions_total']
+                                        isset( $execution['actions_total'] )
+                                            ? $execution['actions_total']
+                                            : 0
                                     );
                                     ?>
 
@@ -730,7 +746,9 @@ class WooSmart_Execution_Admin {
                                 <td>
                                     <?php
                                     echo esc_html(
-                                        $execution['started_at']
+                                        isset( $execution['started_at'] )
+                                            ? $execution['started_at']
+                                            : ''
                                     );
                                     ?>
                                 </td>
@@ -753,7 +771,9 @@ class WooSmart_Execution_Admin {
 
                                     <?php
                                     echo esc_html(
-                                        $execution['message']
+                                        isset( $execution['message'] )
+                                            ? $execution['message']
+                                            : ''
                                     );
                                     ?>
 
@@ -873,7 +893,9 @@ class WooSmart_Execution_Admin {
 
         $status_data =
             $this->get_status_data(
-                $execution['status']
+                isset( $execution['status'] )
+                    ? $execution['status']
+                    : ''
             );
 
         $back_url =
@@ -1022,7 +1044,9 @@ class WooSmart_Execution_Admin {
                                     <?php
                                     echo esc_html(
                                         $this->get_trigger_label(
-                                            $execution['trigger_key']
+                                            isset( $execution['trigger_key'] )
+                                                ? $execution['trigger_key']
+                                                : ''
                                         )
                                     );
                                     ?>
@@ -1042,7 +1066,9 @@ class WooSmart_Execution_Admin {
                                     <?php
                                     echo esc_html(
                                         $this->get_policy_label(
-                                            $execution['execution_policy']
+                                            isset( $execution['execution_policy'] )
+                                                ? $execution['execution_policy']
+                                                : ''
                                         )
                                     );
                                     ?>
@@ -1116,7 +1142,9 @@ class WooSmart_Execution_Admin {
                                 <td>
                                     <?php
                                     echo esc_html(
-                                        $execution['started_at']
+                                        isset( $execution['started_at'] )
+                                            ? $execution['started_at']
+                                            : ''
                                     );
                                     ?>
                                 </td>
@@ -1179,6 +1207,16 @@ class WooSmart_Execution_Admin {
                         )
                             ? $execution['conditions']
                             : array();
+
+                    $condition_results =
+                        isset(
+                            $execution['condition_results']
+                        ) &&
+                        is_array(
+                            $execution['condition_results']
+                        )
+                            ? $execution['condition_results']
+                            : array();
                     ?>
 
                     <?php if ( empty( $conditions ) ) : ?>
@@ -1221,12 +1259,115 @@ class WooSmart_Execution_Admin {
                                     ? $condition['value']
                                     : '';
 
+                            /*
+                             * IMPORTANT:
+                             * Do not use one global condition_result for
+                             * every condition. When individual results exist,
+                             * use the result belonging to this condition.
+                             */
                             $condition_passed =
-                                null !==
-                                $execution['condition_result']
-                                    ? (bool)
+                                null;
+
+                            if (
+                                isset(
+                                    $condition_results[
+                                        $index
+                                    ]
+                                )
+                            ) {
+
+                                $condition_result =
+                                    $condition_results[
+                                        $index
+                                    ];
+
+                                if (
+                                    is_array(
+                                        $condition_result
+                                    ) &&
+                                    array_key_exists(
+                                        'passed',
+                                        $condition_result
+                                    )
+                                ) {
+
+                                    $condition_passed =
+                                        (bool)
+                                        $condition_result['passed'];
+
+                                } elseif (
+                                    is_array(
+                                        $condition_result
+                                    ) &&
+                                    array_key_exists(
+                                        'success',
+                                        $condition_result
+                                    )
+                                ) {
+
+                                    $condition_passed =
+                                        (bool)
+                                        $condition_result['success'];
+
+                                } else {
+
+                                    $condition_passed =
+                                        (bool)
+                                        $condition_result;
+                                }
+
+                            } elseif (
+                                isset(
+                                    $execution['condition_result']
+                                ) &&
+                                is_array(
+                                    $execution['condition_result']
+                                ) &&
+                                isset(
+                                    $execution['condition_result'][
+                                        $index
+                                    ]
+                                )
+                            ) {
+
+                                $condition_passed =
+                                    (bool)
+                                    $execution['condition_result'][
+                                        $index
+                                    ];
+
+                            } elseif (
+                                array_key_exists(
+                                    'condition_result',
+                                    $execution
+                                ) &&
+                                ! is_array(
+                                    $execution['condition_result']
+                                )
+                            ) {
+
+                                /*
+                                 * Backward compatibility:
+                                 * Old executions only stored one aggregate
+                                 * result. In that case it is used as the
+                                 * overall result, not fabricated as a
+                                 * per-condition result when multiple
+                                 * conditions exist.
+                                 */
+                                if (
+                                    1 === count(
+                                        $conditions
+                                    )
+                                ) {
+
+                                    $condition_passed =
+                                        null !==
                                         $execution['condition_result']
-                                    : null;
+                                            ? (bool)
+                                                $execution['condition_result']
+                                            : null;
+                                }
+                            }
                             ?>
 
                             <div
@@ -1550,7 +1691,9 @@ class WooSmart_Execution_Admin {
 
                         <?php
                         echo esc_html(
-                            $execution['message']
+                            isset( $execution['message'] )
+                                ? $execution['message']
+                                : ''
                         );
                         ?>
                     </p>
@@ -1600,6 +1743,8 @@ class WooSmart_Execution_Admin {
     /**
      * Get condition display text.
      *
+     * Supports scalar values and range values.
+     *
      * @param string $field    Condition field.
      * @param string $operator Operator.
      * @param mixed  $value    Condition value.
@@ -1635,6 +1780,15 @@ class WooSmart_Execution_Admin {
 
             'less_than_or_equal' =>
                 'کمتر یا مساوی',
+
+            'between' =>
+                'بین',
+
+            'in_range' =>
+                'در بازه',
+
+            'not_in_range' =>
+                'خارج از بازه',
         );
 
         $field_label =
@@ -1659,34 +1813,263 @@ class WooSmart_Execution_Admin {
                 ]
                 : $operator;
 
+        /*
+         * Range values may arrive as:
+         *
+         * array(
+         *     'min' => 100000,
+         *     'max' => 500000,
+         * )
+         *
+         * or:
+         *
+         * array(
+         *     0 => 100000,
+         *     1 => 500000,
+         * )
+         *
+         * or as a simple "min,max" string.
+         */
+        if (
+            is_array(
+                $value
+            )
+        ) {
+
+            $min =
+                '';
+
+            $max =
+                '';
+
+            if (
+                isset(
+                    $value['min']
+                )
+            ) {
+
+                $min =
+                    $value['min'];
+
+            } elseif (
+                isset(
+                    $value['from']
+                )
+            ) {
+
+                $min =
+                    $value['from'];
+
+            } elseif (
+                isset(
+                    $value[0]
+                )
+            ) {
+
+                $min =
+                    $value[0];
+            }
+
+            if (
+                isset(
+                    $value['max']
+                )
+            ) {
+
+                $max =
+                    $value['max'];
+
+            } elseif (
+                isset(
+                    $value['to']
+                )
+            ) {
+
+                $max =
+                    $value['to'];
+
+            } elseif (
+                isset(
+                    $value[1]
+                )
+            ) {
+
+                $max =
+                    $value[1];
+            }
+
+            if (
+                'order_total' ===
+                $field
+            ) {
+
+                $min =
+                    $this->format_condition_number(
+                        $min,
+                        true
+                    );
+
+                $max =
+                    $this->format_condition_number(
+                        $max,
+                        true
+                    );
+            } else {
+
+                $min =
+                    $this->format_condition_value(
+                        $min
+                    );
+
+                $max =
+                    $this->format_condition_value(
+                        $max
+                    );
+            }
+
+            if (
+                '' !== $min &&
+                '' !== $max
+            ) {
+
+                return (
+                    $field_label .
+                    ' ' .
+                    $operator_label .
+                    ' ' .
+                    $min .
+                    ' تا ' .
+                    $max
+                );
+            }
+
+            if (
+                '' !== $min
+            ) {
+
+                return (
+                    $field_label .
+                    ' ' .
+                    $operator_label .
+                    ' ' .
+                    $min
+                );
+            }
+
+            if (
+                '' !== $max
+            ) {
+
+                return (
+                    $field_label .
+                    ' ' .
+                    $operator_label .
+                    ' ' .
+                    $max
+                );
+            }
+
+            return (
+                $field_label .
+                ' ' .
+                $operator_label
+            );
+        }
+
+        /*
+         * Also support a serialized/JSON-like textual range:
+         * "100000,500000"
+         */
+        if (
+            is_string(
+                $value
+            ) &&
+            in_array(
+                $operator,
+                array(
+                    'between',
+                    'in_range',
+                    'not_in_range',
+                ),
+                true
+            ) &&
+            false !==
+            strpos(
+                $value,
+                ','
+            )
+        ) {
+
+            $parts =
+                array_map(
+                    'trim',
+                    explode(
+                        ',',
+                        $value,
+                        2
+                    )
+                );
+
+            $min =
+                isset(
+                    $parts[0]
+                )
+                    ? $parts[0]
+                    : '';
+
+            $max =
+                isset(
+                    $parts[1]
+                )
+                    ? $parts[1]
+                    : '';
+
+            if (
+                'order_total' ===
+                $field
+            ) {
+
+                $min =
+                    $this->format_condition_number(
+                        $min,
+                        true
+                    );
+
+                $max =
+                    $this->format_condition_number(
+                        $max,
+                        true
+                    );
+            }
+
+            return (
+                $field_label .
+                ' ' .
+                $operator_label .
+                ' ' .
+                $min .
+                ' تا ' .
+                $max
+            );
+        }
+
         if (
             'order_total' ===
             $field
         ) {
 
-            $numeric_value =
-                str_replace(
-                    ',',
-                    '',
-                    (string) $value
+            $value =
+                $this->format_condition_number(
+                    $value,
+                    true
                 );
 
-            if (
-                is_numeric(
-                    $numeric_value
-                )
-            ) {
+        } else {
 
-                $value =
-                    number_format(
-                        (float)
-                        $numeric_value,
-                        0,
-                        '.',
-                        ','
-                    ) .
-                    ' تومان';
-            }
+            $value =
+                $this->format_condition_value(
+                    $value
+                );
         }
 
         return (
@@ -1696,6 +2079,111 @@ class WooSmart_Execution_Admin {
             ' ' .
             $value
         );
+    }
+
+    /**
+     * Format a condition numeric value.
+     *
+     * @param mixed $value Value.
+     * @param bool  $with_unit Add Toman unit.
+     *
+     * @return string
+     */
+    private function format_condition_number(
+        $value,
+        $with_unit = false
+    ) {
+
+        if (
+            is_array(
+                $value
+            )
+        ) {
+
+            return '';
+        }
+
+        $numeric_value =
+            str_replace(
+                ',',
+                '',
+                trim(
+                    (string) $value
+                )
+            );
+
+        if (
+            '' ===
+            $numeric_value ||
+            ! is_numeric(
+                $numeric_value
+            )
+        ) {
+
+            return esc_html(
+                (string) $value
+            );
+        }
+
+        $formatted =
+            number_format(
+                (float)
+                $numeric_value,
+                0,
+                '.',
+                ','
+            );
+
+        if (
+            $with_unit
+        ) {
+
+            $formatted .=
+                ' تومان';
+        }
+
+        return $formatted;
+    }
+
+    /**
+     * Format a generic condition value safely.
+     *
+     * @param mixed $value Value.
+     *
+     * @return string
+     */
+    private function format_condition_value(
+        $value
+    ) {
+
+        if (
+            is_array(
+                $value
+            )
+        ) {
+
+            return implode(
+                '، ',
+                array_map(
+                    array(
+                        $this,
+                        'format_condition_value',
+                    ),
+                    $value
+                )
+            );
+        }
+
+        if (
+            is_object(
+                $value
+            )
+        ) {
+
+            return '';
+        }
+
+        return (string) $value;
     }
 
     /**
