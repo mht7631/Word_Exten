@@ -38,6 +38,32 @@ class WooSmart_Action_Engine {
     private $last_mail_error = null;
 
     /**
+     * Status hook diagnostic timers.
+     *
+     * @var array
+     */
+    private $status_hook_timers = array();
+
+    /**
+     * Status hooks being profiled.
+     *
+     * @var array
+     */
+    private $profiled_status_hooks = array(
+        'woocommerce_order_status_pending_to_processing',
+        'woocommerce_order_status_processing',
+        'woocommerce_order_status_changed',
+        'woocommerce_order_payment_status_changed',
+    );
+
+    /**
+     * Hook callback IDs already wrapped.
+     *
+     * @var array
+     */
+    private static $wrapped_callback_ids = array();
+
+    /**
      * Initialize Action Engine.
      */
     public function __construct() {
@@ -56,6 +82,724 @@ class WooSmart_Action_Engine {
             ),
             10,
             1
+        );
+
+        /*
+         * Diagnostic-only hook timing.
+         */
+        $this->register_status_hook_diagnostics();
+    }
+
+    /**
+     * Register diagnostic timing callbacks for WooCommerce
+     * order status transition hooks.
+     *
+     * @return void
+     */
+    private function register_status_hook_diagnostics() {
+
+        foreach (
+            $this->profiled_status_hooks as $hook
+        ) {
+
+            add_action(
+                $hook,
+                array(
+                    $this,
+                    'start_status_hook_timer',
+                ),
+                -PHP_INT_MAX,
+                4
+            );
+
+            add_action(
+                $hook,
+                array(
+                    $this,
+                    'finish_status_hook_timer',
+                ),
+                PHP_INT_MAX,
+                4
+            );
+        }
+    }
+
+    /**
+     * Ensure callback-level profiling is installed immediately
+     * before a status transition is executed.
+     *
+     * This is intentionally called at runtime because third-party
+     * plugins may register their callbacks after Action Engine
+     * construction.
+     *
+     * @param string $hook Hook name.
+     *
+     * @return void
+     */
+    private function ensure_callback_level_diagnostics(
+        $hook
+    ) {
+
+        global $wp_filter;
+
+        if (
+            empty(
+                $hook
+            ) ||
+            ! isset(
+                $wp_filter[
+                    $hook
+                ]
+            )
+        ) {
+            return;
+        }
+
+        if (
+            ! isset(
+                $wp_filter[
+                    $hook
+                ]->callbacks
+            ) ||
+            ! is_array(
+                $wp_filter[
+                    $hook
+                ]->callbacks
+            )
+        ) {
+            return;
+        }
+
+        /*
+         * Snapshot callback definitions at the exact moment of
+         * status transition.
+         */
+        $callbacks =
+            $wp_filter[
+                $hook
+            ]->callbacks;
+
+        foreach (
+            $callbacks as $priority =>
+            $priority_callbacks
+        ) {
+
+            if (
+                ! is_array(
+                    $priority_callbacks
+                )
+            ) {
+                continue;
+            }
+
+            foreach (
+                $priority_callbacks as $callback_id =>
+                $callback_data
+            ) {
+
+                if (
+                    ! is_array(
+                        $callback_data
+                    )
+                ) {
+                    continue;
+                }
+
+                if (
+                    ! isset(
+                        $callback_data[
+                            'function'
+                        ]
+                    )
+                ) {
+                    continue;
+                }
+
+                $original_callback =
+                    $callback_data[
+                        'function'
+                    ];
+
+                $accepted_args =
+                    isset(
+                        $callback_data[
+                            'accepted_args'
+                        ]
+                    )
+                        ? absint(
+                            $callback_data[
+                                'accepted_args'
+                            ]
+                        )
+                        : 1;
+
+                /*
+                 * Never wrap WooSmart diagnostic callbacks.
+                 */
+                if (
+                    $this->is_own_diagnostic_callback(
+                        $original_callback
+                    )
+                ) {
+                    continue;
+                }
+
+                /*
+                 * Build a stable identifier.
+                 */
+                $wrapper_key =
+                    md5(
+                        $hook .
+                        '|' .
+                        (string) $priority .
+                        '|' .
+                        (string) $callback_id
+                    );
+
+                if (
+                    isset(
+                        self::$wrapped_callback_ids[
+                            $wrapper_key
+                        ]
+                    )
+                ) {
+                    continue;
+                }
+
+                /*
+                 * Mark before modifying the hook.
+                 */
+                self::$wrapped_callback_ids[
+                    $wrapper_key
+                ] =
+                    true;
+
+                $callback_name =
+                    $this->get_callback_name(
+                        $original_callback
+                    );
+
+                /*
+                 * Remove original callback.
+                 */
+                $removed =
+                    remove_action(
+                        $hook,
+                        $original_callback,
+                        $priority
+                    );
+
+                if (
+                    ! $removed
+                ) {
+
+                    unset(
+                        self::$wrapped_callback_ids[
+                            $wrapper_key
+                        ]
+                    );
+
+                    continue;
+                }
+
+                $engine =
+                    $this;
+
+                /*
+                 * Re-register at exactly the same priority.
+                 */
+                add_action(
+                    $hook,
+                    function(
+                        ...$args
+                    ) use (
+                        $engine,
+                        $original_callback,
+                        $accepted_args,
+                        $callback_name,
+                        $hook,
+                        $priority
+                    ) {
+
+                        $call_args =
+                            $args;
+
+                        if (
+                            $accepted_args >= 0
+                        ) {
+
+                            $call_args =
+                                array_slice(
+                                    $args,
+                                    0,
+                                    $accepted_args
+                                );
+                        }
+
+                        $started =
+                            microtime(
+                                true
+                            );
+
+                        $result =
+                            call_user_func_array(
+                                $original_callback,
+                                $call_args
+                            );
+
+                        $duration_ms =
+                            (int)
+                            round(
+                                (
+                                    microtime(
+                                        true
+                                    ) -
+                                    $started
+                                ) *
+                                1000
+                            );
+
+                        $order_id =
+                            $engine->resolve_order_id_from_arguments(
+                                $call_args
+                            );
+
+                        $engine->logger->log(
+                            'status_hook_callback_timing',
+                            'مدت اجرای Callback مربوط به Hook تغییر وضعیت سفارش ثبت شد.',
+                            array(
+                                'hook' =>
+                                    $hook,
+
+                                'priority' =>
+                                    (int)
+                                    $priority,
+
+                                'callback_id' =>
+                                    md5(
+                                        $hook .
+                                        '|' .
+                                        (string) $priority .
+                                        '|' .
+                                        $callback_name
+                                    ),
+
+                                'callback' =>
+                                    $callback_name,
+
+                                'order_id' =>
+                                    $order_id,
+
+                                'duration_ms' =>
+                                    max(
+                                        0,
+                                        $duration_ms
+                                    ),
+
+                                'request_uri' =>
+                                    isset(
+                                        $_SERVER['REQUEST_URI']
+                                    )
+                                        ? sanitize_text_field(
+                                            wp_unslash(
+                                                $_SERVER['REQUEST_URI']
+                                            )
+                                        )
+                                        : '',
+                            )
+                        );
+
+                        return $result;
+                    },
+                    $priority,
+                    $accepted_args
+                );
+            }
+        }
+    }
+
+    /**
+     * Determine whether a callback belongs to this diagnostic engine.
+     *
+     * @param mixed $callback Callback.
+     *
+     * @return bool
+     */
+    private function is_own_diagnostic_callback(
+        $callback
+    ) {
+
+        if (
+            ! is_array(
+                $callback
+            )
+        ) {
+            return false;
+        }
+
+        if (
+            ! isset(
+                $callback[0],
+                $callback[1]
+            )
+        ) {
+            return false;
+        }
+
+        if (
+            $callback[0] !==
+            $this
+        ) {
+            return false;
+        }
+
+        $method =
+            (string)
+            $callback[1];
+
+        return in_array(
+            $method,
+            array(
+                'start_status_hook_timer',
+                'finish_status_hook_timer',
+            ),
+            true
+        );
+    }
+
+    /**
+     * Get a readable callback name.
+     *
+     * @param mixed $callback WordPress callback.
+     *
+     * @return string
+     */
+    private function get_callback_name(
+        $callback
+    ) {
+
+        if (
+            is_string(
+                $callback
+            )
+        ) {
+
+            return $callback;
+        }
+
+        if (
+            is_array(
+                $callback
+            ) &&
+            count(
+                $callback
+            ) >= 2
+        ) {
+
+            $target =
+                $callback[0];
+
+            $method =
+                (string)
+                $callback[1];
+
+            if (
+                is_object(
+                    $target
+                )
+            ) {
+
+                return (
+                    get_class(
+                        $target
+                    ) .
+                    '->' .
+                    $method
+                );
+            }
+
+            return (
+                (string)
+                $target .
+                '::' .
+                $method
+            );
+        }
+
+        if (
+            $callback instanceof Closure
+        ) {
+
+            return 'Closure';
+        }
+
+        if (
+            is_object(
+                $callback
+            ) &&
+            method_exists(
+                $callback,
+                '__invoke'
+            )
+        ) {
+
+            return (
+                get_class(
+                    $callback
+                ) .
+                '::__invoke'
+            );
+        }
+
+        return 'Unknown callback';
+    }
+
+    /**
+     * Resolve Order ID from callback arguments.
+     *
+     * @param array $arguments Callback arguments.
+     *
+     * @return int
+     */
+    private function resolve_order_id_from_arguments(
+        $arguments
+    ) {
+
+        if (
+            ! is_array(
+                $arguments
+            )
+        ) {
+            return 0;
+        }
+
+        foreach (
+            $arguments as $argument
+        ) {
+
+            if (
+                is_object(
+                    $argument
+                ) &&
+                method_exists(
+                    $argument,
+                    'get_id'
+                )
+            ) {
+
+                $order_id =
+                    absint(
+                        $argument->get_id()
+                    );
+
+                if (
+                    $order_id
+                ) {
+
+                    return $order_id;
+                }
+            }
+
+            if (
+                is_numeric(
+                    $argument
+                )
+            ) {
+
+                $order_id =
+                    absint(
+                        $argument
+                    );
+
+                if (
+                    $order_id
+                ) {
+
+                    return $order_id;
+                }
+            }
+
+            if (
+                is_array(
+                    $argument
+                ) &&
+                isset(
+                    $argument['order_id']
+                )
+            ) {
+
+                $order_id =
+                    absint(
+                        $argument['order_id']
+                    );
+
+                if (
+                    $order_id
+                ) {
+
+                    return $order_id;
+                }
+            }
+        }
+
+        return 0;
+    }
+
+    /**
+     * Start timing one WooCommerce status hook.
+     *
+     * @param mixed $order_id First hook argument.
+     * @param mixed $arg_2    Second hook argument.
+     * @param mixed $arg_3    Third hook argument.
+     * @param mixed $arg_4    Fourth hook argument.
+     *
+     * @return void
+     */
+    public function start_status_hook_timer(
+        $order_id = null,
+        $arg_2 = null,
+        $arg_3 = null,
+        $arg_4 = null
+    ) {
+
+        $hook =
+            current_filter();
+
+        if (
+            empty(
+                $hook
+            )
+        ) {
+            return;
+        }
+
+        $this->status_hook_timers[
+            $hook
+        ][] =
+            array(
+                'started_at' =>
+                    microtime(
+                        true
+                    ),
+
+                'order_id' =>
+                    $this->resolve_order_id_from_arguments(
+                        array(
+                            $order_id,
+                            $arg_2,
+                            $arg_3,
+                            $arg_4,
+                        )
+                    ),
+            );
+    }
+
+    /**
+     * Finish timing one WooCommerce status hook.
+     *
+     * @param mixed $order_id First hook argument.
+     * @param mixed $arg_2    Second hook argument.
+     * @param mixed $arg_3    Third hook argument.
+     * @param mixed $arg_4    Fourth hook argument.
+     *
+     * @return void
+     */
+    public function finish_status_hook_timer(
+        $order_id = null,
+        $arg_2 = null,
+        $arg_3 = null,
+        $arg_4 = null
+    ) {
+
+        $hook =
+            current_filter();
+
+        if (
+            empty(
+                $hook
+            )
+        ) {
+            return;
+        }
+
+        if (
+            empty(
+                $this->status_hook_timers[
+                    $hook
+                ]
+            )
+        ) {
+            return;
+        }
+
+        $timer =
+            array_pop(
+                $this->status_hook_timers[
+                    $hook
+                ]
+            );
+
+        $duration_ms =
+            (int)
+            round(
+                (
+                    microtime(
+                        true
+                    ) -
+                    $timer['started_at']
+                ) *
+                1000
+            );
+
+        $resolved_order_id =
+            $this->resolve_order_id_from_arguments(
+                array(
+                    $order_id,
+                    $arg_2,
+                    $arg_3,
+                    $arg_4,
+                )
+            );
+
+        if (
+            ! $resolved_order_id &&
+            isset(
+                $timer['order_id']
+            )
+        ) {
+            $resolved_order_id =
+                absint(
+                    $timer['order_id']
+                );
+        }
+
+        $this->logger->log(
+            'status_hook_timing',
+            'مدت اجرای Hook تغییر وضعیت سفارش ثبت شد.',
+            array(
+                'hook' =>
+                    $hook,
+
+                'order_id' =>
+                    $resolved_order_id,
+
+                'duration_ms' =>
+                    max(
+                        0,
+                        $duration_ms
+                    ),
+
+                'request_uri' =>
+                    isset(
+                        $_SERVER['REQUEST_URI']
+                    )
+                        ? sanitize_text_field(
+                            wp_unslash(
+                                $_SERVER['REQUEST_URI']
+                            )
+                        )
+                        : '',
+            )
         );
     }
 
@@ -122,19 +866,6 @@ class WooSmart_Action_Engine {
 
     /**
      * Execute automation actions and return per-Action results.
-     *
-     * IMPORTANT:
-     *
-     * Action execution is fail-fast.
-     *
-     * Once an Action fails, no later Action in the same Automation
-     * is executed.
-     *
-     * This makes the Automation execution behavior deterministic
-     * and avoids continuing with additional side effects after a
-     * known failure.
-     *
-     * WooSmart intentionally does not perform automatic rollback.
      *
      * @param array $actions Actions configuration.
      * @param array $context Execution context.
@@ -369,11 +1100,6 @@ class WooSmart_Action_Engine {
                 ] =
                     $action_number;
 
-                /*
-                 * Fail-fast behavior:
-                 *
-                 * Do not execute any Action after the first failed Action.
-                 */
                 $result[
                     'actions_stopped'
                 ] =
@@ -816,19 +1542,8 @@ class WooSmart_Action_Engine {
             $order->get_status();
 
         /*
-         * IMPORTANT:
-         *
-         * If the order is already in the requested status,
-         * do not call update_status().
-         *
-         * Calling update_status() with the same status can still
-         * cause unnecessary WooCommerce processing and downstream
-         * hooks. This was visible in the execution logs as:
-         *
-         * processing -> processing
-         *
-         * and was responsible for several seconds of unnecessary
-         * execution time.
+         * Never trigger a status transition if the requested
+         * status is already active.
          */
         if (
             $old_status ===
@@ -878,11 +1593,21 @@ class WooSmart_Action_Engine {
         }
 
         /*
-         * Measure ONLY the WooCommerce update_status() call.
+         * IMPORTANT:
          *
-         * This allows us to determine whether the long execution
-         * time originates inside WooCommerce status transition
-         * processing / downstream hooks.
+         * Register callback-level diagnostics immediately before
+         * update_status().
+         *
+         * This catches callbacks added by WooCommerce, payment
+         * gateways, SMTP plugins, themes, and other plugins after
+         * the Action Engine itself was constructed.
+         */
+        $this->ensure_callback_level_diagnostics(
+            'woocommerce_order_status_pending_to_processing'
+        );
+
+        /*
+         * Measure the complete WooCommerce update_status() call.
          */
         $status_update_started =
             microtime(
@@ -907,12 +1632,6 @@ class WooSmart_Action_Engine {
                 1000
             );
 
-        /*
-         * Diagnostic timing log.
-         *
-         * This is intentionally separate from action_executed so
-         * the expensive part of status processing can be identified.
-         */
         $this->logger->log(
             'order_status_update_timing',
             'مدت زمان پردازش تغییر وضعیت سفارش ثبت شد.',
@@ -1082,10 +1801,6 @@ class WooSmart_Action_Engine {
 
     /**
      * Send an email notification to the store administrator.
-     *
-     * WooSmart intentionally does not set the From address here.
-     * The active WordPress mail transport is responsible for the
-     * final From address.
      *
      * @param array $action  Action configuration.
      * @param array $context Execution context.
@@ -1439,13 +2154,6 @@ class WooSmart_Action_Engine {
 
     /**
      * Replace order placeholders in notification message.
-     *
-     * Supported placeholders:
-     *
-     * {order_id}
-     * {order_total}
-     * {order_status}
-     * {customer_name}
      *
      * @param string $message Message template.
      * @param array  $context Execution context.
