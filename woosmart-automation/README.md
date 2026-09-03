@@ -24,7 +24,7 @@ A user should eventually be able to create a workflow, understand what it will d
 **Platform:** WordPress + WooCommerce  
 **Language / UI:** Persian, RTL  
 **Version:** `1.0.0`  
-**Stage:** MVP / Execution Reliability, Conflict Detection & Execution Planning → Multiple Conditions Design  
+**Stage:** MVP / Execution Reliability, Conflict Detection, Execution Planning & Multiple Conditions → Next: Expanded Conditions / Actions  
 
 Repository:
 
@@ -502,6 +502,64 @@ No monetary conversion is performed.
 
 A real notification test confirmed successful delivery with the formatted order amount and current store display unit.
 
+## Phase 19 — Multiple Conditions
+
+The Condition model was extended from one active Condition per Automation to an ordered list of Conditions while preserving backward compatibility with the existing stored Condition format.
+
+Current MVP semantics are explicit AND semantics:
+
+```text
+Condition 1
+    AND
+Condition 2
+    AND
+Condition 3
+```
+
+The current runtime path is:
+
+```text
+Automation Builder
+    ↓
+Automation Manager
+    ↓
+Condition Snapshot
+    ↓
+Execution Planning
+    ↓
+Condition Engine
+    ↓
+All Conditions must pass
+    ↓
+Action Execution
+```
+
+The Admin UI supports adding, deleting, and reordering Condition rows. Conditions are stored independently inside the Automation configuration and are preserved during Edit operations.
+
+Real WooCommerce testing confirmed:
+
+```text
+2 Conditions → both pass → Automation executes
+2 Conditions → one fails → Automation does not execute
+3 Conditions → persistence and reordering confirmed
+between + other Conditions → supported
+Execution Detail → individual passed results displayed
+```
+
+A dedicated real-order test used Automation `#118`:
+
+```text
+Condition 1: Order Total > 1,000,000
+AND
+Condition 2: Order Total < 5,000,000
+```
+
+For order `#123` with total `3,000,000` both Conditions passed, the Execution Plan matched, `notify_admin` executed successfully, and the notification was delivered.
+
+A negative real-order test used order `#122` with total `7,000,000`. The Conditions failed, the Execution Plan reported `matched: false`, no WooSmart Execution record was created, and the email received was correctly identified as WooCommerce's normal **New Order** email rather than a WooSmart notification.
+
+Execution Detail presentation was then hardened so successful multi-Condition Executions display each Condition as `✓ موفق` even when older Execution snapshots do not contain individual `condition_results`.
+
 ---
 
 # 4. Current Architecture
@@ -539,6 +597,10 @@ Condition Registry
      ↓
 Condition Engine
      ↓
+Ordered Condition List
+     ↓
+AND Evaluation
+     ↓
 Condition Result
 ```
 
@@ -575,7 +637,7 @@ Trigger
      ↓
 Candidate Automations
      ↓
-Condition Evaluation
+Planning Condition Evaluation
      ↓
 Conflict Detection
      ↓
@@ -584,6 +646,8 @@ Priority Ordering
 Execution Policy
      ↓
 Formal Execution Plan
+     ↓
+Runtime Condition Evaluation
      ↓
 Action Execution
      ↓
@@ -644,12 +708,12 @@ woosmart-automation/
 | `class-woosmart-post-types.php` | Internal Automation post type |
 | `class-woosmart-automation-manager.php` | CRUD, validation, persistence |
 | `class-woosmart-condition-registry.php` | Central Condition definitions |
-| `class-woosmart-condition-engine.php` | Condition evaluation |
+| `class-woosmart-condition-engine.php` | Condition evaluation, including ordered multi-Condition AND evaluation |
 | `class-woosmart-action-registry.php` | Central Action definitions / handlers |
 | `class-woosmart-action-engine.php` | Action execution and results |
 | `class-woosmart-execution-engine.php` | Runtime orchestration, Conflict Detection integration, Priority, Execution Policy, and Formal Execution Planning |
 | `class-woosmart-execution-history.php` | Historical Execution records and snapshots |
-| `class-woosmart-execution-admin.php` | Execution History / Policy UI |
+| `class-woosmart-execution-admin.php` | Execution History / Policy UI and Condition/Action result presentation |
 | `class-woosmart-priority-admin.php` | Priority UI and Priority persistence |
 | `class-woosmart-conflict-detector.php` | Cross-Automation conflict analysis and advisory UI |
 
@@ -733,6 +797,16 @@ Past Executions retain the Conditions and Actions that existed at execution time
 ## Execution Detail Range Display — ✅ Tested
 
 Structured `between` values are displayed as a readable min/max Persian range rather than as a scalar value.
+
+## Multiple Conditions — ✅ Tested
+
+An Automation can now contain multiple ordered Conditions with current MVP AND semantics. The UI supports adding, reordering, and editing multiple Conditions while preserving the existing single-condition data path for backward compatibility.
+
+Real WooCommerce tests confirmed both positive and negative multi-Condition execution behavior.
+
+## Execution Detail Condition Results — ✅ Tested
+
+Execution Detail correctly displays individual Condition outcomes for successful multi-Condition executions, including historical executions where individual `condition_results` were not stored explicitly.
 
 ## Execution Timing — ✅ Tested
 
@@ -826,6 +900,7 @@ Implemented:
 [x] less_than
 [x] less_than_or_equal
 [x] between
+[x] multiple conditions with AND semantics
 ```
 
 Planned order Conditions:
@@ -913,13 +988,19 @@ For one Automation:
 ```text
 Trigger
     ↓
-Evaluate Conditions
+Evaluate all Conditions
     ↓
-If Conditions pass
+All Conditions pass
     ↓
 Execute Actions sequentially
     ↓
 Determine Automation result
+```
+
+Current multi-Condition semantics are:
+
+```text
+Condition 1 AND Condition 2 AND Condition 3 ...
 ```
 
 All current Conditions must pass.
@@ -998,6 +1079,8 @@ Actions
 2. Action → result → duration
 3. Action → result → duration
 ```
+
+When a current execution has multiple Conditions, the detail page must display the result of each Condition individually whenever a snapshot result exists. For historical successful executions without individual Condition result snapshots, it may infer `✓ موفق` from the fact that the Automation reached the execution stage under current all-Conditions semantics. For `conditions_failed` executions, it must not fabricate which individual Condition failed.
 
 Historical records must remain stable even when the source Automation changes later.
 
@@ -1153,20 +1236,11 @@ This is already part of the working MVP and must not be treated as future functi
 
 # 16. Multiple Conditions
 
-Current MVP:
+Multiple Conditions are now implemented for the current MVP.
 
-```text
-The current product path is intentionally simple.
-```
+The data model remains backward-compatible with the existing single-condition representation. A legacy Automation that contains one Condition continues to work as before, while new and edited Automations may contain an ordered Condition list.
 
-Next development stage:
-
-```text
-Design a backward-compatible Multiple Conditions model
-without breaking the current single-condition data structure.
-```
-
-Target first level:
+Current semantics are strictly AND-based:
 
 ```text
 Condition 1
@@ -1176,33 +1250,40 @@ AND
 Condition 3
 ```
 
-Later:
+The Condition list is preserved through:
 
 ```text
-Group A
-    Condition
-    AND
-    Condition
-OR
-Group B
-    Condition
-    AND
-    Condition
+Create
+Edit
+Save
+Reorder
+Execution Snapshot
+Execution Planning
+Runtime Evaluation
+Execution Detail
 ```
 
-Target:
+Real WooCommerce testing confirmed:
 
 ```text
-AND
+2 Conditions → both pass → execution ✅
+2 Conditions → one fails → execution blocked ✅
+3 Conditions → persistence / reorder ✅
+between + multi-Condition combination ✅
+Execution Detail per-Condition success display ✅
+```
+
+The current feature deliberately does not yet include:
+
+```text
 OR
+Condition Groups
 Nested Groups
-Optional Negation
-Human-readable summaries
+Negation
+Complex boolean expressions
 ```
 
-The data model should be designed before implementation to avoid destructive future migrations.
-
-Backward compatibility with the current stored Condition structure is a requirement for this stage.
+Those remain future extensions and must not break the current AND model.
 
 ---
 
@@ -1216,6 +1297,8 @@ The product must eventually feel easy enough for a non-technical store owner whi
 Choose Trigger
     ↓
 Choose Condition
+    ↓
+Add Conditions as needed
     ↓
 Choose Action
     ↓
@@ -1245,6 +1328,7 @@ Allow previewing a rule against an existing order without modifying it.
 Example:
 
 ```text
+Condition: ✓ Pass
 Condition: ✓ Pass
 Action 1: Would execute
 Action 2: Would execute
@@ -1479,6 +1563,8 @@ _woosmart_actions
 _woosmart_priority
 ```
 
+`_woosmart_conditions` now supports an ordered list of Condition definitions while continuing to accept the existing single-condition structure for backward compatibility.
+
 Execution History is stored separately and contains a historical snapshot of the relevant configuration.
 
 Important invariant:
@@ -1568,14 +1654,20 @@ A feature is not considered complete merely because its Admin UI works. Its runt
 [x] WooCommerce Deferred Transactional Emails
 [x] Checkout performance improvement after Deferred Emails
 [x] Formal Execution Planning
+[x] Multiple Conditions — 2-condition positive execution
+[x] Multiple Conditions — negative execution
+[x] Multiple Conditions — 3-condition persistence and reordering
+[x] Multiple Conditions — between combination
+[x] Multiple Conditions — Execution History condition-result display
 ```
 
-Currently under final hardening / next development stage:
+Current next development stage:
 
 ```text
-[ ] Multiple Conditions backward-compatible data model
-[ ] Multiple Conditions AND / OR execution
-[ ] Condition Groups
+[ ] More high-value Order Conditions
+[ ] More high-value Order Actions
+[ ] More Triggers
+[ ] OR / Condition Groups
 ```
 
 ---
@@ -1596,15 +1688,15 @@ The current Trigger system has `order_created` as its implemented Trigger.
 
 ## One Main Condition Domain
 
-The main implemented Condition is `order_total`, including scalar comparison operators and `between`.
+The main implemented Condition is `order_total`, including scalar comparison operators and `between`. Multiple Conditions are supported for this domain using AND semantics.
+
+## No OR / Condition Groups Yet
+
+The current multi-Condition model is intentionally limited to ordered AND semantics. OR, grouped boolean logic, nested groups, and negation are future extensions.
 
 ## Generalized Scheduling Is Not Implemented
 
 WooCommerce Deferred Emails use Action Scheduler, but WooSmart's own generalized delayed Automation execution is future infrastructure.
-
-## Multiple Conditions Are Not Yet Implemented
-
-The current runtime remains centered on the existing Condition model. The next development stage is the backward-compatible Multiple Conditions data model and execution support.
 
 ---
 
@@ -1615,17 +1707,17 @@ The roadmap is intentionally ordered by architectural dependency and customer va
 ```text
 CURRENT
 │
-├── Multiple Conditions data model
-│     ├── Backward compatibility
-│     ├── AND
-│     ├── OR
-│     └── Groups
-│
 ├── More high-value Order Conditions
 │
 ├── More high-value Order Actions
 │
 ├── More Triggers
+│
+├── OR / Condition Groups
+│     ├── Backward compatibility
+│     ├── OR
+│     ├── Nested Groups
+│     └── Optional Negation
 │
 ├── Professional Automation Builder
 │
@@ -1658,6 +1750,9 @@ Completed architecture milestones now include:
 ✅ Cross-Automation Conflict Detection MVP
 ✅ Formal Execution Planning
 ✅ Currency-aware Notification Placeholder
+✅ Multiple Conditions with AND semantics
+✅ Multiple Conditions real-order validation
+✅ Execution Detail per-Condition result presentation
 ```
 
 The exact ordering may change after real-world testing, but architectural dependencies should be respected.
@@ -1796,6 +1891,10 @@ Execution details describe what happened at execution time.
 
 WooSmart must never silently disable, modify, or delete another Automation because of a detected conflict.
 
+## Multiple Conditions use explicit boolean semantics
+
+The current MVP uses ordered AND semantics. Future OR and grouped boolean logic must be introduced as an explicit extension rather than changing the meaning of existing Automations.
+
 ---
 
 # 30. Development Rules
@@ -1826,6 +1925,8 @@ WooSmart must never silently disable, modify, or delete another Automation becau
 24. When solving WooCommerce email-performance problems, prefer WooCommerce-supported asynchronous mechanisms over custom Hook suppression.
 25. Formal Execution Planning must remain separate from Action side effects.
 26. Conflict detection must remain advisory unless a future explicit blocking policy is designed and documented.
+27. Adding Conditions must preserve backward compatibility with existing single-condition Automations.
+28. Existing AND semantics must not be silently changed when future OR / Group features are introduced.
 
 ---
 
@@ -1897,6 +1998,10 @@ Formal Execution Planning
 Deferred WooCommerce transactional emails verification
    ↓
 Currency-aware Notification Placeholder
+   ↓
+Multiple Conditions with AND semantics
+   ↓
+Per-Condition Execution Detail results
 ```
 
 ## What is confirmed working?
@@ -1932,14 +2037,18 @@ Same-Priority deterministic ordering
 Deferred WooCommerce transactional emails
 Checkout performance improvement after Deferred Emails
 Formal Execution Planning
+Multiple Conditions with AND semantics
+Multiple Condition persistence / reordering
+Multiple Condition positive and negative runtime behavior
+Per-Condition Execution Detail result presentation
 ```
 
 ## What is not complete?
 
 ```text
-Multiple Conditions backward-compatible data model
-Multiple Conditions AND / OR execution
-Condition Groups
+OR / Condition Groups
+Nested boolean logic
+Negation
 More high-value Conditions / Actions / Triggers
 Professional Builder
 Preview / Dry Run
@@ -1954,11 +2063,11 @@ Developer API
 ## What is the next task?
 
 ```text
-1. Design the backward-compatible Multiple Conditions data model
-2. Implement AND / multiple-condition evaluation
-3. Add OR / Group structure without breaking existing Automations
-4. Test Multiple Conditions with real WooCommerce orders
-5. Update Execution History / conflict analysis to understand the expanded Condition model
+1. Expand the Condition inventory with high-value Order Conditions
+2. Expand high-value Order Actions
+3. Add additional Triggers based on customer value
+4. Then design OR / Condition Groups without breaking existing AND Automations
+5. Extend Conflict Detection and Execution Planning coverage as the Condition / Action model grows
 ```
 
 ## What should another AI preserve?
@@ -1979,6 +2088,8 @@ Developer API
 - Treat Cross-Automation Conflict Detection as advisory and non-blocking.
 - Preserve deterministic Priority and Execution Planning behavior.
 - Maintain backward compatibility while expanding the Condition model.
+- Preserve current multiple-Condition AND semantics.
+- Treat OR / Groups as a future explicit extension, not an implicit behavior change.
 - Optimize for a product a store owner can actually understand and buy.
 
 ---
@@ -1994,7 +2105,7 @@ Long-term target:
                          ↓
                 Candidate Automations
                          ↓
-                Condition Evaluation
+               Condition Evaluation
                          ↓
                  Conflict Detection
                          ↓
@@ -2017,7 +2128,7 @@ Long-term target:
               Monitoring / Reports
 ```
 
-The current MVP already implements the Conflict Detection and Execution Planning layers for its supported semantics. The remaining roadmap expands their coverage as new Conditions, Actions, and Triggers are introduced.
+The current MVP already implements the Conflict Detection and Execution Planning layers for its supported semantics. Multiple Conditions are implemented with explicit AND semantics for the current Condition domain. The remaining roadmap expands Condition boolean logic, additional Conditions, Actions, and Triggers while preserving backward compatibility.
 
 The central promise is:
 
