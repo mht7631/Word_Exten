@@ -13,10 +13,266 @@ if ( ! defined( 'ABSPATH' ) ) {
 class WooSmart_Conflict_Detector {
 
     /**
+     * Initialize admin UI.
+     */
+    public function __construct() {
+
+        add_action(
+            'admin_menu',
+            array(
+                $this,
+                'add_admin_menu',
+            )
+        );
+    }
+
+    /**
+     * Add conflict analysis admin page.
+     *
+     * @return void
+     */
+    public function add_admin_menu() {
+
+        add_submenu_page(
+            'woosmart-automation',
+            'تعارض‌ها',
+            'تعارض‌ها',
+            'manage_options',
+            'woosmart-conflicts',
+            array(
+                $this,
+                'render_conflicts_page',
+            )
+        );
+    }
+
+    /**
+     * Render cross-Automation conflict analysis.
+     *
+     * @return void
+     */
+    public function render_conflicts_page() {
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_die(
+                'شما اجازه مشاهده این بخش را ندارید.'
+            );
+        }
+
+        $conflicts =
+            $this->get_all_conflicts();
+        ?>
+
+        <div
+            class="wrap"
+            dir="rtl"
+        >
+
+            <h1>
+                تعارض بین اتوماسیون‌ها
+            </h1>
+
+            <p>
+                این بخش فقط تعارض یا همپوشانی بالقوه را شناسایی و توضیح می‌دهد.
+                هیچ اتوماسیونی به‌صورت خودکار غیرفعال یا مسدود نمی‌شود.
+            </p>
+
+            <?php if ( empty( $conflicts ) ) : ?>
+
+                <div class="notice notice-success inline">
+                    <p>
+                        در حال حاضر تعارض قابل تشخیصی بین اتوماسیون‌های فعال پیدا نشد.
+                    </p>
+                </div>
+
+            <?php else : ?>
+
+                <div class="notice notice-warning inline">
+                    <p>
+                        <?php
+                        echo esc_html(
+                            count( $conflicts ) .
+                            ' مورد هشدار بین اتوماسیون‌های فعال شناسایی شد.'
+                        );
+                        ?>
+                    </p>
+                </div>
+
+                <table class="widefat fixed striped">
+
+                    <thead>
+                        <tr>
+                            <th>شدت</th>
+                            <th>اتوماسیون اول</th>
+                            <th>اتوماسیون دوم</th>
+                            <th>نوع هشدار</th>
+                            <th>توضیح</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+
+                        <?php foreach ( $conflicts as $conflict ) : ?>
+
+                            <?php
+                            $automation_a = isset(
+                                $conflict['automation_a']
+                            )
+                                ? absint(
+                                    $conflict['automation_a']
+                                )
+                                : 0;
+
+                            $automation_b = isset(
+                                $conflict['automation_b']
+                            )
+                                ? absint(
+                                    $conflict['automation_b']
+                                )
+                                : 0;
+
+                            $code = isset(
+                                $conflict['code']
+                            )
+                                ? sanitize_key(
+                                    $conflict['code']
+                                )
+                                : '';
+
+                            $severity = isset(
+                                $conflict['severity']
+                            )
+                                ? sanitize_key(
+                                    $conflict['severity']
+                                )
+                                : 'warning';
+
+                            $message = isset(
+                                $conflict['message']
+                            )
+                                ? $conflict['message']
+                                : '';
+                            ?>
+
+                            <tr>
+
+                                <td>
+                                    <span
+                                        class="notice notice-warning inline"
+                                        style="display:inline-block;margin:0;padding:3px 8px;"
+                                    >
+                                        <?php
+                                        echo esc_html(
+                                            'warning' === $severity
+                                                ? 'هشدار'
+                                                : $severity
+                                        );
+                                        ?>
+                                    </span>
+                                </td>
+
+                                <td>
+                                    <strong>
+                                        <?php
+                                        echo esc_html(
+                                            $this->get_automation_name(
+                                                $automation_a
+                                            )
+                                        );
+                                        ?>
+                                    </strong>
+                                    <br>
+                                    <small>
+                                        #<?php echo esc_html( $automation_a ); ?>
+                                    </small>
+                                </td>
+
+                                <td>
+                                    <strong>
+                                        <?php
+                                        echo esc_html(
+                                            $this->get_automation_name(
+                                                $automation_b
+                                            )
+                                        );
+                                        ?>
+                                    </strong>
+                                    <br>
+                                    <small>
+                                        #<?php echo esc_html( $automation_b ); ?>
+                                    </small>
+                                </td>
+
+                                <td>
+                                    <?php
+                                    echo esc_html(
+                                        $this->get_conflict_label(
+                                            $code
+                                        )
+                                    );
+                                    ?>
+                                </td>
+
+                                <td>
+                                    <?php
+                                    echo esc_html(
+                                        $message
+                                    );
+                                    ?>
+
+                                    <?php if (
+                                        'duplicate_cross_automation_status_target' ===
+                                        $code &&
+                                        ! empty( $conflict['statuses'] )
+                                    ) : ?>
+
+                                        <br>
+                                        <strong>
+                                            وضعیت مشترک:
+                                        </strong>
+                                        <?php
+                                        $labels = array();
+
+                                        foreach (
+                                            $conflict['statuses'] as $status
+                                        ) {
+                                            $labels[] =
+                                                $this->get_status_label(
+                                                    $status
+                                                );
+                                        }
+
+                                        echo esc_html(
+                                            implode(
+                                                '، ',
+                                                $labels
+                                            )
+                                        );
+                                        ?>
+
+                                    <?php endif; ?>
+                                </td>
+
+                            </tr>
+
+                        <?php endforeach; ?>
+
+                    </tbody>
+
+                </table>
+
+            <?php endif; ?>
+
+        </div>
+
+        <?php
+    }
+
+    /**
      * Get cross-Automation conflicts for one Automation.
      *
-     * @param int  $automation_id  Automation ID.
-     * @param bool $include_self   Whether the current Automation may be returned as a pair.
+     * @param int  $automation_id Automation ID.
+     * @param bool $include_self Whether the current Automation may be returned as a pair.
      * @return array
      */
     public function get_conflicts( $automation_id, $include_self = false ) {
@@ -154,7 +410,7 @@ class WooSmart_Conflict_Detector {
     /**
      * Compare two Automations.
      *
-     * @param int $first_id  First Automation ID.
+     * @param int $first_id First Automation ID.
      * @param int $second_id Second Automation ID.
      * @return array
      */
@@ -188,52 +444,43 @@ class WooSmart_Conflict_Detector {
         }
 
         $first_conditions =
-            get_post_meta(
-                $first_id,
-                '_woosmart_conditions',
-                true
-            );
-
-        $second_conditions =
-            get_post_meta(
-                $second_id,
-                '_woosmart_conditions',
-                true
-            );
-
-        $first_conditions =
             $this->normalize_conditions(
-                $first_conditions
+                get_post_meta(
+                    $first_id,
+                    '_woosmart_conditions',
+                    true
+                )
             );
 
         $second_conditions =
             $this->normalize_conditions(
-                $second_conditions
+                get_post_meta(
+                    $second_id,
+                    '_woosmart_conditions',
+                    true
+                )
             );
 
-        $overlap =
-            $this->conditions_overlap(
+        if (
+            ! $this->conditions_overlap(
                 $first_conditions,
                 $second_conditions
-            );
-
-        if ( ! $overlap ) {
+            )
+        ) {
             return array();
         }
 
-        $first_actions =
-            get_post_meta(
-                $first_id,
-                '_woosmart_actions',
-                true
-            );
+        $first_actions = get_post_meta(
+            $first_id,
+            '_woosmart_actions',
+            true
+        );
 
-        $second_actions =
-            get_post_meta(
-                $second_id,
-                '_woosmart_actions',
-                true
-            );
+        $second_actions = get_post_meta(
+            $second_id,
+            '_woosmart_actions',
+            true
+        );
 
         if ( ! is_array( $first_actions ) ) {
             $first_actions = array();
@@ -243,14 +490,14 @@ class WooSmart_Conflict_Detector {
             $second_actions = array();
         }
 
-        $conflicts = array();
-
-        $conflicts[] = array(
-            'code'         => 'overlapping_automation_conditions',
-            'severity'     => 'warning',
-            'automation_a' => $first_id,
-            'automation_b' => $second_id,
-            'message'      => 'شرایط این دو اتوماسیون می‌تواند برای یک سفارش به‌صورت همزمان برقرار شود؛ بنابراین ممکن است هر دو در یک اجرا وارد زنجیره شوند.',
+        $conflicts = array(
+            array(
+                'code'         => 'overlapping_automation_conditions',
+                'severity'     => 'warning',
+                'automation_a' => $first_id,
+                'automation_b' => $second_id,
+                'message'      => 'شرایط این دو اتوماسیون می‌تواند برای یک سفارش به‌صورت همزمان برقرار شود؛ بنابراین ممکن است هر دو در یک اجرا وارد زنجیره شوند.',
+            ),
         );
 
         $first_statuses =
@@ -268,23 +515,22 @@ class WooSmart_Conflict_Detector {
             ! empty( $second_statuses )
         ) {
 
-            $common_statuses =
-                array_values(
-                    array_intersect(
-                        $first_statuses,
-                        $second_statuses
-                    )
-                );
+            $common_statuses = array_values(
+                array_intersect(
+                    $first_statuses,
+                    $second_statuses
+                )
+            );
 
             if ( ! empty( $common_statuses ) ) {
 
                 $conflicts[] = array(
-                    'code'            => 'duplicate_cross_automation_status_target',
-                    'severity'        => 'warning',
-                    'automation_a'    => $first_id,
-                    'automation_b'    => $second_id,
-                    'statuses'        => $common_statuses,
-                    'message'         => 'هر دو اتوماسیون در شرایط همپوشان می‌توانند وضعیت سفارش را به یک وضعیت یکسان تغییر دهند؛ این وضعیت ممکن است باعث اجرای رفتارهای تکراری یا Hookهای وابسته شود.',
+                    'code'         => 'duplicate_cross_automation_status_target',
+                    'severity'     => 'warning',
+                    'automation_a' => $first_id,
+                    'automation_b' => $second_id,
+                    'statuses'     => $common_statuses,
+                    'message'      => 'هر دو اتوماسیون در شرایط همپوشان می‌توانند وضعیت سفارش را به یک وضعیت یکسان تغییر دهند؛ این وضعیت ممکن است باعث اجرای رفتارهای تکراری یا Hookهای وابسته شود.',
                 );
 
             } else {
@@ -294,10 +540,8 @@ class WooSmart_Conflict_Detector {
                     'severity'     => 'warning',
                     'automation_a' => $first_id,
                     'automation_b' => $second_id,
-                    'messages'    => array(
-                        'automation_a_statuses' => $first_statuses,
-                        'automation_b_statuses' => $second_statuses,
-                    ),
+                    'automation_a_statuses' => $first_statuses,
+                    'automation_b_statuses' => $second_statuses,
                     'message'      => 'هر دو اتوماسیون در شرایط همپوشان می‌توانند وضعیت سفارش را تغییر دهند؛ ترتیب Priority و وضعیت واقعی سفارش روی نتیجه اثر می‌گذارد.',
                 );
             }
@@ -321,6 +565,7 @@ class WooSmart_Conflict_Detector {
         $valid = array();
 
         foreach ( $conditions as $condition ) {
+
             if ( ! is_array( $condition ) ) {
                 continue;
             }
@@ -346,9 +591,8 @@ class WooSmart_Conflict_Detector {
      * Determine whether two current-MVP condition sets can overlap.
      *
      * Empty conditions are treated as matching all values.
-     * Supported deterministic interval analysis is currently limited
-     * to order_total. Other same-trigger conditions are treated as
-     * potentially overlapping so the UI remains conservative.
+     * Deterministic interval analysis is currently limited to order_total.
+     * Unknown same-trigger condition types are treated conservatively.
      *
      * @param array $first_conditions First condition set.
      * @param array $second_conditions Second condition set.
@@ -366,7 +610,7 @@ class WooSmart_Conflict_Detector {
             return true;
         }
 
-        $first = reset( $first_conditions );
+        $first  = reset( $first_conditions );
         $second = reset( $second_conditions );
 
         if (
@@ -422,7 +666,7 @@ class WooSmart_Conflict_Detector {
     }
 
     /**
-     * Convert an order_total condition into an inclusive interval.
+     * Convert an order_total condition into an interval.
      *
      * @param array $condition Condition.
      * @return array|false
@@ -506,6 +750,7 @@ class WooSmart_Conflict_Detector {
         $statuses = array();
 
         foreach ( $actions as $action ) {
+
             if (
                 ! is_array( $action ) ||
                 'change_order_status' !==
@@ -548,7 +793,29 @@ class WooSmart_Conflict_Detector {
     }
 
     /**
-     * Get a human-readable status label.
+     * Get a human-readable conflict label.
+     *
+     * @param string $code Conflict code.
+     * @return string
+     */
+    public function get_conflict_label( $code ) {
+
+        switch ( sanitize_key( $code ) ) {
+            case 'overlapping_automation_conditions':
+                return 'همپوشانی شرایط';
+
+            case 'duplicate_cross_automation_status_target':
+                return 'مقصد وضعیت یکسان';
+
+            case 'cross_automation_status_transition':
+                return 'تغییر وضعیت متداخل';
+        }
+
+        return 'هشدار تعارض';
+    }
+
+    /**
+     * Get a human-readable order-status label.
      *
      * @param string $status Status slug.
      * @return string
@@ -560,6 +827,7 @@ class WooSmart_Conflict_Detector {
         if (
             function_exists( 'wc_get_order_statuses' )
         ) {
+
             $statuses = wc_get_order_statuses();
             $key      = 'wc-' . $status;
 
