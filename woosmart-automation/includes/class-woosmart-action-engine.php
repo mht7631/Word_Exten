@@ -1441,11 +1441,12 @@ class WooSmart_Action_Engine {
                 $order
             ) {
 
+                $currency =
+                    new WooSmart_Currency();
+
                 $order_total =
-                    number_format_i18n(
-                        (float)
-                        $order->get_total(),
-                        0
+                    $currency->format_display_money(
+                        $order->get_total()
                     );
 
                 $order_status =
@@ -1469,8 +1470,7 @@ class WooSmart_Action_Engine {
                 $order_id,
 
             '{order_total}' =>
-                $order_total .
-                ' تومان',
+                $order_total,
 
             '{order_status}' =>
                 $order_status,
