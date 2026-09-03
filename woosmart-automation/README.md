@@ -526,7 +526,7 @@ woosmart-automation/
     ├── class-woosmart-core.php
     ├── class-woosmart-logger.php
     ├── class-woosmart-currency.php
-a    ├── class-woosmart-admin.php
+    ├── class-woosmart-admin.php
     ├── class-woosmart-notification-settings.php
     ├── class-woosmart-automation.php
     ├── class-woosmart-triggers.php
