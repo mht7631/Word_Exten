@@ -28,7 +28,8 @@ class WooSmart_Condition_Engine {
      */
     public function __construct() {
 
-        $this->logger = new WooSmart_Logger();
+        $this->logger =
+            new WooSmart_Logger();
 
         $this->registry =
             new WooSmart_Condition_Registry();
@@ -39,14 +40,16 @@ class WooSmart_Condition_Engine {
      *
      * All conditions must pass.
      *
-     * @param array $conditions Conditions configuration.
-     * @param array $context    Execution context.
+     * @param array $conditions   Conditions configuration.
+     * @param array $context      Execution context.
+     * @param bool  $log_results  Whether condition results should be logged.
      *
      * @return bool
      */
     public function evaluate(
         $conditions,
-        $context = array()
+        $context = array(),
+        $log_results = true
     ) {
 
         if (
@@ -56,108 +59,193 @@ class WooSmart_Condition_Engine {
             return true;
         }
 
-        foreach ( $conditions as $condition ) {
+        foreach (
+            $conditions
+            as $condition
+        ) {
 
-            if ( ! is_array( $condition ) ) {
-
-                $this->logger->log(
-                    'condition_failed',
-                    'Invalid condition configuration.',
-                    array(
-                        'condition' => $condition,
-                    )
-                );
-
-                return false;
-            }
-
-            $field = isset( $condition['field'] )
-                ? sanitize_key( $condition['field'] )
-                : '';
-
-            $operator = isset( $condition['operator'] )
-                ? sanitize_key( $condition['operator'] )
-                : '';
-
-            $value = isset( $condition['value'] )
-                ? $condition['value']
-                : '';
-
-            if ( empty( $field ) ) {
-
-                $this->logger->log(
-                    'condition_failed',
-                    'Condition field is missing.',
-                    array(
-                        'condition' => $condition,
-                    )
-                );
-
-                return false;
-            }
-
-            if ( empty( $operator ) ) {
-
-                $this->logger->log(
-                    'condition_failed',
-                    'Condition operator is missing.',
-                    array(
-                        'condition' => $condition,
-                    )
-                );
-
-                return false;
-            }
-
-            if ( ! $this->registry->has( $field ) ) {
-
-                $this->logger->log(
-                    'condition_failed',
-                    'Unknown condition field.',
-                    array(
-                        'field'     => $field,
-                        'operator'  => $operator,
-                        'value'     => $value,
-                    )
-                );
-
-                return false;
-            }
-
-            $result = $this->registry->evaluate(
-                $field,
-                $operator,
-                $value,
-                $context
-            );
-
-            if ( ! $result ) {
-
-                $this->logger->log(
-                    'condition_failed',
-                    'Automation condition was not satisfied.',
-                    array(
-                        'field'     => $field,
-                        'operator'  => $operator,
-                        'value'     => $value,
-                        'context'   => $this->get_safe_context(
-                            $context
-                        ),
-                    )
-                );
-
-                return false;
-            }
-
-            $this->logger->log(
-                'condition_passed',
-                'Automation condition was satisfied.',
-                array(
-                    'field'     => $field,
-                    'operator'  => $operator,
-                    'value'     => $value,
+            if (
+                ! is_array(
+                    $condition
                 )
-            );
+            ) {
+
+                if (
+                    $log_results
+                ) {
+
+                    $this->logger->log(
+                        'condition_failed',
+                        'Invalid condition configuration.',
+                        array(
+                            'condition' =>
+                                $condition,
+                        )
+                    );
+                }
+
+                return false;
+            }
+
+            $field =
+                isset(
+                    $condition['field']
+                )
+                    ? sanitize_key(
+                        $condition['field']
+                    )
+                    : '';
+
+            $operator =
+                isset(
+                    $condition['operator']
+                )
+                    ? sanitize_key(
+                        $condition['operator']
+                    )
+                    : '';
+
+            $value =
+                isset(
+                    $condition['value']
+                )
+                    ? $condition['value']
+                    : '';
+
+            if (
+                empty(
+                    $field
+                )
+            ) {
+
+                if (
+                    $log_results
+                ) {
+
+                    $this->logger->log(
+                        'condition_failed',
+                        'Condition field is missing.',
+                        array(
+                            'condition' =>
+                                $condition,
+                        )
+                    );
+                }
+
+                return false;
+            }
+
+            if (
+                empty(
+                    $operator
+                )
+            ) {
+
+                if (
+                    $log_results
+                ) {
+
+                    $this->logger->log(
+                        'condition_failed',
+                        'Condition operator is missing.',
+                        array(
+                            'condition' =>
+                                $condition,
+                        )
+                    );
+                }
+
+                return false;
+            }
+
+            if (
+                ! $this->registry->has(
+                    $field
+                )
+            ) {
+
+                if (
+                    $log_results
+                ) {
+
+                    $this->logger->log(
+                        'condition_failed',
+                        'Unknown condition field.',
+                        array(
+                            'field' =>
+                                $field,
+
+                            'operator' =>
+                                $operator,
+
+                            'value' =>
+                                $value,
+                        )
+                    );
+                }
+
+                return false;
+            }
+
+            $result =
+                $this->registry->evaluate(
+                    $field,
+                    $operator,
+                    $value,
+                    $context
+                );
+
+            if (
+                ! $result
+            ) {
+
+                if (
+                    $log_results
+                ) {
+
+                    $this->logger->log(
+                        'condition_failed',
+                        'Automation condition was not satisfied.',
+                        array(
+                            'field' =>
+                                $field,
+
+                            'operator' =>
+                                $operator,
+
+                            'value' =>
+                                $value,
+
+                            'context' =>
+                                $this->get_safe_context(
+                                    $context
+                                ),
+                        )
+                    );
+                }
+
+                return false;
+            }
+
+            if (
+                $log_results
+            ) {
+
+                $this->logger->log(
+                    'condition_passed',
+                    'Automation condition was satisfied.',
+                    array(
+                        'field' =>
+                            $field,
+
+                        'operator' =>
+                            $operator,
+
+                        'value' =>
+                            $value,
+                    )
+                );
+            }
         }
 
         return true;
@@ -182,7 +270,9 @@ class WooSmart_Condition_Engine {
      *
      * @return array|null
      */
-    public function get_condition( $field ) {
+    public function get_condition(
+        $field
+    ) {
 
         return $this->registry->get(
             $field
@@ -196,7 +286,9 @@ class WooSmart_Condition_Engine {
      *
      * @return array
      */
-    public function get_operators( $field ) {
+    public function get_operators(
+        $field
+    ) {
 
         return $this->registry->get_operators(
             $field
@@ -216,15 +308,27 @@ class WooSmart_Condition_Engine {
         $context
     ) {
 
-        if ( ! is_array( $context ) ) {
+        if (
+            ! is_array(
+                $context
+            )
+        ) {
             return array();
         }
 
-        $safe_context = array();
+        $safe_context =
+            array();
 
-        foreach ( $context as $key => $value ) {
+        foreach (
+            $context
+            as $key => $value
+        ) {
 
-            if ( is_object( $value ) ) {
+            if (
+                is_object(
+                    $value
+                )
+            ) {
 
                 if (
                     'order' === $key &&
@@ -233,7 +337,10 @@ class WooSmart_Condition_Engine {
                         'get_id'
                     )
                 ) {
-                    $safe_context['order_id'] =
+
+                    $safe_context[
+                        'order_id'
+                    ] =
                         absint(
                             $value->get_id()
                         );
@@ -242,12 +349,22 @@ class WooSmart_Condition_Engine {
                 continue;
             }
 
-            if ( is_array( $value ) ) {
+            if (
+                is_array(
+                    $value
+                )
+            ) {
                 continue;
             }
 
-            $safe_context[ sanitize_key( $key ) ] =
-                is_scalar( $value )
+            $safe_context[
+                sanitize_key(
+                    $key
+                )
+            ] =
+                is_scalar(
+                    $value
+                )
                     ? $value
                     : '';
         }
