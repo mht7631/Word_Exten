@@ -510,6 +510,8 @@ Results
 
 Future cross-Automation conflict analysis will sit before the final execution plan without silently changing any Automation configuration.
 
+Shared Condition, Action, and Execution services are used to avoid unnecessary duplicate engine instances.
+
 ---
 
 # 5. Current File Structure
@@ -532,7 +534,7 @@ woosmart-automation/
     ├── class-woosmart-automation-manager.php
     ├── class-woosmart-condition-registry.php
     ├── class-woosmart-condition-engine.php
-a    ├── class-woosmart-action-registry.php
+    ├── class-woosmart-action-registry.php
     ├── class-woosmart-action-engine.php
     ├── class-woosmart-execution-engine.php
     ├── class-woosmart-execution-history.php
