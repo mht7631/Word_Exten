@@ -1217,6 +1217,15 @@ class WooSmart_Execution_Admin {
                         )
                             ? $execution['condition_results']
                             : array();
+
+                    $execution_status =
+                        isset(
+                            $execution['status']
+                        )
+                            ? sanitize_key(
+                                $execution['status']
+                            )
+                            : '';
                     ?>
 
                     <?php if ( empty( $conditions ) ) : ?>
@@ -1260,19 +1269,29 @@ class WooSmart_Execution_Admin {
                                     : '';
 
                             /*
+                             * Determine the individual condition result.
+                             *
+                             * Priority:
+                             *
+                             * 1. Explicit condition_results snapshot.
+                             * 2. Legacy condition_result array.
+                             * 3. Legacy scalar condition_result, but only
+                             *    for a single-condition execution.
+                             * 4. Current execution model fallback:
+                             *    an execution with status running/completed/
+                             *    failed has already passed ALL AND conditions.
+                             *
                              * IMPORTANT:
-                             * Do not use one global condition_result for
-                             * every condition. When individual results exist,
-                             * use the result belonging to this condition.
+                             * A null condition_result must NOT block the
+                             * multi-condition fallback.
                              */
                             $condition_passed =
                                 null;
 
                             if (
-                                isset(
-                                    $condition_results[
-                                        $index
-                                    ]
+                                array_key_exists(
+                                    $index,
+                                    $condition_results
                                 )
                             ) {
 
@@ -1309,7 +1328,10 @@ class WooSmart_Execution_Admin {
                                         (bool)
                                         $condition_result['success'];
 
-                                } else {
+                                } elseif (
+                                    null !==
+                                    $condition_result
+                                ) {
 
                                     $condition_passed =
                                         (bool)
@@ -1323,10 +1345,9 @@ class WooSmart_Execution_Admin {
                                 is_array(
                                     $execution['condition_result']
                                 ) &&
-                                isset(
-                                    $execution['condition_result'][
-                                        $index
-                                    ]
+                                array_key_exists(
+                                    $index,
+                                    $execution['condition_result']
                                 )
                             ) {
 
@@ -1337,36 +1358,52 @@ class WooSmart_Execution_Admin {
                                     ];
 
                             } elseif (
+                                1 === count(
+                                    $conditions
+                                ) &&
                                 array_key_exists(
                                     'condition_result',
                                     $execution
                                 ) &&
                                 ! is_array(
                                     $execution['condition_result']
+                                ) &&
+                                null !==
+                                $execution['condition_result']
+                            ) {
+
+                                /*
+                                 * Backward compatibility for historical
+                                 * executions that stored one aggregate
+                                 * scalar result.
+                                 */
+                                $condition_passed =
+                                    (bool)
+                                    $execution['condition_result'];
+
+                            } elseif (
+                                in_array(
+                                    $execution_status,
+                                    array(
+                                        'running',
+                                        'completed',
+                                        'failed',
+                                    ),
+                                    true
                                 )
                             ) {
 
                                 /*
-                                 * Backward compatibility:
-                                 * Old executions only stored one aggregate
-                                 * result. In that case it is used as the
-                                 * overall result, not fabricated as a
-                                 * per-condition result when multiple
-                                 * conditions exist.
+                                 * Current execution model:
+                                 * execution history is created only after
+                                 * all AND conditions have matched.
+                                 *
+                                 * Therefore every condition is known to have
+                                 * passed for an execution that reached the
+                                 * execution stage.
                                  */
-                                if (
-                                    1 === count(
-                                        $conditions
-                                    )
-                                ) {
-
-                                    $condition_passed =
-                                        null !==
-                                        $execution['condition_result']
-                                            ? (bool)
-                                                $execution['condition_result']
-                                            : null;
-                                }
+                                $condition_passed =
+                                    true;
                             }
                             ?>
 
