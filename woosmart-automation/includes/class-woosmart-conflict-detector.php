@@ -1610,6 +1610,4 @@ public function get_status_label(
 
     return $status;
 }
-```
-
 }
