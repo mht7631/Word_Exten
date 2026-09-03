@@ -738,18 +738,28 @@ class WooSmart_Automation_Manager {
     /**
      * Get conditions from request.
      *
-     * Supports both:
+     * Supports:
      *
-     * 1. Standard scalar condition values:
+     * 1. Multiple conditions:
      *
-     *    condition_value=1000000
+     *    conditions[0][field]
+     *    conditions[0][operator]
+     *    conditions[0][value]
      *
-     * 2. Range condition values:
+     * 2. Range condition:
      *
-     *    condition_value_min=1000000
-     *    condition_value_max=5000000
+     *    conditions[0][field]
+     *    conditions[0][operator] = between
+     *    conditions[0][min]
+     *    conditions[0][max]
      *
-     * A range is stored as:
+     * 3. Previous single-condition form for backward compatibility:
+     *
+     *    condition_field
+     *    condition_operator
+     *    condition_value
+     *
+     * Range values are stored as:
      *
      * array(
      *     'min' => '1000000',
@@ -762,6 +772,163 @@ class WooSmart_Automation_Manager {
 
         $conditions = array();
 
+        /*
+         * New multiple-condition structure.
+         */
+        if (
+            isset( $_POST['conditions'] ) &&
+            is_array( $_POST['conditions'] )
+        ) {
+
+            $submitted_conditions =
+                wp_unslash(
+                    $_POST['conditions']
+                );
+
+            foreach (
+                $submitted_conditions as $submitted_condition
+            ) {
+
+                if (
+                    ! is_array(
+                        $submitted_condition
+                    )
+                ) {
+                    continue;
+                }
+
+                $field = isset(
+                    $submitted_condition['field']
+                )
+                    ? sanitize_key(
+                        $submitted_condition['field']
+                    )
+                    : '';
+
+                $operator = isset(
+                    $submitted_condition['operator']
+                )
+                    ? sanitize_key(
+                        $submitted_condition['operator']
+                    )
+                    : '';
+
+                if (
+                    empty( $field ) ||
+                    empty( $operator )
+                ) {
+                    continue;
+                }
+
+                /*
+                 * Range condition.
+                 */
+                if (
+                    'between' ===
+                    $operator
+                ) {
+
+                    $minimum =
+                        isset(
+                            $submitted_condition['min']
+                        )
+                            ? sanitize_text_field(
+                                $submitted_condition['min']
+                            )
+                            : '';
+
+                    $maximum =
+                        isset(
+                            $submitted_condition['max']
+                        )
+                            ? sanitize_text_field(
+                                $submitted_condition['max']
+                            )
+                            : '';
+
+                    $minimum =
+                        $this->normalize_numeric_input(
+                            $minimum
+                        );
+
+                    $maximum =
+                        $this->normalize_numeric_input(
+                            $maximum
+                        );
+
+                    /*
+                     * Do not add a completely empty range.
+                     * Validation is still responsible for validating
+                     * an intentionally incomplete submitted condition.
+                     */
+                    if (
+                        '' === $minimum &&
+                        '' === $maximum
+                    ) {
+                        continue;
+                    }
+
+                    $conditions[] = array(
+                        'field'    => $field,
+                        'operator' => $operator,
+                        'value'    => array(
+                            'min' =>
+                                $minimum,
+
+                            'max' =>
+                                $maximum,
+                        ),
+                    );
+
+                    continue;
+                }
+
+                /*
+                 * Scalar condition.
+                 */
+                if (
+                    ! isset(
+                        $submitted_condition['value']
+                    )
+                ) {
+                    continue;
+                }
+
+                $value =
+                    sanitize_text_field(
+                        $submitted_condition['value']
+                    );
+
+                $value =
+                    $this->normalize_numeric_input_for_condition(
+                        $field,
+                        $value
+                    );
+
+                if (
+                    '' ===
+                    trim(
+                        (string)
+                        $value
+                    )
+                ) {
+                    continue;
+                }
+
+                $conditions[] = array(
+                    'field'    => $field,
+                    'operator' => $operator,
+                    'value'    => $value,
+                );
+            }
+
+            return $conditions;
+        }
+
+        /*
+         * Backward compatibility with the previous
+         * single-condition form.
+         */
         if (
             ! isset( $_POST['condition_field'] ) ||
             ! isset( $_POST['condition_operator'] )
@@ -791,10 +958,7 @@ class WooSmart_Automation_Manager {
         }
 
         /*
-         * Range condition.
-         *
-         * This is intentionally handled separately from the scalar
-         * condition value so existing Automations remain compatible.
+         * Previous range form.
          */
         if (
             'between' ===
@@ -855,7 +1019,7 @@ class WooSmart_Automation_Manager {
         }
 
         /*
-         * Existing scalar condition behavior.
+         * Previous scalar form.
          */
         if (
             ! isset(
@@ -1389,17 +1553,8 @@ class WooSmart_Automation_Manager {
                     );
                 }
 
-                $minimum =
-                    (float)
-                    $minimum;
-
-                $maximum =
-                    (float)
-                    $maximum;
-
-                if (
-                    $minimum < 0 ||
-                    $maximum < 0
+                if ( (float) $minimum < 0 ||
+                    (float) $maximum < 0
                 ) {
 
                     return new WP_Error(
@@ -1409,8 +1564,8 @@ class WooSmart_Automation_Manager {
                 }
 
                 if (
-                    $minimum >
-                    $maximum
+                    (float) $minimum >
+                    (float) $maximum
                 ) {
 
                     return new WP_Error(
