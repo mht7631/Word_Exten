@@ -1281,8 +1281,8 @@ class WooSmart_Execution_Engine {
         /*
          * Normalize only for runtime compatibility.
          *
-         * This method is read-only and never changes
-         * the Automation metadata.
+         * This method is read-only and preserves
+         * all valid Conditions.
          */
         $conditions =
             $this->normalize_conditions_for_current_mvp(
@@ -1347,7 +1347,7 @@ class WooSmart_Execution_Engine {
          *
          * This preserves the existing runtime safety behavior:
          * the actual Automation execution always validates its
-         * current runtime condition immediately before Actions.
+         * current runtime conditions immediately before Actions.
          */
         $conditions_passed =
             $this->condition_engine->evaluate(
@@ -1519,9 +1519,10 @@ class WooSmart_Execution_Engine {
     }
 
     /**
-     * Normalize Conditions for current MVP runtime.
+     * Normalize Conditions for current runtime.
      *
-     * The current MVP supports one Condition per Automation.
+     * The current Multiple Conditions implementation
+     * supports all valid Conditions in one Automation.
      *
      * IMPORTANT:
      * This method is intentionally read-only.
@@ -1546,7 +1547,8 @@ class WooSmart_Execution_Engine {
         }
 
         /*
-         * Remove malformed entries while preserving valid entries.
+         * Remove malformed entries while preserving
+         * the original order of all valid Conditions.
          */
         $valid_conditions =
             array();
@@ -1623,19 +1625,15 @@ class WooSmart_Execution_Engine {
         }
 
         /*
-         * Current MVP:
-         * one authoritative Condition.
+         * Multiple Conditions:
          *
-         * Legacy structures containing multiple Conditions
-         * use the last valid Condition.
+         * Preserve every valid Condition in its original order.
+         *
+         * Condition Engine is responsible for evaluating them
+         * using its existing AND behavior.
          */
-        $current_condition =
-            end(
-                $valid_conditions
-            );
-
-        return array(
-            $current_condition,
+        return array_values(
+            $valid_conditions
         );
     }
 
