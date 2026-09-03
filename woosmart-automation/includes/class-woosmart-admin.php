@@ -625,24 +625,6 @@ class WooSmart_Admin {
         $trigger =
             'order_created';
 
-        $condition_field =
-            'order_total';
-
-        $condition_operator =
-            'greater_than';
-
-        $condition_value =
-            '';
-
-        $condition_min =
-            '';
-
-        $condition_max =
-            '';
-
-        $actions =
-            array();
-
         $condition_definitions =
             $this->condition_registry->get_all();
 
@@ -652,10 +634,13 @@ class WooSmart_Admin {
         /*
          * Select the first registered condition as fallback.
          */
+        $default_condition_field =
+            'order_total';
+
         if (
             ! isset(
                 $condition_definitions[
-                    'order_total'
+                    $default_condition_field
                 ]
             ) &&
             ! empty(
@@ -668,43 +653,61 @@ class WooSmart_Admin {
                     $condition_definitions
                 );
 
-            $condition_field =
+            $default_condition_field =
                 $condition_keys[0];
-
-            $first_definition =
-                $condition_definitions[
-                    $condition_field
-                ];
-
-            if (
-                isset(
-                    $first_definition[
-                        'operators'
-                    ]
-                ) &&
-                is_array(
-                    $first_definition[
-                        'operators'
-                    ]
-                ) &&
-                ! empty(
-                    $first_definition[
-                        'operators'
-                    ]
-                )
-            ) {
-
-                $operator_keys =
-                    array_keys(
-                        $first_definition[
-                            'operators'
-                        ]
-                    );
-
-                $condition_operator =
-                    $operator_keys[0];
-            }
         }
+
+        $default_condition_operator =
+            '';
+
+        $default_definition =
+            $this->condition_registry->get(
+                $default_condition_field
+            );
+
+        if (
+            is_array(
+                $default_definition
+            ) &&
+            isset(
+                $default_definition['operators']
+            ) &&
+            is_array(
+                $default_definition['operators']
+            ) &&
+            ! empty(
+                $default_definition['operators']
+            )
+        ) {
+
+            $operator_keys =
+                array_keys(
+                    $default_definition['operators']
+                );
+
+            $default_condition_operator =
+                $operator_keys[0];
+        }
+
+        /*
+         * Conditions used by the form.
+         */
+        $conditions_for_form =
+            array(
+                array(
+                    'field' =>
+                        $default_condition_field,
+
+                    'operator' =>
+                        $default_condition_operator,
+
+                    'value' =>
+                        '',
+                ),
+            );
+
+        $actions =
+            array();
 
         /*
          * Load existing Automation data.
@@ -740,7 +743,7 @@ class WooSmart_Admin {
                             true
                         );
 
-                    $conditions =
+                    $stored_conditions =
                         get_post_meta(
                             $edit_id,
                             '_woosmart_conditions',
@@ -756,131 +759,141 @@ class WooSmart_Admin {
 
                     if (
                         is_array(
-                            $conditions
+                            $stored_conditions
                         ) &&
                         ! empty(
-                            $conditions
+                            $stored_conditions
                         )
                     ) {
 
-                        $condition =
-                            $conditions[0];
+                        $conditions_for_form =
+                            array();
 
-                        $condition_field =
-                            isset(
-                                $condition['field']
-                            )
-                                ? sanitize_key(
-                                    $condition['field']
-                                )
-                                : $condition_field;
-
-                        $condition_definition =
-                            $this->condition_registry->get(
-                                $condition_field
-                            );
-
-                        $condition_operator =
-                            isset(
-                                $condition[
-                                    'operator'
-                                ]
-                            )
-                                ? sanitize_key(
-                                    $condition[
-                                        'operator'
-                                    ]
-                                )
-                                : $condition_operator;
-
-                        if (
-                            ! is_array(
-                                $condition_definition
-                            ) ||
-                            ! isset(
-                                $condition_definition[
-                                    'operators'
-                                ]
-                            ) ||
-                            ! is_array(
-                                $condition_definition[
-                                    'operators'
-                                ]
-                            ) ||
-                            ! isset(
-                                $condition_definition[
-                                    'operators'
-                                ][
-                                    $condition_operator
-                                ]
-                            )
+                        foreach (
+                            $stored_conditions as $stored_condition
                         ) {
 
                             if (
-                                is_array(
-                                    $condition_definition
-                                ) &&
-                                ! empty(
-                                    $condition_definition[
-                                        'operators'
+                                ! is_array(
+                                    $stored_condition
+                                )
+                            ) {
+                                continue;
+                            }
+
+                            $stored_field =
+                                isset(
+                                    $stored_condition['field']
+                                )
+                                    ? sanitize_key(
+                                        $stored_condition['field']
+                                    )
+                                    : $default_condition_field;
+
+                            if (
+                                ! $this->condition_registry->has(
+                                    $stored_field
+                                )
+                            ) {
+                                $stored_field =
+                                    $default_condition_field;
+                            }
+
+                            $stored_definition =
+                                $this->condition_registry->get(
+                                    $stored_field
+                                );
+
+                            $stored_operator =
+                                isset(
+                                    $stored_condition['operator']
+                                )
+                                    ? sanitize_key(
+                                        $stored_condition['operator']
+                                    )
+                                    : '';
+
+                            if (
+                                ! is_array(
+                                    $stored_definition
+                                ) ||
+                                ! isset(
+                                    $stored_definition['operators']
+                                ) ||
+                                ! is_array(
+                                    $stored_definition['operators']
+                                ) ||
+                                ! isset(
+                                    $stored_definition['operators'][
+                                        $stored_operator
                                     ]
                                 )
                             ) {
 
-                                $operator_keys =
-                                    array_keys(
-                                        $condition_definition[
-                                            'operators'
-                                        ]
-                                    );
+                                $stored_operator =
+                                    '';
 
-                                $condition_operator =
-                                    $operator_keys[0];
+                                if (
+                                    is_array(
+                                        $stored_definition
+                                    ) &&
+                                    ! empty(
+                                        $stored_definition['operators']
+                                    )
+                                ) {
+
+                                    $stored_operator_keys =
+                                        array_keys(
+                                            $stored_definition['operators']
+                                        );
+
+                                    $stored_operator =
+                                        $stored_operator_keys[0];
+                                }
                             }
+
+                            $stored_value =
+                                isset(
+                                    $stored_condition['value']
+                                )
+                                    ? $stored_condition['value']
+                                    : '';
+
+                            $normalized_condition =
+                                array(
+                                    'field' =>
+                                        $stored_field,
+
+                                    'operator' =>
+                                        $stored_operator,
+
+                                    'value' =>
+                                        $stored_value,
+                                );
+
+                            $conditions_for_form[] =
+                                $normalized_condition;
                         }
 
-                        $condition_value =
-                            isset(
-                                $condition['value']
-                            )
-                                ? $condition['value']
-                                : '';
-
-                        /*
-                         * Restore a range condition.
-                         */
                         if (
-                            'between' ===
-                            $condition_operator &&
-                            is_array(
-                                $condition_value
+                            empty(
+                                $conditions_for_form
                             )
                         ) {
 
-                            $condition_min =
-                                isset(
-                                    $condition_value[
-                                        'min'
-                                    ]
-                                )
-                                    ? $condition_value[
-                                        'min'
-                                    ]
-                                    : '';
+                            $conditions_for_form =
+                                array(
+                                    array(
+                                        'field' =>
+                                            $default_condition_field,
 
-                            $condition_max =
-                                isset(
-                                    $condition_value[
-                                        'max'
-                                    ]
-                                )
-                                    ? $condition_value[
-                                        'max'
-                                    ]
-                                    : '';
+                                        'operator' =>
+                                            $default_condition_operator,
 
-                            $condition_value =
-                                '';
+                                        'value' =>
+                                            '',
+                                    ),
+                                );
                         }
                     }
 
@@ -897,6 +910,117 @@ class WooSmart_Admin {
                             $stored_actions;
                     }
                 }
+            }
+        }
+
+        /*
+         * Normalize condition values for display.
+         */
+        foreach (
+            $conditions_for_form as $condition_index =>
+            $form_condition
+        ) {
+
+            $field =
+                isset(
+                    $form_condition['field']
+                )
+                    ? sanitize_key(
+                        $form_condition['field']
+                    )
+                    : $default_condition_field;
+
+            $operator =
+                isset(
+                    $form_condition['operator']
+                )
+                    ? sanitize_key(
+                        $form_condition['operator']
+                    )
+                    : '';
+
+            $definition =
+                $this->condition_registry->get(
+                    $field
+                );
+
+            $value_type =
+                (
+                    is_array(
+                        $definition
+                    ) &&
+                    isset(
+                        $definition['value_type']
+                    )
+                )
+                    ? sanitize_key(
+                        $definition['value_type']
+                    )
+                    : 'text';
+
+            $value =
+                isset(
+                    $form_condition['value']
+                )
+                    ? $form_condition['value']
+                    : '';
+
+            if (
+                'between' ===
+                $operator &&
+                is_array(
+                    $value
+                )
+            ) {
+
+                $minimum =
+                    isset(
+                        $value['min']
+                    )
+                        ? $this->normalize_numeric_input(
+                            $value['min']
+                        )
+                        : '';
+
+                $maximum =
+                    isset(
+                        $value['max']
+                    )
+                        ? $this->normalize_numeric_input(
+                            $value['max']
+                        )
+                        : '';
+
+                $conditions_for_form[
+                    $condition_index
+                ]['value'] =
+                    array(
+                        'min' =>
+                            $minimum,
+
+                        'max' =>
+                            $maximum,
+                    );
+
+            } elseif (
+                'number' ===
+                $value_type
+            ) {
+
+                $conditions_for_form[
+                    $condition_index
+                ]['value'] =
+                    $this->normalize_numeric_input(
+                        $value
+                    );
+
+            } else {
+
+                $conditions_for_form[
+                    $condition_index
+                ]['value'] =
+                    (string)
+                    $value;
             }
         }
 
@@ -993,101 +1117,6 @@ class WooSmart_Admin {
                     'failed' =>
                         'ناموفق',
                 );
-        }
-
-        /*
-         * Current Condition definition.
-         */
-        $current_condition_definition =
-            $this->condition_registry->get(
-                $condition_field
-            );
-
-        $current_condition_value_type =
-            (
-                is_array(
-                    $current_condition_definition
-                ) &&
-                isset(
-                    $current_condition_definition[
-                        'value_type'
-                    ]
-                )
-            )
-                ? sanitize_key(
-                    $current_condition_definition[
-                        'value_type'
-                    ]
-                )
-                : 'text';
-
-        $condition_value_numeric =
-            $this->normalize_numeric_input(
-                $condition_value
-            );
-
-        $condition_min_numeric =
-            $this->normalize_numeric_input(
-                $condition_min
-            );
-
-        $condition_max_numeric =
-            $this->normalize_numeric_input(
-                $condition_max
-            );
-
-        $condition_value_display =
-            '';
-
-        if (
-            'number' ===
-            $current_condition_value_type &&
-            '' !==
-                $condition_value_numeric
-        ) {
-
-            $condition_value_display =
-                $this->format_currency_input(
-                    $condition_value_numeric
-                );
-        }
-
-        $condition_min_display =
-            '';
-
-        $condition_max_display =
-            '';
-
-        if (
-            '' !==
-            $condition_min_numeric
-        ) {
-
-            $condition_min_display =
-                $this->format_currency_input(
-                    $condition_min_numeric
-                );
-        }
-
-        if (
-            '' !==
-            $condition_max_numeric
-        ) {
-
-            $condition_max_display =
-                $this->format_currency_input(
-                    $condition_max_numeric
-                );
-        }
-
-        if (
-            'number' !==
-            $current_condition_value_type
-        ) {
-
-            $condition_value_display =
-                (string)
-                $condition_value;
         }
 
         ?>
@@ -1223,438 +1252,50 @@ class WooSmart_Admin {
                 </h2>
 
                 <p>
-                    اتوماسیون فقط زمانی اجرا می‌شود که شرط برقرار باشد.
+                    اتوماسیون فقط زمانی اجرا می‌شود که تمام شرایط برقرار باشند.
                 </p>
 
-                <table class="form-table">
-
-                    <tr>
-
-                        <th scope="row">
-
-                            <label for="condition_field">
-                                فیلد
-                            </label>
-
-                        </th>
-
-                        <td>
-
-                            <select
-                                id="condition_field"
-                                name="condition_field"
-                            >
-
-                                <?php foreach (
-                                    $condition_definitions
-                                    as $condition_key =>
-                                    $condition_definition
-                                ) : ?>
-
-                                    <?php
-
-                                    $condition_label =
-                                        isset(
-                                            $condition_definition[
-                                                'label'
-                                            ]
-                                        )
-                                            ? $condition_definition[
-                                                'label'
-                                            ]
-                                            : $condition_key;
-
-                                    ?>
-
-                                    <option
-                                        value="<?php echo esc_attr( $condition_key ); ?>"
-                                        <?php selected(
-                                            $condition_field,
-                                            $condition_key
-                                        ); ?>
-                                    >
-                                        <?php
-                                        echo esc_html(
-                                            $condition_label
-                                        );
-                                        ?>
-                                    </option>
-
-                                <?php endforeach; ?>
-
-                            </select>
-
-                        </td>
-
-                    </tr>
-
-                    <tr>
-
-                        <th scope="row">
-
-                            <label for="condition_operator">
-                                مقایسه
-                            </label>
-
-                        </th>
-
-                        <td>
-
-                            <select
-                                id="condition_operator"
-                                name="condition_operator"
-                            >
-
-                                <?php
-
-                                $current_operators =
-                                    $this->condition_registry->get_operators(
-                                        $condition_field
-                                    );
-
-                                ?>
-
-                                <?php foreach (
-                                    $current_operators
-                                    as $operator_key =>
-                                    $operator_label
-                                ) : ?>
-
-                                    <option
-                                        value="<?php echo esc_attr( $operator_key ); ?>"
-                                        <?php selected(
-                                            $condition_operator,
-                                            $operator_key
-                                        ); ?>
-                                    >
-                                        <?php
-                                        echo esc_html(
-                                            $operator_label
-                                        );
-                                        ?>
-                                    </option>
-
-                                <?php endforeach; ?>
-
-                            </select>
-
-                        </td>
-
-                    </tr>
-
-                    <tr>
-
-                        <th scope="row">
-
-                            <label>
-                                مقدار
-                            </label>
-
-                        </th>
-
-                        <td>
-
-                            <!-- Single number value -->
-                            <div
-                                id="condition-value-single-wrapper"
-                                dir="ltr"
-                                style="
-                                    display:
-                                    <?php
-                                    echo (
-                                        'number' ===
-                                        $current_condition_value_type &&
-                                        'between' !==
-                                        $condition_operator
-                                    )
-                                        ? 'flex'
-                                        : 'none';
-                                    ?>;
-                                    align-items:center;
-                                    gap:10px;
-                                    max-width:420px;
-                                "
-                            >
-
-                                <div
-                                    style="
-                                        position:relative;
-                                        flex:1;
-                                        direction:ltr;
-                                    "
-                                >
-
-                                    <input
-                                        type="text"
-                                        inputmode="decimal"
-                                        autocomplete="off"
-                                        dir="ltr"
-                                        id="condition_value_display"
-                                        class="regular-text"
-                                        value="<?php echo esc_attr( $condition_value_display ); ?>"
-                                        placeholder="100,000"
-                                        spellcheck="false"
-                                        style="
-                                            width:100%;
-                                            box-sizing:border-box;
-                                            padding:8px 12px 8px 90px;
-                                            direction:ltr;
-                                            unicode-bidi:plaintext;
-                                            text-align:left;
-                                            font-variant-numeric:tabular-nums;
-                                        "
-                                    >
-
-                                    <span
-                                        id="condition-value-unit"
-                                        dir="rtl"
-                                        style="
-                                            position:absolute;
-                                            left:12px;
-                                            top:50%;
-                                            transform:translateY(-50%);
-                                            color:#646970;
-                                            pointer-events:none;
-                                            font-size:13px;
-                                            font-weight:600;
-                                            direction:rtl;
-                                            unicode-bidi:isolate;
-                                            white-space:nowrap;
-                                        "
-                                    >
-                                        <?php
-                                        echo esc_html(
-                                            $currency_unit
-                                        );
-                                        ?>
-                                    </span>
-
-                                </div>
-
-                            </div>
-
-                            <!-- Range value -->
-                            <div
-                                id="condition-value-range-wrapper"
-                                dir="rtl"
-                                style="
-                                    display:
-                                    <?php
-                                    echo (
-                                        'number' ===
-                                        $current_condition_value_type &&
-                                        'between' ===
-                                        $condition_operator
-                                    )
-                                        ? 'flex'
-                                        : 'none';
-                                    ?>;
-                                    flex-wrap:wrap;
-                                    align-items:center;
-                                    gap:10px;
-                                    max-width:700px;
-                                "
-                            >
-
-                                <div
-                                    style="
-                                        position:relative;
-                                        min-width:220px;
-                                        flex:1;
-                                        direction:ltr;
-                                    "
-                                >
-
-                                    <input
-                                        type="text"
-                                        inputmode="decimal"
-                                        autocomplete="off"
-                                        dir="ltr"
-                                        id="condition_value_min_display"
-                                        class="regular-text"
-                                        value="<?php echo esc_attr( $condition_min_display ); ?>"
-                                        placeholder="1,000,000"
-                                        spellcheck="false"
-                                        style="
-                                            width:100%;
-                                            box-sizing:border-box;
-                                            padding:8px 12px 8px 90px;
-                                            direction:ltr;
-                                            unicode-bidi:plaintext;
-                                            text-align:left;
-                                            font-variant-numeric:tabular-nums;
-                                        "
-                                    >
-
-                                    <span
-                                        dir="rtl"
-                                        style="
-                                            position:absolute;
-                                            left:12px;
-                                            top:50%;
-                                            transform:translateY(-50%);
-                                            color:#646970;
-                                            pointer-events:none;
-                                            font-size:13px;
-                                            font-weight:600;
-                                            direction:rtl;
-                                            unicode-bidi:isolate;
-                                            white-space:nowrap;
-                                        "
-                                    >
-                                        حداقل
-                                    </span>
-
-                                </div>
-
-                                <span
-                                    style="
-                                        color:#646970;
-                                        font-weight:600;
-                                    "
-                                >
-                                    تا
-                                </span>
-
-                                <div
-                                    style="
-                                        position:relative;
-                                        min-width:220px;
-                                        flex:1;
-                                        direction:ltr;
-                                    "
-                                >
-
-                                    <input
-                                        type="text"
-                                        inputmode="decimal"
-                                        autocomplete="off"
-                                        dir="ltr"
-                                        id="condition_value_max_display"
-                                        class="regular-text"
-                                        value="<?php echo esc_attr( $condition_max_display ); ?>"
-                                        placeholder="5,000,000"
-                                        spellcheck="false"
-                                        style="
-                                            width:100%;
-                                            box-sizing:border-box;
-                                            padding:8px 12px 8px 90px;
-                                            direction:ltr;
-                                            unicode-bidi:plaintext;
-                                            text-align:left;
-                                            font-variant-numeric:tabular-nums;
-                                        "
-                                    >
-
-                                    <span
-                                        dir="rtl"
-                                        style="
-                                            position:absolute;
-                                            left:12px;
-                                            top:50%;
-                                            transform:translateY(-50%);
-                                            color:#646970;
-                                            pointer-events:none;
-                                            font-size:13px;
-                                            font-weight:600;
-                                            direction:rtl;
-                                            unicode-bidi:isolate;
-                                            white-space:nowrap;
-                                        "
-                                    >
-                                        حداکثر
-                                    </span>
-
-                                </div>
-
-                            </div>
-
-                            <!-- Text value -->
-                            <div
-                                id="condition-value-text-wrapper"
-                                style="
-                                    display:
-                                    <?php
-                                    echo (
-                                        'number' ===
-                                        $current_condition_value_type
-                                    )
-                                        ? 'none'
-                                        : 'block';
-                                    ?>;
-                                    max-width:420px;
-                                "
-                            >
-
-                                <input
-                                    type="text"
-                                    id="condition_value_text"
-                                    class="regular-text"
-                                    value="<?php echo esc_attr( $condition_value_display ); ?>"
-                                >
-
-                            </div>
-
-                            <!-- Submitted scalar value -->
-                            <input
-                                type="hidden"
-                                id="condition_value"
-                                name="condition_value"
-                                value="<?php echo esc_attr( $condition_value_numeric ); ?>"
-                            >
-
-                            <!-- Submitted range values -->
-                            <input
-                                type="hidden"
-                                id="condition_value_min"
-                                name="condition_value_min"
-                                value="<?php echo esc_attr( $condition_min_numeric ); ?>"
-                            >
-
-                            <input
-                                type="hidden"
-                                id="condition_value_max"
-                                name="condition_value_max"
-                                value="<?php echo esc_attr( $condition_max_numeric ); ?>"
-                            >
-
-                            <p
-                                class="description"
-                                id="condition-value-description"
-                            >
-                                <?php
-                                if (
-                                    'number' !==
-                                    $current_condition_value_type
-                                ) {
-
-                                    echo esc_html(
-                                        'مقدار شرط را وارد کنید.'
-                                    );
-
-                                } elseif (
-                                    'between' ===
-                                    $condition_operator
-                                ) {
-
-                                    echo esc_html(
-                                        'حداقل و حداکثر مبلغ را به واحد پول فروشگاه وارد کنید.'
-                                    );
-
-                                } else {
-
-                                    echo esc_html(
-                                        'مبلغ را به واحد پول فروشگاه وارد کنید؛ جداکننده هزارگان به‌صورت خودکار اضافه می‌شود.'
-                                    );
-                                }
-                                ?>
-                            </p>
-
-                        </td>
-
-                    </tr>
-
-                </table>
+                <div
+                    id="woosmart-conditions-container"
+                    style="
+                        max-width:1000px;
+                    "
+                >
+
+                    <?php foreach (
+                        $conditions_for_form
+                        as $condition_index =>
+                        $condition
+                    ) : ?>
+
+                        <?php
+                        $this->render_condition_row(
+                            $condition_index,
+                            $condition,
+                            $condition_definitions,
+                            $currency_unit
+                        );
+                        ?>
+
+                    <?php endforeach; ?>
+
+                </div>
+
+                <p>
+
+                    <button
+                        type="button"
+                        class="button"
+                        id="woosmart-add-condition"
+                    >
+                        + افزودن شرط
+                    </button>
+
+                </p>
+
+                <p class="description">
+                    می‌توانید چند شرط تعریف کنید. تمام شرط‌ها باید هم‌زمان برقرار باشند.
+                </p>
 
                 <h2>
                     عملیات
@@ -1738,74 +1379,14 @@ class WooSmart_Admin {
                         );
                         ?>;
 
-                    const conditionField =
+                    const conditionsContainer =
                         document.getElementById(
-                            'condition_field'
+                            'woosmart-conditions-container'
                         );
 
-                    const conditionOperator =
+                    const addConditionButton =
                         document.getElementById(
-                            'condition_operator'
-                        );
-
-                    const conditionValue =
-                        document.getElementById(
-                            'condition_value'
-                        );
-
-                    const conditionValueMin =
-                        document.getElementById(
-                            'condition_value_min'
-                        );
-
-                    const conditionValueMax =
-                        document.getElementById(
-                            'condition_value_max'
-                        );
-
-                    const amountDisplay =
-                        document.getElementById(
-                            'condition_value_display'
-                        );
-
-                    const amountMinDisplay =
-                        document.getElementById(
-                            'condition_value_min_display'
-                        );
-
-                    const amountMaxDisplay =
-                        document.getElementById(
-                            'condition_value_max_display'
-                        );
-
-                    const amountWrapper =
-                        document.getElementById(
-                            'condition-value-single-wrapper'
-                        );
-
-                    const rangeWrapper =
-                        document.getElementById(
-                            'condition-value-range-wrapper'
-                        );
-
-                    const textWrapper =
-                        document.getElementById(
-                            'condition-value-text-wrapper'
-                        );
-
-                    const textInput =
-                        document.getElementById(
-                            'condition_value_text'
-                        );
-
-                    const valueDescription =
-                        document.getElementById(
-                            'condition-value-description'
-                        );
-
-                    const valueUnit =
-                        document.getElementById(
-                            'condition-value-unit'
+                            'woosmart-add-condition'
                         );
 
                     function normalizeNumber(
@@ -1895,21 +1476,14 @@ class WooSmart_Admin {
                         return integerPart;
                     }
 
-                    function getSelectedDefinition() {
+                    function getDefinition(
+                        field
+                    ) {
 
                         if (
-                            ! conditionField
-                        ) {
-
-                            return null;
-                        }
-
-                        const key =
-                            conditionField.value;
-
-                        if (
+                            ! field ||
                             ! conditionDefinitions[
-                                key
+                                field
                             ]
                         ) {
 
@@ -1917,99 +1491,18 @@ class WooSmart_Admin {
                         }
 
                         return conditionDefinitions[
-                            key
+                            field
                         ];
                     }
 
-                    function updateOperatorOptions(
-                        preferredOperator
+                    function isNumberField(
+                        field
                     ) {
 
-                        if (
-                            ! conditionOperator
-                        ) {
-
-                            return;
-                        }
-
                         const definition =
-                            getSelectedDefinition();
-
-                        conditionOperator.innerHTML =
-                            '';
-
-                        if (
-                            ! definition ||
-                            ! definition.operators
-                        ) {
-
-                            return;
-                        }
-
-                        let selectedOperator =
-                            preferredOperator ||
-                            '';
-
-                        let firstOperator =
-                            '';
-
-                        Object.keys(
-                            definition.operators
-                        ).forEach(
-                            function(
-                                operatorKey
-                            ) {
-
-                                if (
-                                    ! firstOperator
-                                ) {
-
-                                    firstOperator =
-                                        operatorKey;
-                                }
-
-                                const option =
-                                    document.createElement(
-                                        'option'
-                                    );
-
-                                option.value =
-                                    operatorKey;
-
-                                option.textContent =
-                                    definition.operators[
-                                        operatorKey
-                                    ];
-
-                                if (
-                                    operatorKey ===
-                                    selectedOperator
-                                ) {
-
-                                    option.selected =
-                                        true;
-                                }
-
-                                conditionOperator.appendChild(
-                                    option
-                                );
-                            }
-                        );
-
-                        if (
-                            ! conditionOperator.value &&
-                            firstOperator
-                        ) {
-
-                            conditionOperator.value =
-                                firstOperator;
-                        }
-                    }
-
-                    function isNumberCondition() {
-
-                        const definition =
-                            getSelectedDefinition();
+                            getDefinition(
+                                field
+                            );
 
                         return (
                             definition &&
@@ -2018,543 +1511,1413 @@ class WooSmart_Admin {
                         );
                     }
 
-                    function isRangeCondition() {
+                    function buildOperatorOptions(
+                        field,
+                        selectedOperator
+                    ) {
 
-                        return (
-                            isNumberCondition() &&
-                            conditionOperator &&
-                            conditionOperator.value ===
-                                'between'
-                        );
-                    }
+                        const definition =
+                            getDefinition(
+                                field
+                            );
 
-                    function updateValueField() {
-
-                        const valueTypeIsNumber =
-                            isNumberCondition();
-
-                        const range =
-                            isRangeCondition();
+                        let html =
+                            '';
 
                         if (
-                            valueTypeIsNumber
+                            ! definition ||
+                            ! definition.operators
                         ) {
 
-                            if (
-                                range
-                            ) {
-
-                                if (
-                                    amountWrapper
-                                ) {
-
-                                    amountWrapper.style.display =
-                                        'none';
-                                }
-
-                                if (
-                                    rangeWrapper
-                                ) {
-
-                                    rangeWrapper.style.display =
-                                        'flex';
-                                }
-
-                                if (
-                                    textWrapper
-                                ) {
-
-                                    textWrapper.style.display =
-                                        'none';
-                                }
-
-                                if (
-                                    amountMinDisplay
-                                ) {
-
-                                    amountMinDisplay.value =
-                                        formatNumber(
-                                            conditionValueMin
-                                                ? conditionValueMin.value
-                                                : ''
-                                        );
-                                }
-
-                                if (
-                                    amountMaxDisplay
-                                ) {
-
-                                    amountMaxDisplay.value =
-                                        formatNumber(
-                                            conditionValueMax
-                                                ? conditionValueMax.value
-                                                : ''
-                                        );
-                                }
-
-                                if (
-                                    valueDescription
-                                ) {
-
-                                    valueDescription.textContent =
-                                        'حداقل و حداکثر مبلغ را به واحد پول فروشگاه وارد کنید؛ هر دو سر بازه شامل شرط هستند.';
-                                }
-
-                            } else {
-
-                                if (
-                                    amountWrapper
-                                ) {
-
-                                    amountWrapper.style.display =
-                                        'flex';
-                                }
-
-                                if (
-                                    rangeWrapper
-                                ) {
-
-                                    rangeWrapper.style.display =
-                                        'none';
-                                }
-
-                                if (
-                                    textWrapper
-                                ) {
-
-                                    textWrapper.style.display =
-                                        'none';
-                                }
-
-                                if (
-                                    amountDisplay
-                                ) {
-
-                                    amountDisplay.value =
-                                        formatNumber(
-                                            conditionValue
-                                                ? conditionValue.value
-                                                : ''
-                                        );
-                                }
-
-                                if (
-                                    valueDescription
-                                ) {
-
-                                    valueDescription.textContent =
-                                        'مبلغ را به واحد پول فروشگاه وارد کنید؛ جداکننده هزارگان به‌صورت خودکار اضافه می‌شود.';
-                                }
-
-                            }
-
-                            if (
-                                valueUnit
-                            ) {
-
-                                valueUnit.textContent =
-                                    currencyUnit;
-                            }
-
-                        } else {
-
-                            if (
-                                amountWrapper
-                            ) {
-
-                                amountWrapper.style.display =
-                                    'none';
-                            }
-
-                            if (
-                                rangeWrapper
-                            ) {
-
-                                rangeWrapper.style.display =
-                                    'none';
-                            }
-
-                            if (
-                                textWrapper
-                            ) {
-
-                                textWrapper.style.display =
-                                    'block';
-                            }
-
-                            if (
-                                textInput &&
-                                conditionValue
-                            ) {
-
-                                textInput.value =
-                                    conditionValue.value ||
-                                    '';
-                            }
-
-                            if (
-                                valueDescription
-                            ) {
-
-                                valueDescription.textContent =
-                                    'مقدار شرط را وارد کنید.';
-                            }
+                            return html;
                         }
-                    }
 
-                    function syncConditionValue() {
-
-                        if (
-                            ! isNumberCondition()
-                        ) {
-
-                            if (
-                                conditionValue &&
-                                textInput
+                        Object.keys(
+                            definition.operators
+                        ).forEach(
+                            function(
+                                operatorKey
                             ) {
 
-                                conditionValue.value =
-                                    textInput.value;
+                                html +=
+                                    '<option value="' +
+                                    escapeHtml(
+                                        operatorKey
+                                    ) +
+                                    '"' +
+                                    (
+                                        operatorKey ===
+                                        selectedOperator
+                                            ? ' selected'
+                                            : ''
+                                    ) +
+                                    '>' +
+                                    escapeHtml(
+                                        definition.operators[
+                                            operatorKey
+                                        ]
+                                    ) +
+                                    '</option>';
                             }
+                        );
+
+                        return html;
+                    }
+
+                    function escapeHtml(
+                        value
+                    ) {
+
+                        const div =
+                            document.createElement(
+                                'div'
+                            );
+
+                        div.textContent =
+                            String(
+                                value || ''
+                            );
+
+                        return div.innerHTML;
+                    }
+
+                    function getFirstOperator(
+                        field
+                    ) {
+
+                        const definition =
+                            getDefinition(
+                                field
+                            );
+
+                        if (
+                            ! definition ||
+                            ! definition.operators
+                        ) {
+
+                            return '';
+                        }
+
+                        const keys =
+                            Object.keys(
+                                definition.operators
+                            );
+
+                        return keys.length
+                            ? keys[0]
+                            : '';
+                    }
+
+                    function syncConditionRow(
+                        row
+                    ) {
+
+                        if (
+                            ! row
+                        ) {
 
                             return;
                         }
 
+                        const fieldSelect =
+                            row.querySelector(
+                                '.woosmart-condition-field'
+                            );
+
+                        const operatorSelect =
+                            row.querySelector(
+                                '.woosmart-condition-operator'
+                            );
+
+                        const valueHidden =
+                            row.querySelector(
+                                '.woosmart-condition-value'
+                            );
+
+                        const minHidden =
+                            row.querySelector(
+                                '.woosmart-condition-min'
+                            );
+
+                        const maxHidden =
+                            row.querySelector(
+                                '.woosmart-condition-max'
+                            );
+
+                        const valueDisplay =
+                            row.querySelector(
+                                '.woosmart-condition-value-display'
+                            );
+
+                        const minDisplay =
+                            row.querySelector(
+                                '.woosmart-condition-min-display'
+                            );
+
+                        const maxDisplay =
+                            row.querySelector(
+                                '.woosmart-condition-max-display'
+                            );
+
+                        const textInput =
+                            row.querySelector(
+                                '.woosmart-condition-text'
+                            );
+
+                        const field =
+                            fieldSelect
+                                ? fieldSelect.value
+                                : '';
+
+                        const operator =
+                            operatorSelect
+                                ? operatorSelect.value
+                                : '';
+
                         if (
-                            isRangeCondition()
+                            'between' ===
+                            operator
                         ) {
 
                             const minimum =
                                 normalizeNumber(
-                                    amountMinDisplay
-                                        ? amountMinDisplay.value
+                                    minDisplay
+                                        ? minDisplay.value
                                         : ''
                                 );
 
                             const maximum =
                                 normalizeNumber(
-                                    amountMaxDisplay
-                                        ? amountMaxDisplay.value
+                                    maxDisplay
+                                        ? maxDisplay.value
                                         : ''
                                 );
 
                             if (
-                                conditionValueMin
+                                minHidden
                             ) {
 
-                                conditionValueMin.value =
+                                minHidden.value =
                                     minimum;
                             }
 
                             if (
-                                conditionValueMax
+                                maxHidden
                             ) {
 
-                                conditionValueMax.value =
+                                maxHidden.value =
                                     maximum;
                             }
 
                             if (
-                                amountMinDisplay
+                                valueHidden
                             ) {
 
-                                amountMinDisplay.value =
+                                valueHidden.value =
+                                    '';
+                            }
+
+                            if (
+                                minDisplay
+                            ) {
+
+                                minDisplay.value =
                                     formatNumber(
                                         minimum
                                     );
                             }
 
                             if (
-                                amountMaxDisplay
+                                maxDisplay
                             ) {
 
-                                amountMaxDisplay.value =
+                                maxDisplay.value =
                                     formatNumber(
                                         maximum
                                     );
                             }
 
-                            if (
-                                conditionValue
-                            ) {
+                            return;
+                        }
 
-                                conditionValue.value =
-                                    '';
-                            }
+                        let value =
+                            '';
 
-                        } else {
+                        if (
+                            isNumberField(
+                                field
+                            )
+                        ) {
 
-                            const rawValue =
+                            value =
                                 normalizeNumber(
-                                    amountDisplay
-                                        ? amountDisplay.value
+                                    valueDisplay
+                                        ? valueDisplay.value
                                         : ''
                                 );
 
                             if (
-                                conditionValue
+                                valueDisplay
                             ) {
 
-                                conditionValue.value =
-                                    rawValue;
-                            }
-
-                            if (
-                                amountDisplay
-                            ) {
-
-                                amountDisplay.value =
+                                valueDisplay.value =
                                     formatNumber(
-                                        rawValue
+                                        value
                                     );
                             }
 
+                        } else {
+
+                            value =
+                                textInput
+                                    ? textInput.value
+                                    : '';
+                        }
+
+                        if (
+                            valueHidden
+                        ) {
+
+                            valueHidden.value =
+                                value;
+                        }
+
+                        if (
+                            minHidden
+                        ) {
+
+                            minHidden.value =
+                                '';
+                        }
+
+                        if (
+                            maxHidden
+                        ) {
+
+                            maxHidden.value =
+                                '';
+                        }
+                    }
+
+                    function updateConditionRowValueUI(
+                        row
+                    ) {
+
+                        if (
+                            ! row
+                        ) {
+
+                            return;
+                        }
+
+                        const fieldSelect =
+                            row.querySelector(
+                                '.woosmart-condition-field'
+                            );
+
+                        const operatorSelect =
+                            row.querySelector(
+                                '.woosmart-condition-operator'
+                            );
+
+                        const singleWrapper =
+                            row.querySelector(
+                                '.woosmart-condition-single-wrapper'
+                            );
+
+                        const rangeWrapper =
+                            row.querySelector(
+                                '.woosmart-condition-range-wrapper'
+                            );
+
+                        const textWrapper =
+                            row.querySelector(
+                                '.woosmart-condition-text-wrapper'
+                            );
+
+                        const valueUnit =
+                            row.querySelector(
+                                '.woosmart-condition-unit'
+                            );
+
+                        const description =
+                            row.querySelector(
+                                '.woosmart-condition-description'
+                            );
+
+                        if (
+                            ! fieldSelect ||
+                            ! operatorSelect
+                        ) {
+
+                            return;
+                        }
+
+                        const field =
+                            fieldSelect.value;
+
+                        const operator =
+                            operatorSelect.value;
+
+                        const numberField =
+                            isNumberField(
+                                field
+                            );
+
+                        const range =
+                            numberField &&
+                            'between' ===
+                                operator;
+
+                        if (
+                            singleWrapper
+                        ) {
+
+                            singleWrapper.style.display =
+                                (
+                                    numberField &&
+                                    ! range
+                                )
+                                    ? 'flex'
+                                    : 'none';
+                        }
+
+                        if (
+                            rangeWrapper
+                        ) {
+
+                            rangeWrapper.style.display =
+                                range
+                                    ? 'flex'
+                                    : 'none';
+                        }
+
+                        if (
+                            textWrapper
+                        ) {
+
+                            textWrapper.style.display =
+                                numberField
+                                    ? 'none'
+                                    : 'block';
+                        }
+
+                        if (
+                            valueUnit
+                        ) {
+
+                            valueUnit.textContent =
+                                currencyUnit;
+                        }
+
+                        if (
+                            description
+                        ) {
+
                             if (
-                                conditionValueMin
+                                ! numberField
                             ) {
 
-                                conditionValueMin.value =
-                                    '';
-                            }
+                                description.textContent =
+                                    'مقدار شرط را وارد کنید.';
 
-                            if (
-                                conditionValueMax
+                            } else if (
+                                range
                             ) {
 
-                                conditionValueMax.value =
-                                    '';
+                                description.textContent =
+                                    'حداقل و حداکثر مبلغ را به واحد پول فروشگاه وارد کنید؛ هر دو سر بازه شامل شرط هستند.';
+
+                            } else {
+
+                                description.textContent =
+                                    'مبلغ را به واحد پول فروشگاه وارد کنید؛ جداکننده هزارگان به‌صورت خودکار اضافه می‌شود.';
                             }
                         }
                     }
 
-                    if (
-                        conditionField &&
-                        conditionOperator
+                    function updateConditionRowOperators(
+                        row,
+                        preferredOperator
                     ) {
 
-                        const initialOperator =
-                            conditionOperator.value;
+                        if (
+                            ! row
+                        ) {
 
-                        updateOperatorOptions(
-                            initialOperator
-                        );
+                            return;
+                        }
 
-                        updateValueField();
+                        const fieldSelect =
+                            row.querySelector(
+                                '.woosmart-condition-field'
+                            );
 
-                        conditionField.addEventListener(
-                            'change',
-                            function() {
+                        const operatorSelect =
+                            row.querySelector(
+                                '.woosmart-condition-operator'
+                            );
 
-                                const previousOperator =
-                                    conditionOperator.value;
+                        if (
+                            ! fieldSelect ||
+                            ! operatorSelect
+                        ) {
 
-                                updateOperatorOptions(
-                                    previousOperator
+                            return;
+                        }
+
+                        const selected =
+                            preferredOperator ||
+                            operatorSelect.value ||
+                            '';
+
+                        operatorSelect.innerHTML =
+                            buildOperatorOptions(
+                                fieldSelect.value,
+                                selected
+                            );
+
+                        if (
+                            ! operatorSelect.value
+                        ) {
+
+                            operatorSelect.value =
+                                getFirstOperator(
+                                    fieldSelect.value
                                 );
+                        }
 
-                                updateValueField();
-                            }
-                        );
-
-                        conditionOperator.addEventListener(
-                            'change',
-                            function() {
-
-                                updateValueField();
-                            }
+                        updateConditionRowValueUI(
+                            row
                         );
                     }
 
-                    if (
-                        amountDisplay &&
-                        conditionValue
+                    function bindNumericInput(
+                        input
                     ) {
 
-                        amountDisplay.addEventListener(
+                        if (
+                            ! input
+                        ) {
+
+                            return;
+                        }
+
+                        input.addEventListener(
                             'input',
                             function() {
 
-                                if (
-                                    isRangeCondition()
-                                ) {
+                                const raw =
+                                    normalizeNumber(
+                                        input.value
+                                    );
 
-                                    return;
+                                input.value =
+                                    formatNumber(
+                                        raw
+                                    );
+
+                                try {
+
+                                    input.setSelectionRange(
+                                        input.value.length,
+                                        input.value.length
+                                    );
+
+                                } catch (
+                                    error
+                                ) {
+                                    /*
+                                     * Ignore cursor-position errors
+                                     * on unsupported input contexts.
+                                     */
                                 }
 
-                                const rawValue =
-                                    normalizeNumber(
-                                        amountDisplay.value
+                                const row =
+                                    input.closest(
+                                        '.woosmart-condition-row'
                                     );
 
-                                conditionValue.value =
-                                    rawValue;
-
-                                amountDisplay.value =
-                                    formatNumber(
-                                        rawValue
-                                    );
-
-                                amountDisplay.setSelectionRange(
-                                    amountDisplay.value.length,
-                                    amountDisplay.value.length
+                                syncConditionRow(
+                                    row
                                 );
                             }
                         );
 
-                        amountDisplay.addEventListener(
+                        input.addEventListener(
                             'blur',
                             function() {
+
+                                const raw =
+                                    normalizeNumber(
+                                        input.value
+                                    );
+
+                                input.value =
+                                    formatNumber(
+                                        raw
+                                    );
+
+                                const row =
+                                    input.closest(
+                                        '.woosmart-condition-row'
+                                    );
+
+                                syncConditionRow(
+                                    row
+                                );
+                            }
+                        );
+                    }
+
+                    function bindConditionRow(
+                        row
+                    ) {
+
+                        if (
+                            ! row
+                        ) {
+
+                            return;
+                        }
+
+                        const fieldSelect =
+                            row.querySelector(
+                                '.woosmart-condition-field'
+                            );
+
+                        const operatorSelect =
+                            row.querySelector(
+                                '.woosmart-condition-operator'
+                            );
+
+                        const valueDisplay =
+                            row.querySelector(
+                                '.woosmart-condition-value-display'
+                            );
+
+                        const minDisplay =
+                            row.querySelector(
+                                '.woosmart-condition-min-display'
+                            );
+
+                        const maxDisplay =
+                            row.querySelector(
+                                '.woosmart-condition-max-display'
+                            );
+
+                        const textInput =
+                            row.querySelector(
+                                '.woosmart-condition-text'
+                            );
+
+                        const removeButton =
+                            row.querySelector(
+                                '.woosmart-remove-condition'
+                            );
+
+                        const moveUpButton =
+                            row.querySelector(
+                                '.woosmart-condition-move-up'
+                            );
+
+                        const moveDownButton =
+                            row.querySelector(
+                                '.woosmart-condition-move-down'
+                            );
+
+                        if (
+                            fieldSelect
+                        ) {
+
+                            fieldSelect.addEventListener(
+                                'change',
+                                function() {
+
+                                    updateConditionRowOperators(
+                                        row,
+                                        ''
+                                    );
+
+                                    syncConditionRow(
+                                        row
+                                    );
+                                }
+                            );
+                        }
+
+                        if (
+                            operatorSelect
+                        ) {
+
+                            operatorSelect.addEventListener(
+                                'change',
+                                function() {
+
+                                    updateConditionRowValueUI(
+                                        row
+                                    );
+
+                                    syncConditionRow(
+                                        row
+                                    );
+                                }
+                            );
+                        }
+
+                        bindNumericInput(
+                            valueDisplay
+                        );
+
+                        bindNumericInput(
+                            minDisplay
+                        );
+
+                        bindNumericInput(
+                            maxDisplay
+                        );
+
+                        if (
+                            textInput
+                        ) {
+
+                            textInput.addEventListener(
+                                'input',
+                                function() {
+
+                                    syncConditionRow(
+                                        row
+                                    );
+                                }
+                            );
+                        }
+
+                        if (
+                            removeButton
+                        ) {
+
+                            removeButton.addEventListener(
+                                'click',
+                                function() {
+
+                                    const rows =
+                                        conditionsContainer.querySelectorAll(
+                                            '.woosmart-condition-row'
+                                        );
+
+                                    if (
+                                        rows.length <= 1
+                                    ) {
+
+                                        alert(
+                                            'حداقل یک شرط باید وجود داشته باشد.'
+                                        );
+
+                                        return;
+                                    }
+
+                                    row.remove();
+
+                                    renumberConditionRows();
+                                }
+                            );
+                        }
+
+                        if (
+                            moveUpButton
+                        ) {
+
+                            moveUpButton.addEventListener(
+                                'click',
+                                function() {
+
+                                    const previousRow =
+                                        row.previousElementSibling;
+
+                                    if (
+                                        ! previousRow ||
+                                        ! previousRow.classList.contains(
+                                            'woosmart-condition-row'
+                                        )
+                                    ) {
+
+                                        return;
+                                    }
+
+                                    conditionsContainer.insertBefore(
+                                        row,
+                                        previousRow
+                                    );
+
+                                    renumberConditionRows();
+                                }
+                            );
+                        }
+
+                        if (
+                            moveDownButton
+                        ) {
+
+                            moveDownButton.addEventListener(
+                                'click',
+                                function() {
+
+                                    const nextRow =
+                                        row.nextElementSibling;
+
+                                    if (
+                                        ! nextRow ||
+                                        ! nextRow.classList.contains(
+                                            'woosmart-condition-row'
+                                        )
+                                    ) {
+
+                                        return;
+                                    }
+
+                                    conditionsContainer.insertBefore(
+                                        nextRow,
+                                        row
+                                    );
+
+                                    renumberConditionRows();
+                                }
+                            );
+                        }
+
+                        updateConditionRowOperators(
+                            row,
+                            operatorSelect
+                                ? operatorSelect.value
+                                : ''
+                        );
+
+                        updateConditionRowValueUI(
+                            row
+                        );
+                    }
+
+                    function createConditionRow(
+                        index
+                    ) {
+
+                        const defaultField =
+                            <?php
+                            echo wp_json_encode(
+                                $default_condition_field,
+                                JSON_UNESCAPED_UNICODE |
+                                JSON_UNESCAPED_SLASHES
+                            );
+                            ?>;
+
+                        const defaultOperator =
+                            getFirstOperator(
+                                defaultField
+                            );
+
+                        const row =
+                            document.createElement(
+                                'div'
+                            );
+
+                        row.className =
+                            'woosmart-condition-row';
+
+                        row.setAttribute(
+                            'data-index',
+                            index
+                        );
+
+                        row.style.cssText =
+                            'margin-bottom:16px;' +
+                            'padding:18px;' +
+                            'border:1px solid #ccd0d4;' +
+                            'background:#fff;' +
+                            'position:relative;';
+
+                        let fieldOptions =
+                            '';
+
+                        Object.keys(
+                            conditionDefinitions
+                        ).forEach(
+                            function(
+                                conditionKey
+                            ) {
+
+                                const definition =
+                                    conditionDefinitions[
+                                        conditionKey
+                                    ];
+
+                                const label =
+                                    definition &&
+                                    definition.label
+                                        ? definition.label
+                                        : conditionKey;
+
+                                fieldOptions +=
+                                    '<option value="' +
+                                    escapeHtml(
+                                        conditionKey
+                                    ) +
+                                    '"' +
+                                    (
+                                        conditionKey ===
+                                        defaultField
+                                            ? ' selected'
+                                            : ''
+                                    ) +
+                                    '>' +
+                                    escapeHtml(
+                                        label
+                                    ) +
+                                    '</option>';
+                            }
+                        );
+
+                        row.innerHTML =
+                            `
+                            <div
+                                style="
+                                    display:flex;
+                                    justify-content:space-between;
+                                    align-items:center;
+                                    margin-bottom:15px;
+                                    gap:15px;
+                                "
+                            >
+
+                                <strong>
+                                    شرط ${index + 1}
+                                </strong>
+
+                                <div
+                                    style="
+                                        display:flex;
+                                        align-items:center;
+                                        gap:6px;
+                                    "
+                                >
+
+                                    <button
+                                        type="button"
+                                        class="button woosmart-condition-move-up"
+                                        title="انتقال شرط به بالا"
+                                    >
+                                        ↑ بالا
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        class="button woosmart-condition-move-down"
+                                        title="انتقال شرط به پایین"
+                                    >
+                                        ↓ پایین
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        class="button-link-delete woosmart-remove-condition"
+                                    >
+                                        حذف شرط
+                                    </button>
+
+                                </div>
+
+                            </div>
+
+                            <table
+                                class="form-table"
+                                style="margin:0;"
+                            >
+
+                                <tr>
+
+                                    <th scope="row">
+
+                                        <label>
+                                            فیلد
+                                        </label>
+
+                                    </th>
+
+                                    <td>
+
+                                        <select
+                                            class="woosmart-condition-field"
+                                            name="conditions[${index}][field]"
+                                            style="min-width:300px;"
+                                        >
+                                            ${fieldOptions}
+                                        </select>
+
+                                    </td>
+
+                                </tr>
+
+                                <tr>
+
+                                    <th scope="row">
+
+                                        <label>
+                                            مقایسه
+                                        </label>
+
+                                    </th>
+
+                                    <td>
+
+                                        <select
+                                            class="woosmart-condition-operator"
+                                            name="conditions[${index}][operator]"
+                                            style="min-width:300px;"
+                                        >
+                                            ${buildOperatorOptions(
+                                                defaultField,
+                                                defaultOperator
+                                            )}
+                                        </select>
+
+                                    </td>
+
+                                </tr>
+
+                                <tr>
+
+                                    <th scope="row">
+
+                                        <label>
+                                            مقدار
+                                        </label>
+
+                                    </th>
+
+                                    <td>
+
+                                        <div
+                                            class="woosmart-condition-single-wrapper"
+                                            dir="ltr"
+                                            style="
+                                                display:flex;
+                                                align-items:center;
+                                                gap:10px;
+                                                max-width:420px;
+                                            "
+                                        >
+
+                                            <div
+                                                style="
+                                                    position:relative;
+                                                    flex:1;
+                                                    direction:ltr;
+                                                "
+                                            >
+
+                                                <input
+                                                    type="text"
+                                                    inputmode="decimal"
+                                                    autocomplete="off"
+                                                    dir="ltr"
+                                                    class="regular-text woosmart-condition-value-display"
+                                                    placeholder="100,000"
+                                                    spellcheck="false"
+                                                    style="
+                                                        width:100%;
+                                                        box-sizing:border-box;
+                                                        padding:8px 12px 8px 90px;
+                                                        direction:ltr;
+                                                        unicode-bidi:plaintext;
+                                                        text-align:left;
+                                                        font-variant-numeric:tabular-nums;
+                                                    "
+                                                >
+
+                                                <span
+                                                    class="woosmart-condition-unit"
+                                                    dir="rtl"
+                                                    style="
+                                                        position:absolute;
+                                                        left:12px;
+                                                        top:50%;
+                                                        transform:translateY(-50%);
+                                                        color:#646970;
+                                                        pointer-events:none;
+                                                        font-size:13px;
+                                                        font-weight:600;
+                                                        direction:rtl;
+                                                        unicode-bidi:isolate;
+                                                        white-space:nowrap;
+                                                    "
+                                                >
+                                                    ${escapeHtml(
+                                                        currencyUnit
+                                                    )}
+                                                </span>
+
+                                            </div>
+
+                                        </div>
+
+                                        <div
+                                            class="woosmart-condition-range-wrapper"
+                                            dir="rtl"
+                                            style="
+                                                display:none;
+                                                flex-wrap:wrap;
+                                                align-items:center;
+                                                gap:10px;
+                                                max-width:700px;
+                                            "
+                                        >
+
+                                            <div
+                                                style="
+                                                    position:relative;
+                                                    min-width:220px;
+                                                    flex:1;
+                                                    direction:ltr;
+                                                "
+                                            >
+
+                                                <input
+                                                    type="text"
+                                                    inputmode="decimal"
+                                                    autocomplete="off"
+                                                    dir="ltr"
+                                                    class="regular-text woosmart-condition-min-display"
+                                                    placeholder="1,000,000"
+                                                    spellcheck="false"
+                                                    style="
+                                                        width:100%;
+                                                        box-sizing:border-box;
+                                                        padding:8px 12px 8px 90px;
+                                                        direction:ltr;
+                                                        unicode-bidi:plaintext;
+                                                        text-align:left;
+                                                        font-variant-numeric:tabular-nums;
+                                                    "
+                                                >
+
+                                                <span
+                                                    dir="rtl"
+                                                    style="
+                                                        position:absolute;
+                                                        left:12px;
+                                                        top:50%;
+                                                        transform:translateY(-50%);
+                                                        color:#646970;
+                                                        pointer-events:none;
+                                                        font-size:13px;
+                                                        font-weight:600;
+                                                        direction:rtl;
+                                                        unicode-bidi:isolate;
+                                                        white-space:nowrap;
+                                                    "
+                                                >
+                                                    حداقل
+                                                </span>
+
+                                            </div>
+
+                                            <span
+                                                style="
+                                                    color:#646970;
+                                                    font-weight:600;
+                                                "
+                                            >
+                                                تا
+                                            </span>
+
+                                            <div
+                                                style="
+                                                    position:relative;
+                                                    min-width:220px;
+                                                    flex:1;
+                                                    direction:ltr;
+                                                "
+                                            >
+
+                                                <input
+                                                    type="text"
+                                                    inputmode="decimal"
+                                                    autocomplete="off"
+                                                    dir="ltr"
+                                                    class="regular-text woosmart-condition-max-display"
+                                                    placeholder="5,000,000"
+                                                    spellcheck="false"
+                                                    style="
+                                                        width:100%;
+                                                        box-sizing:border-box;
+                                                        padding:8px 12px 8px 90px;
+                                                        direction:ltr;
+                                                        unicode-bidi:plaintext;
+                                                        text-align:left;
+                                                        font-variant-numeric:tabular-nums;
+                                                    "
+                                                >
+
+                                                <span
+                                                    dir="rtl"
+                                                    style="
+                                                        position:absolute;
+                                                        left:12px;
+                                                        top:50%;
+                                                        transform:translateY(-50%);
+                                                        color:#646970;
+                                                        pointer-events:none;
+                                                        font-size:13px;
+                                                        font-weight:600;
+                                                        direction:rtl;
+                                                        unicode-bidi:isolate;
+                                                        white-space:nowrap;
+                                                    "
+                                                >
+                                                    حداکثر
+                                                </span>
+
+                                            </div>
+
+                                        </div>
+
+                                        <div
+                                            class="woosmart-condition-text-wrapper"
+                                            style="
+                                                display:none;
+                                                max-width:420px;
+                                            "
+                                        >
+
+                                            <input
+                                                type="text"
+                                                class="regular-text woosmart-condition-text"
+                                            >
+
+                                        </div>
+
+                                        <input
+                                            type="hidden"
+                                            class="woosmart-condition-value"
+                                            name="conditions[${index}][value]"
+                                            value=""
+                                        >
+
+                                        <input
+                                            type="hidden"
+                                            class="woosmart-condition-min"
+                                            name="conditions[${index}][min]"
+                                            value=""
+                                        >
+
+                                        <input
+                                            type="hidden"
+                                            class="woosmart-condition-max"
+                                            name="conditions[${index}][max]"
+                                            value=""
+                                        >
+
+                                        <p
+                                            class="description woosmart-condition-description"
+                                        >
+                                            مبلغ را به واحد پول فروشگاه وارد کنید؛ جداکننده هزارگان به‌صورت خودکار اضافه می‌شود.
+                                        </p>
+
+                                    </td>
+
+                                </tr>
+
+                            </table>
+                            `;
+
+                        return row;
+                    }
+
+                    function renumberConditionRows() {
+
+                        const rows =
+                            conditionsContainer.querySelectorAll(
+                                '.woosmart-condition-row'
+                            );
+
+                        rows.forEach(
+                            function(
+                                row,
+                                rowIndex
+                            ) {
+
+                                row.setAttribute(
+                                    'data-index',
+                                    rowIndex
+                                );
+
+                                const title =
+                                    row.querySelector(
+                                        'strong'
+                                    );
 
                                 if (
-                                    isRangeCondition()
+                                    title
                                 ) {
 
-                                    return;
+                                    title.textContent =
+                                        'شرط ' +
+                                        (
+                                            rowIndex +
+                                            1
+                                        );
                                 }
 
-                                const rawValue =
-                                    normalizeNumber(
-                                        amountDisplay.value
-                                    );
+                                row.querySelectorAll(
+                                    '[name]'
+                                ).forEach(
+                                    function(
+                                        input
+                                    ) {
 
-                                conditionValue.value =
-                                    rawValue;
-
-                                amountDisplay.value =
-                                    formatNumber(
-                                        rawValue
-                                    );
-                            }
-                        );
-                    }
-
-                    if (
-                        amountMinDisplay &&
-                        conditionValueMin
-                    ) {
-
-                        amountMinDisplay.addEventListener(
-                            'input',
-                            function() {
-
-                                const rawValue =
-                                    normalizeNumber(
-                                        amountMinDisplay.value
-                                    );
-
-                                conditionValueMin.value =
-                                    rawValue;
-
-                                amountMinDisplay.value =
-                                    formatNumber(
-                                        rawValue
-                                    );
-
-                                amountMinDisplay.setSelectionRange(
-                                    amountMinDisplay.value.length,
-                                    amountMinDisplay.value.length
+                                        input.name =
+                                            input.name.replace(
+                                                /conditions\[\d+\]/,
+                                                'conditions[' +
+                                                rowIndex +
+                                                ']'
+                                            );
+                                    }
                                 );
-                            }
-                        );
 
-                        amountMinDisplay.addEventListener(
-                            'blur',
-                            function() {
-
-                                const rawValue =
-                                    normalizeNumber(
-                                        amountMinDisplay.value
+                                const removeButton =
+                                    row.querySelector(
+                                        '.woosmart-remove-condition'
                                     );
 
-                                conditionValueMin.value =
-                                    rawValue;
+                                if (
+                                    removeButton
+                                ) {
 
-                                amountMinDisplay.value =
-                                    formatNumber(
-                                        rawValue
+                                    removeButton.disabled =
+                                        rows.length <= 1;
+                                }
+
+                                const moveUpButton =
+                                    row.querySelector(
+                                        '.woosmart-condition-move-up'
                                     );
+
+                                const moveDownButton =
+                                    row.querySelector(
+                                        '.woosmart-condition-move-down'
+                                    );
+
+                                if (
+                                    moveUpButton
+                                ) {
+
+                                    moveUpButton.disabled =
+                                        rowIndex === 0;
+                                }
+
+                                if (
+                                    moveDownButton
+                                ) {
+
+                                    moveDownButton.disabled =
+                                        rowIndex ===
+                                        rows.length - 1;
+                                }
                             }
                         );
                     }
 
                     if (
-                        amountMaxDisplay &&
-                        conditionValueMax
+                        conditionsContainer
                     ) {
 
-                        amountMaxDisplay.addEventListener(
-                            'input',
+                        conditionsContainer
+                            .querySelectorAll(
+                                '.woosmart-condition-row'
+                            )
+                            .forEach(
+                                function(
+                                    row
+                                ) {
+
+                                    bindConditionRow(
+                                        row
+                                    );
+                                }
+                            );
+
+                        renumberConditionRows();
+                    }
+
+                    if (
+                        addConditionButton &&
+                        conditionsContainer
+                    ) {
+
+                        addConditionButton.addEventListener(
+                            'click',
                             function() {
 
-                                const rawValue =
-                                    normalizeNumber(
-                                        amountMaxDisplay.value
+                                const rows =
+                                    conditionsContainer.querySelectorAll(
+                                        '.woosmart-condition-row'
                                     );
 
-                                conditionValueMax.value =
-                                    rawValue;
+                                const nextIndex =
+                                    rows.length;
 
-                                amountMaxDisplay.value =
-                                    formatNumber(
-                                        rawValue
+                                const row =
+                                    createConditionRow(
+                                        nextIndex
                                     );
 
-                                amountMaxDisplay.setSelectionRange(
-                                    amountMaxDisplay.value.length,
-                                    amountMaxDisplay.value.length
+                                conditionsContainer.appendChild(
+                                    row
                                 );
-                            }
-                        );
 
-                        amountMaxDisplay.addEventListener(
-                            'blur',
-                            function() {
+                                bindConditionRow(
+                                    row
+                                );
 
-                                const rawValue =
-                                    normalizeNumber(
-                                        amountMaxDisplay.value
-                                    );
-
-                                conditionValueMax.value =
-                                    rawValue;
-
-                                amountMaxDisplay.value =
-                                    formatNumber(
-                                        rawValue
-                                    );
-                            }
-                        );
-                    }
-
-                    if (
-                        textInput &&
-                        conditionValue
-                    ) {
-
-                        textInput.addEventListener(
-                            'input',
-                            function() {
-
-                                conditionValue.value =
-                                    textInput.value;
+                                renumberConditionRows();
                             }
                         );
                     }
 
                     const form =
-                        conditionValue
-                            ? conditionValue.form
+                        document.querySelector(
+                            '#woosmart-conditions-container'
+                        )
+                            ? document.querySelector(
+                                '#woosmart-conditions-container'
+                              ).closest(
+                                'form'
+                              )
                             : null;
 
                     if (
-                        form
+                        form &&
+                        conditionsContainer
                     ) {
 
                         form.addEventListener(
                             'submit',
                             function() {
 
-                                syncConditionValue();
+                                conditionsContainer
+                                    .querySelectorAll(
+                                        '.woosmart-condition-row'
+                                    )
+                                    .forEach(
+                                        function(
+                                            row
+                                        ) {
+
+                                            syncConditionRow(
+                                                row
+                                            );
+                                        }
+                                    );
                             }
                         );
                     }
@@ -3711,6 +4074,692 @@ class WooSmart_Admin {
     }
 
     /**
+     * Render one Condition row.
+     *
+     * @param int   $index                 Condition index.
+     * @param array $condition             Condition configuration.
+     * @param array $condition_definitions Condition definitions.
+     * @param string $currency_unit        Currency display unit.
+     *
+     * @return void
+     */
+    private function render_condition_row(
+        $index,
+        $condition,
+        $condition_definitions,
+        $currency_unit
+    ) {
+
+        $condition_field =
+            isset(
+                $condition['field']
+            )
+                ? sanitize_key(
+                    $condition['field']
+                )
+                : 'order_total';
+
+        if (
+            ! isset(
+                $condition_definitions[
+                    $condition_field
+                ]
+            )
+        ) {
+
+            $condition_keys =
+                array_keys(
+                    $condition_definitions
+                );
+
+            $condition_field =
+                ! empty(
+                    $condition_keys
+                )
+                    ? $condition_keys[0]
+                    : 'order_total';
+        }
+
+        $condition_definition =
+            $this->condition_registry->get(
+                $condition_field
+            );
+
+        $condition_operator =
+            isset(
+                $condition['operator']
+            )
+                ? sanitize_key(
+                    $condition['operator']
+                )
+                : '';
+
+        if (
+            ! is_array(
+                $condition_definition
+            ) ||
+            ! isset(
+                $condition_definition['operators']
+            ) ||
+            ! is_array(
+                $condition_definition['operators']
+            )
+        ) {
+
+            $condition_definition =
+                array(
+                    'label' =>
+                        $condition_field,
+
+                    'value_type' =>
+                        'text',
+
+                    'operators' =>
+                        array(),
+                );
+        }
+
+        if (
+            empty(
+                $condition_operator
+            ) ||
+            ! isset(
+                $condition_definition['operators'][
+                    $condition_operator
+                ]
+            )
+        ) {
+
+            if (
+                ! empty(
+                    $condition_definition['operators']
+                )
+            ) {
+
+                $operator_keys =
+                    array_keys(
+                        $condition_definition['operators']
+                    );
+
+                $condition_operator =
+                    $operator_keys[0];
+            }
+        }
+
+        $condition_value =
+            isset(
+                $condition['value']
+            )
+                ? $condition['value']
+                : '';
+
+        $value_type =
+            isset(
+                $condition_definition['value_type']
+            )
+                ? sanitize_key(
+                    $condition_definition['value_type']
+                )
+                : 'text';
+
+        $condition_value_scalar =
+            '';
+
+        $condition_min =
+            '';
+
+        $condition_max =
+            '';
+
+        if (
+            'between' ===
+            $condition_operator &&
+            is_array(
+                $condition_value
+            )
+        ) {
+
+            $condition_min =
+                isset(
+                    $condition_value['min']
+                )
+                    ? $this->normalize_numeric_input(
+                        $condition_value['min']
+                    )
+                    : '';
+
+            $condition_max =
+                isset(
+                    $condition_value['max']
+                )
+                    ? $this->normalize_numeric_input(
+                        $condition_value['max']
+                    )
+                    : '';
+
+        } else {
+
+            $condition_value_scalar =
+                'number' ===
+                    $value_type
+                        ? $this->normalize_numeric_input(
+                            $condition_value
+                        )
+                        : (string)
+                            $condition_value;
+        }
+
+        $condition_value_display =
+            'number' ===
+                $value_type
+                    ? $this->format_currency_input(
+                        $condition_value_scalar
+                    )
+                    : '';
+
+        $condition_min_display =
+            $this->format_currency_input(
+                $condition_min
+            );
+
+        $condition_max_display =
+            $this->format_currency_input(
+                $condition_max
+            );
+
+        if (
+            'number' !==
+            $value_type
+        ) {
+
+            $condition_value_display =
+                $condition_value_scalar;
+        }
+
+        ?>
+
+        <div
+            class="woosmart-condition-row"
+            data-index="<?php echo esc_attr( $index ); ?>"
+            style="
+                margin-bottom:16px;
+                padding:18px;
+                border:1px solid #ccd0d4;
+                background:#fff;
+                position:relative;
+            "
+        >
+
+            <div
+                style="
+                    display:flex;
+                    justify-content:space-between;
+                    align-items:center;
+                    margin-bottom:15px;
+                    gap:15px;
+                "
+            >
+
+                <strong>
+                    شرط
+                    <?php
+                    echo esc_html(
+                        $index + 1
+                    );
+                    ?>
+                </strong>
+
+                <div
+                    style="
+                        display:flex;
+                        align-items:center;
+                        gap:6px;
+                    "
+                >
+
+                    <button
+                        type="button"
+                        class="button woosmart-condition-move-up"
+                        title="انتقال شرط به بالا"
+                    >
+                        ↑ بالا
+                    </button>
+
+                    <button
+                        type="button"
+                        class="button woosmart-condition-move-down"
+                        title="انتقال شرط به پایین"
+                    >
+                        ↓ پایین
+                    </button>
+
+                    <button
+                        type="button"
+                        class="button-link-delete woosmart-remove-condition"
+                    >
+                        حذف شرط
+                    </button>
+
+                </div>
+
+            </div>
+
+            <table
+                class="form-table"
+                style="margin:0;"
+            >
+
+                <tr>
+
+                    <th scope="row">
+
+                        <label>
+                            فیلد
+                        </label>
+
+                    </th>
+
+                    <td>
+
+                        <select
+                            class="woosmart-condition-field"
+                            name="conditions[<?php echo esc_attr( $index ); ?>][field]"
+                            style="min-width:300px;"
+                        >
+
+                            <?php foreach (
+                                $condition_definitions
+                                as $condition_key =>
+                                $condition_definition_item
+                            ) : ?>
+
+                                <?php
+                                $condition_label =
+                                    isset(
+                                        $condition_definition_item['label']
+                                    )
+                                        ? $condition_definition_item['label']
+                                        : $condition_key;
+                                ?>
+
+                                <option
+                                    value="<?php echo esc_attr( $condition_key ); ?>"
+                                    <?php selected(
+                                        $condition_field,
+                                        $condition_key
+                                    ); ?>
+                                >
+                                    <?php
+                                    echo esc_html(
+                                        $condition_label
+                                    );
+                                    ?>
+                                </option>
+
+                            <?php endforeach; ?>
+
+                        </select>
+
+                    </td>
+
+                </tr>
+
+                <tr>
+
+                    <th scope="row">
+
+                        <label>
+                            مقایسه
+                        </label>
+
+                    </th>
+
+                    <td>
+
+                        <select
+                            class="woosmart-condition-operator"
+                            name="conditions[<?php echo esc_attr( $index ); ?>][operator]"
+                            style="min-width:300px;"
+                        >
+
+                            <?php foreach (
+                                $condition_definition['operators']
+                                as $operator_key =>
+                                $operator_label
+                            ) : ?>
+
+                                <option
+                                    value="<?php echo esc_attr( $operator_key ); ?>"
+                                    <?php selected(
+                                        $condition_operator,
+                                        $operator_key
+                                    ); ?>
+                                >
+                                    <?php
+                                    echo esc_html(
+                                        $operator_label
+                                    );
+                                    ?>
+                                </option>
+
+                            <?php endforeach; ?>
+
+                        </select>
+
+                    </td>
+
+                </tr>
+
+                <tr>
+
+                    <th scope="row">
+
+                        <label>
+                            مقدار
+                        </label>
+
+                    </th>
+
+                    <td>
+
+                        <div
+                            class="woosmart-condition-single-wrapper"
+                            dir="ltr"
+                            style="
+                                display:
+                                <?php
+                                echo (
+                                    'number' ===
+                                    $value_type &&
+                                    'between' !==
+                                        $condition_operator
+                                )
+                                    ? 'flex'
+                                    : 'none';
+                                ?>;
+                                align-items:center;
+                                gap:10px;
+                                max-width:420px;
+                            "
+                        >
+
+                            <div
+                                style="
+                                    position:relative;
+                                    flex:1;
+                                    direction:ltr;
+                                "
+                            >
+
+                                <input
+                                    type="text"
+                                    inputmode="decimal"
+                                    autocomplete="off"
+                                    dir="ltr"
+                                    class="regular-text woosmart-condition-value-display"
+                                    value="<?php echo esc_attr( $condition_value_display ); ?>"
+                                    placeholder="100,000"
+                                    spellcheck="false"
+                                    style="
+                                        width:100%;
+                                        box-sizing:border-box;
+                                        padding:8px 12px 8px 90px;
+                                        direction:ltr;
+                                        unicode-bidi:plaintext;
+                                        text-align:left;
+                                        font-variant-numeric:tabular-nums;
+                                    "
+                                >
+
+                                <span
+                                    class="woosmart-condition-unit"
+                                    dir="rtl"
+                                    style="
+                                        position:absolute;
+                                        left:12px;
+                                        top:50%;
+                                        transform:translateY(-50%);
+                                        color:#646970;
+                                        pointer-events:none;
+                                        font-size:13px;
+                                        font-weight:600;
+                                        direction:rtl;
+                                        unicode-bidi:isolate;
+                                        white-space:nowrap;
+                                    "
+                                >
+                                    <?php
+                                    echo esc_html(
+                                        $currency_unit
+                                    );
+                                    ?>
+                                </span>
+
+                            </div>
+
+                        </div>
+
+                        <div
+                            class="woosmart-condition-range-wrapper"
+                            dir="rtl"
+                            style="
+                                display:
+                                <?php
+                                echo (
+                                    'number' ===
+                                    $value_type &&
+                                    'between' ===
+                                        $condition_operator
+                                )
+                                    ? 'flex'
+                                    : 'none';
+                                ?>;
+                                flex-wrap:wrap;
+                                align-items:center;
+                                gap:10px;
+                                max-width:700px;
+                            "
+                        >
+
+                            <div
+                                style="
+                                    position:relative;
+                                    min-width:220px;
+                                    flex:1;
+                                    direction:ltr;
+                                "
+                            >
+
+                                <input
+                                    type="text"
+                                    inputmode="decimal"
+                                    autocomplete="off"
+                                    dir="ltr"
+                                    class="regular-text woosmart-condition-min-display"
+                                    value="<?php echo esc_attr( $condition_min_display ); ?>"
+                                    placeholder="1,000,000"
+                                    spellcheck="false"
+                                    style="
+                                        width:100%;
+                                        box-sizing:border-box;
+                                        padding:8px 12px 8px 90px;
+                                        direction:ltr;
+                                        unicode-bidi:plaintext;
+                                        text-align:left;
+                                        font-variant-numeric:tabular-nums;
+                                    "
+                                >
+
+                                <span
+                                    dir="rtl"
+                                    style="
+                                        position:absolute;
+                                        left:12px;
+                                        top:50%;
+                                        transform:translateY(-50%);
+                                        color:#646970;
+                                        pointer-events:none;
+                                        font-size:13px;
+                                        font-weight:600;
+                                        direction:rtl;
+                                        unicode-bidi:isolate;
+                                        white-space:nowrap;
+                                    "
+                                >
+                                    حداقل
+                                </span>
+
+                            </div>
+
+                            <span
+                                style="
+                                    color:#646970;
+                                    font-weight:600;
+                                "
+                            >
+                                تا
+                            </span>
+
+                            <div
+                                style="
+                                    position:relative;
+                                    min-width:220px;
+                                    flex:1;
+                                    direction:ltr;
+                                "
+                            >
+
+                                <input
+                                    type="text"
+                                    inputmode="decimal"
+                                    autocomplete="off"
+                                    dir="ltr"
+                                    class="regular-text woosmart-condition-max-display"
+                                    value="<?php echo esc_attr( $condition_max_display ); ?>"
+                                    placeholder="5,000,000"
+                                    spellcheck="false"
+                                    style="
+                                        width:100%;
+                                        box-sizing:border-box;
+                                        padding:8px 12px 8px 90px;
+                                        direction:ltr;
+                                        unicode-bidi:plaintext;
+                                        text-align:left;
+                                        font-variant-numeric:tabular-nums;
+                                    "
+                                >
+
+                                <span
+                                    dir="rtl"
+                                    style="
+                                        position:absolute;
+                                        left:12px;
+                                        top:50%;
+                                        transform:translateY(-50%);
+                                        color:#646970;
+                                        pointer-events:none;
+                                        font-size:13px;
+                                        font-weight:600;
+                                        direction:rtl;
+                                        unicode-bidi:isolate;
+                                        white-space:nowrap;
+                                    "
+                                >
+                                    حداکثر
+                                </span>
+
+                            </div>
+
+                        </div>
+
+                        <div
+                            class="woosmart-condition-text-wrapper"
+                            style="
+                                display:
+                                <?php
+                                echo (
+                                    'number' ===
+                                    $value_type
+                                )
+                                    ? 'none'
+                                    : 'block';
+                                ?>;
+                                max-width:420px;
+                            "
+                        >
+
+                            <input
+                                type="text"
+                                class="regular-text woosmart-condition-text"
+                                value="<?php echo esc_attr( $condition_value_display ); ?>"
+                            >
+
+                        </div>
+
+                        <input
+                            type="hidden"
+                            class="woosmart-condition-value"
+                            name="conditions[<?php echo esc_attr( $index ); ?>][value]"
+                            value="<?php echo esc_attr( $condition_value_scalar ); ?>"
+                        >
+
+                        <input
+                            type="hidden"
+                            class="woosmart-condition-min"
+                            name="conditions[<?php echo esc_attr( $index ); ?>][min]"
+                            value="<?php echo esc_attr( $condition_min ); ?>"
+                        >
+
+                        <input
+                            type="hidden"
+                            class="woosmart-condition-max"
+                            name="conditions[<?php echo esc_attr( $index ); ?>][max]"
+                            value="<?php echo esc_attr( $condition_max ); ?>"
+                        >
+
+                        <p
+                            class="description woosmart-condition-description"
+                        >
+                            <?php
+                            if (
+                                'number' !==
+                                $value_type
+                            ) {
+
+                                echo esc_html(
+                                    'مقدار شرط را وارد کنید.'
+                                );
+
+                            } elseif (
+                                'between' ===
+                                $condition_operator
+                            ) {
+
+                                echo esc_html(
+                                    'حداقل و حداکثر مبلغ را به واحد پول فروشگاه وارد کنید؛ هر دو سر بازه شامل شرط هستند.'
+                                );
+
+                            } else {
+
+                                echo esc_html(
+                                    'مبلغ را به واحد پول فروشگاه وارد کنید؛ جداکننده هزارگان به‌صورت خودکار اضافه می‌شود.'
+                                );
+                            }
+                            ?>
+                        </p>
+
+                    </td>
+
+                </tr>
+
+            </table>
+
+        </div>
+
+        <?php
+    }
+
+    /**
      * Render one Action row.
      *
      * @param int   $index          Action index.
@@ -4235,7 +5284,7 @@ class WooSmart_Admin {
 
             </div>
 
-            <?php
+        <?php
         }
     }
 
