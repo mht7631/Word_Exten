@@ -33,6 +33,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-execution-hi
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-execution-engine.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-execution-admin.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-priority-admin.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-woosmart-conflict-detector.php';
 
 
 /**
@@ -99,6 +100,13 @@ function woosmart_automation_init() {
      * Automation Priority admin UI.
      */
     new WooSmart_Priority_Admin();
+
+    /*
+     * Cross-Automation Conflict Detection.
+     *
+     * This detector is advisory and never blocks execution.
+     */
+    new WooSmart_Conflict_Detector();
 
     /*
      * Main automation class.
