@@ -739,12 +739,18 @@ class WooSmart_Execution_Engine {
             /*
              * Condition evaluation during planning is safe
              * because it does not execute Actions.
+             *
+             * Planning must not create duplicate condition
+             * result logs because the selected Automation
+             * evaluates its Conditions again immediately
+             * before Action execution.
              */
             $matched =
                 (bool)
                 $this->condition_engine->evaluate(
                     $conditions,
-                    $context
+                    $context,
+                    false
                 );
 
             $plan_entry = array(
@@ -1346,7 +1352,8 @@ class WooSmart_Execution_Engine {
         $conditions_passed =
             $this->condition_engine->evaluate(
                 $conditions,
-                $context
+                $context,
+                true
             );
 
         if (
