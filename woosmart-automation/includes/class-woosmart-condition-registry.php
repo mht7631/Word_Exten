@@ -334,6 +334,53 @@ class WooSmart_Condition_Registry {
                     },
             )
         );
+
+        $this->register(
+            'order_status',
+            array(
+                'label' =>
+                    'وضعیت سفارش',
+
+                /*
+                 * Stored value is the stable WooCommerce order-status
+                 * slug without the leading "wc-" prefix.
+                 *
+                 * Examples:
+                 * pending
+                 * processing
+                 * completed
+                 * my-custom-status
+                 */
+                'value_type' =>
+                    'text',
+
+                'value_options_source' =>
+                    'woocommerce_order_statuses',
+
+                'operators' =>
+                    array(
+                        'is_equal' =>
+                            'برابر است با',
+
+                        'is_not_equal' =>
+                            'برابر نیست با',
+                    ),
+
+                'evaluator' =>
+                    function (
+                        $operator,
+                        $value,
+                        $context
+                    ) {
+
+                        return $this->evaluate_order_status(
+                            $operator,
+                            $value,
+                            $context
+                        );
+                    },
+            )
+        );
     }
 
     /**
@@ -564,6 +611,115 @@ class WooSmart_Condition_Registry {
                 return (
                     $order_total <=
                     $condition_value
+                );
+        }
+
+        return false;
+    }
+
+    /**
+     * Evaluate the WooCommerce order status condition.
+     *
+     * @param string $operator Operator key.
+     * @param mixed  $value    Configured order status slug.
+     * @param array  $context  Execution context.
+     *
+     * @return bool
+     */
+    private function evaluate_order_status(
+        $operator,
+        $value,
+        $context
+    ) {
+
+        if (
+            ! function_exists(
+                'wc_get_order'
+            ) ||
+            ! isset(
+                $context['order_id']
+            )
+        ) {
+
+            return false;
+        }
+
+        $order_id =
+            absint(
+                $context['order_id']
+            );
+
+        if (
+            ! $order_id
+        ) {
+
+            return false;
+        }
+
+        $order =
+            wc_get_order(
+                $order_id
+            );
+
+        if (
+            ! $order
+        ) {
+
+            return false;
+        }
+
+        /*
+         * WooCommerce returns the current status as a stable slug
+         * without the leading "wc-" prefix.
+         */
+        $current_status =
+            sanitize_key(
+                $order->get_status()
+            );
+
+        $configured_status =
+            sanitize_key(
+                is_scalar(
+                    $value
+                )
+                    ? (string) $value
+                    : ''
+            );
+
+        /*
+         * Be tolerant of values coming directly from
+         * wc_get_order_statuses(), which use the "wc-" prefix.
+         */
+        $configured_status =
+            preg_replace(
+                '/^wc-/',
+                '',
+                $configured_status
+            );
+
+        if (
+            '' === $configured_status
+        ) {
+
+            return false;
+        }
+
+        switch (
+            $operator
+        ) {
+
+            case 'is_equal':
+
+                return (
+                    $current_status ===
+                    $configured_status
+                );
+
+            case 'is_not_equal':
+
+                return (
+                    $current_status !==
+                    $configured_status
                 );
         }
 
