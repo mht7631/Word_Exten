@@ -2288,6 +2288,9 @@ class WooSmart_Execution_Admin {
         $field_labels = array(
             'order_total' =>
                 'مبلغ سفارش',
+
+            'order_status' =>
+                'وضعیت سفارش',
         );
 
         $operator_labels = array(
@@ -2340,6 +2343,20 @@ class WooSmart_Execution_Admin {
                     $operator
                 ]
                 : $operator;
+
+        if (
+            'order_status' ===
+            $field &&
+            is_scalar(
+                $value
+            )
+        ) {
+
+            $value =
+                $this->get_order_status_label(
+                    $value
+                );
+        }
 
         if (
             is_array(
@@ -3096,8 +3113,33 @@ class WooSmart_Execution_Admin {
      * @return string
      */
     private function get_order_status_label(
-        $status_slug
+        $status_slug,
+        $default_label = null
     ) {
+
+        $status_slug =
+            sanitize_key(
+                (string) $status_slug
+            );
+
+        $status_slug =
+            preg_replace(
+                '/^wc-/',
+                '',
+                $status_slug
+            );
+
+        if (
+            '' ===
+            $status_slug
+        ) {
+
+            return is_null( $default_label )
+                ? ''
+                : wp_strip_all_tags(
+                    (string) $default_label
+                );
+        }
 
         $labels = array(
             'pending' =>
@@ -3120,17 +3162,67 @@ class WooSmart_Execution_Admin {
 
             'failed' =>
                 'ناموفق',
+
+            'draft' =>
+                'پیش‌نویس',
         );
 
-        return isset(
-            $labels[
+        if (
+            function_exists(
+                'wc_get_order_statuses'
+            )
+        ) {
+
+            foreach (
+                wc_get_order_statuses()
+                as $status_key =>
+                $status_label
+            ) {
+
+                $woocommerce_slug =
+                    sanitize_key(
+                        str_replace(
+                            'wc-',
+                            '',
+                            (string) $status_key
+                        )
+                    );
+
+                if (
+                    $woocommerce_slug ===
+                    $status_slug
+                ) {
+
+                    return wp_strip_all_tags(
+                        $status_label
+                    );
+                }
+            }
+        }
+
+        if (
+            isset(
+                $labels[
+                    $status_slug
+                ]
+            )
+        ) {
+
+            return $labels[
                 $status_slug
-            ]
-        )
-            ? $labels[
-                $status_slug
-            ]
-            : $status_slug;
+            ];
+        }
+
+        if (
+            ! is_null( $default_label )
+        ) {
+
+            return wp_strip_all_tags(
+                (string) $default_label
+            );
+        }
+
+        return $status_slug;
     }
 
     /**
