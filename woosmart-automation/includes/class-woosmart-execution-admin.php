@@ -1208,14 +1208,22 @@ class WooSmart_Execution_Admin {
                             ? $execution['conditions']
                             : array();
 
+                    /*
+                     * Detailed condition results are stored separately from
+                     * the condition configuration snapshot.
+                     *
+                     * Keep the local variable name used by the existing
+                     * renderers so the legacy and grouped UI remain
+                     * backward compatible.
+                     */
                     $condition_results =
                         isset(
-                            $execution['condition_results']
+                            $execution['condition_evaluation']
                         ) &&
                         is_array(
-                            $execution['condition_results']
+                            $execution['condition_evaluation']
                         )
-                            ? $execution['condition_results']
+                            ? $execution['condition_evaluation']
                             : array();
 
                     $execution_status =
@@ -1749,7 +1757,7 @@ class WooSmart_Execution_Admin {
 
                     <div>
                         <?php
-                        $this->render_result_badge(
+                        $this->render_condition_result_badge(
                             $group_result
                         );
                         ?>
@@ -1852,7 +1860,7 @@ class WooSmart_Execution_Admin {
                                 </div>
 
                                 <?php
-                                $this->render_result_badge(
+                                $this->render_condition_result_badge(
                                     $condition_passed
                                 );
                                 ?>
@@ -2736,6 +2744,62 @@ class WooSmart_Execution_Admin {
         }
 
         return $type;
+    }
+
+    /**
+     * Render a Condition result badge.
+     *
+     * A null Condition result means the Condition or Group was not evaluated,
+     * typically because of logical short-circuiting.
+     *
+     * @param mixed $result Condition result.
+     *
+     * @return void
+     */
+    private function render_condition_result_badge(
+        $result
+    ) {
+
+        if (
+            null ===
+            $result
+        ) {
+
+            $label =
+                'ارزیابی نشد';
+
+            $background =
+                '#f6f7f7';
+
+            $border =
+                '#ccd0d4';
+
+            $color =
+                '#646970';
+
+            ?>
+            <span
+                style="
+                    display:inline-block;
+                    padding:3px 8px;
+                    border:1px solid <?php echo esc_attr( $border ); ?>;
+                    background:<?php echo esc_attr( $background ); ?>;
+                    color:<?php echo esc_attr( $color ); ?>;
+                    border-radius:3px;
+                    font-size:12px;
+                    line-height:1.5;
+                "
+            >
+                <?php echo esc_html( $label ); ?>
+            </span>
+            <?php
+
+            return;
+        }
+
+        $this->render_result_badge(
+            $result
+        );
     }
 
     /**
