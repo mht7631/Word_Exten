@@ -706,6 +706,28 @@ class WooSmart_Admin {
                 ),
             );
 
+        $condition_mode =
+            'groups';
+
+        $condition_groups_for_form =
+            array(
+                array(
+                    'conditions' =>
+                        array(
+                            array(
+                                'field' =>
+                                    $default_condition_field,
+
+                                'operator' =>
+                                    $default_condition_operator,
+
+                                'value' =>
+                                    '',
+                            ),
+                        ),
+                ),
+            );
+
         $actions =
             array();
 
@@ -761,10 +783,131 @@ class WooSmart_Admin {
                         is_array(
                             $stored_conditions
                         ) &&
+                        array_key_exists(
+                            'groups',
+                            $stored_conditions
+                        )
+                    ) {
+
+                        $condition_mode =
+                            'groups';
+
+                        $condition_groups_for_form =
+                            array();
+
+                        $stored_groups =
+                            isset(
+                                $stored_conditions['groups']
+                            ) &&
+                            is_array(
+                                $stored_conditions['groups']
+                            )
+                                ? $stored_conditions['groups']
+                                : array();
+
+                        foreach (
+                            $stored_groups as $stored_group
+                        ) {
+
+                            if (
+                                ! is_array(
+                                    $stored_group
+                                )
+                            ) {
+                                continue;
+                            }
+
+                            $group_conditions =
+                                isset(
+                                    $stored_group['conditions']
+                                ) &&
+                                is_array(
+                                    $stored_group['conditions']
+                                )
+                                    ? $stored_group['conditions']
+                                    : array();
+
+                            $normalized_group_conditions =
+                                array();
+
+                            foreach (
+                                $group_conditions
+                                as $stored_condition
+                            ) {
+
+                                if (
+                                    ! is_array(
+                                        $stored_condition
+                                    )
+                                ) {
+                                    continue;
+                                }
+
+                                $normalized_group_conditions[] =
+                                    $stored_condition;
+                            }
+
+                            if (
+                                empty(
+                                    $normalized_group_conditions
+                                )
+                            ) {
+                                $normalized_group_conditions[] =
+                                    array(
+                                        'field' =>
+                                            $default_condition_field,
+
+                                        'operator' =>
+                                            $default_condition_operator,
+
+                                        'value' =>
+                                            '',
+                                    );
+                            }
+
+                            $condition_groups_for_form[] =
+                                array(
+                                    'conditions' =>
+                                        $normalized_group_conditions,
+                                );
+                        }
+
+                        if (
+                            empty(
+                                $condition_groups_for_form
+                            )
+                        ) {
+                            $condition_groups_for_form =
+                                array(
+                                    array(
+                                        'conditions' =>
+                                            array(
+                                                array(
+                                                    'field' =>
+                                                        $default_condition_field,
+
+                                                    'operator' =>
+                                                        $default_condition_operator,
+
+                                                    'value' =>
+                                                        '',
+                                                ),
+                                            ),
+                                    ),
+                                );
+                        }
+
+                    } elseif (
+                        is_array(
+                            $stored_conditions
+                        ) &&
                         ! empty(
                             $stored_conditions
                         )
                     ) {
+
+                        $condition_mode =
+                            'legacy';
 
                         $conditions_for_form =
                             array();
@@ -859,7 +1002,7 @@ class WooSmart_Admin {
                                     ? $stored_condition['value']
                                     : '';
 
-                            $normalized_condition =
+                            $conditions_for_form[] =
                                 array(
                                     'field' =>
                                         $stored_field,
@@ -870,9 +1013,6 @@ class WooSmart_Admin {
                                     'value' =>
                                         $stored_value,
                                 );
-
-                            $conditions_for_form[] =
-                                $normalized_condition;
                         }
 
                         if (
@@ -880,7 +1020,6 @@ class WooSmart_Admin {
                                 $conditions_for_form
                             )
                         ) {
-
                             $conditions_for_form =
                                 array(
                                     array(
@@ -895,6 +1034,14 @@ class WooSmart_Admin {
                                     ),
                                 );
                         }
+
+                        $condition_groups_for_form =
+                            array(
+                                array(
+                                    'conditions' =>
+                                        $conditions_for_form,
+                                ),
+                            );
                     }
 
                     if (
@@ -916,10 +1063,15 @@ class WooSmart_Admin {
         /*
          * Normalize condition values for display.
          */
-        foreach (
-            $conditions_for_form as $condition_index =>
-            $form_condition
+        if (
+            'legacy' ===
+            $condition_mode
         ) {
+
+            foreach (
+                $conditions_for_form as $condition_index =>
+                $form_condition
+            ) {
 
             $field =
                 isset(
@@ -1022,6 +1174,8 @@ class WooSmart_Admin {
                     (string)
                     $value;
             }
+        }
+
         }
 
         /*
@@ -1251,51 +1405,164 @@ class WooSmart_Admin {
                     شرایط
                 </h2>
 
-                <p>
-                    اتوماسیون فقط زمانی اجرا می‌شود که تمام شرایط برقرار باشند.
-                </p>
+                <?php if ( 'legacy' === $condition_mode ) : ?>
+
+                    <div
+                        class="notice notice-info inline"
+                        style="max-width:1000px;"
+                    >
+                        <p>
+                            این اتوماسیون از ساختار قدیمی شرط‌ها استفاده می‌کند؛ همه شرط‌ها با AND بررسی می‌شوند. برای استفاده از منطق گروهی، آن را به حالت گروهی تبدیل کنید.
+                        </p>
+                    </div>
+
+                    <p>
+                        <button
+                            type="button"
+                            class="button button-primary"
+                            id="woosmart-enable-grouped-conditions"
+                        >
+                            تبدیل به حالت گروهی (AND / OR)
+                        </button>
+                    </p>
+
+                    <div
+                        id="woosmart-conditions-container"
+                        style="
+                            max-width:1000px;
+                        "
+                    >
+
+                        <?php foreach (
+                            $conditions_for_form
+                            as $condition_index =>
+                            $condition
+                        ) : ?>
+
+                            <?php
+                            $this->render_condition_row(
+                                $condition_index,
+                                $condition,
+                                $condition_definitions,
+                                $currency_unit
+                            );
+                            ?>
+
+                        <?php endforeach; ?>
+
+                    </div>
+
+                    <p>
+                        <button
+                            type="button"
+                            class="button"
+                            id="woosmart-add-condition"
+                        >
+                            + افزودن شرط
+                        </button>
+                    </p>
+
+                    <p class="description">
+                        می‌توانید چند شرط تعریف کنید. همه شرط‌ها باید هم‌زمان برقرار باشند.
+                    </p>
+
+                <?php endif; ?>
+
+                <style>
+                    #woosmart-condition-groups-container .woosmart-condition-row.woosmart-condition-has-next {
+                        margin-bottom:44px !important;
+                    }
+
+                    #woosmart-condition-groups-container .woosmart-condition-row.woosmart-condition-has-next::after {
+                        content:"AND";
+                        position:absolute;
+                        left:50%;
+                        bottom:-34px;
+                        transform:translateX(-50%);
+                        color:#50575e;
+                        font-weight:700;
+                        line-height:1;
+                        background:#f6f7f7;
+                        padding:0 8px;
+                        pointer-events:none;
+                    }
+
+                    #woosmart-condition-groups-container .woosmart-condition-group.woosmart-group-has-next {
+                        margin-bottom:58px !important;
+                    }
+
+                    #woosmart-condition-groups-container .woosmart-condition-group.woosmart-group-has-next::after {
+                        content:"OR";
+                        position:absolute;
+                        left:50%;
+                        bottom:-42px;
+                        transform:translateX(-50%);
+                        color:#2271b1;
+                        font-size:15px;
+                        font-weight:700;
+                        line-height:1;
+                        background:#fff;
+                        padding:0 10px;
+                        pointer-events:none;
+                    }
+                </style>
 
                 <div
-                    id="woosmart-conditions-container"
+                    id="woosmart-grouped-conditions-ui"
                     style="
                         max-width:1000px;
+                        <?php echo 'groups' === $condition_mode ? '' : 'display:none;'; ?>
                     "
                 >
 
-                    <?php foreach (
-                        $conditions_for_form
-                        as $condition_index =>
-                        $condition
-                    ) : ?>
+                    <div
+                        class="notice notice-info inline"
+                        style="margin:0 0 18px 0;"
+                    >
+                        <p>
+                            <strong>ساختار گروهی:</strong> شرط‌های داخل هر گروه با AND و خود گروه‌ها با OR ترکیب می‌شوند.
+                            مثال: (شرط ۱ AND شرط ۲) OR (شرط ۳ AND شرط ۴)
+                        </p>
+                    </div>
 
-                        <?php
-                        $this->render_condition_row(
-                            $condition_index,
-                            $condition,
-                            $condition_definitions,
-                            $currency_unit
-                        );
-                        ?>
+                    <div
+                        id="woosmart-condition-groups-container"
+                    >
 
-                    <?php endforeach; ?>
+                        <?php foreach (
+                            $condition_groups_for_form
+                            as $group_index =>
+                            $group
+                        ) : ?>
+
+                            <?php
+                            $this->render_condition_group(
+                                $group_index,
+                                $group,
+                                $condition_definitions,
+                                $currency_unit
+                            );
+                            ?>
+
+                        <?php endforeach; ?>
+
+                    </div>
+
+                    <p>
+                        <button
+                            type="button"
+                            class="button button-primary"
+                            id="woosmart-add-condition-group"
+                        >
+                            + افزودن گروه
+                        </button>
+                    </p>
+
+                    <p class="description">
+                        داخل هر گروه همه شرط‌ها باید برقرار باشند؛ وجود حداقل یک گروه برقرار، کل منطق شرط‌ها را موفق می‌کند.
+                    </p>
 
                 </div>
-
-                <p>
-
-                    <button
-                        type="button"
-                        class="button"
-                        id="woosmart-add-condition"
-                    >
-                        + افزودن شرط
-                    </button>
-
-                </p>
-
-                <p class="description">
-                    می‌توانید چند شرط تعریف کنید. تمام شرط‌ها باید هم‌زمان برقرار باشند.
-                </p>
 
                 <h2>
                     عملیات
@@ -2922,6 +3189,1385 @@ class WooSmart_Admin {
                         );
                     }
 
+                    const groupedConditionsUI =
+                        document.getElementById(
+                            'woosmart-grouped-conditions-ui'
+                        );
+
+                    const groupedConditionsContainer =
+                        document.getElementById(
+                            'woosmart-condition-groups-container'
+                        );
+
+                    const enableGroupedConditionsButton =
+                        document.getElementById(
+                            'woosmart-enable-grouped-conditions'
+                        );
+
+                    function setContainerInputsDisabled(
+                        container,
+                        disabled
+                    ) {
+
+                        if (! container) {
+                            return;
+                        }
+
+                        container
+                            .querySelectorAll(
+                                'input, select, textarea, button'
+                            )
+                            .forEach(
+                                function(
+                                    element
+                                ) {
+
+                                    if (
+                                        element.id ===
+                                        'woosmart-enable-grouped-conditions'
+                                    ) {
+                                        return;
+                                    }
+
+                                    element.disabled =
+                                        disabled;
+                                }
+                            );
+                    }
+
+                    function rebuildGroupedAndSeparators() {
+
+                        if (! groupedConditionsContainer) {
+                            return;
+                        }
+
+                        const groups =
+                            Array.from(
+                                groupedConditionsContainer.querySelectorAll(
+                                    ':scope > .woosmart-condition-group'
+                                )
+                            );
+
+                        groups.forEach(
+                            function( group, groupIndex ) {
+
+                                group.classList.toggle(
+                                    'woosmart-group-has-next',
+                                    groupIndex < groups.length - 1
+                                );
+
+                                const rowsContainer =
+                                    group.querySelector(
+                                        '.woosmart-group-conditions-container'
+                                    );
+
+                                if (! rowsContainer) {
+                                    return;
+                                }
+
+                                const rows =
+                                    Array.from(
+                                        rowsContainer.querySelectorAll(
+                                            ':scope > .woosmart-condition-row'
+                                        )
+                                    );
+
+                                rows.forEach(
+                                    function( row, rowIndex ) {
+                                        row.classList.toggle(
+                                            'woosmart-condition-has-next',
+                                            rowIndex < rows.length - 1
+                                        );
+                                    }
+                                );
+
+                                rowsContainer
+                                    .querySelectorAll(
+                                        ':scope > .woosmart-group-and-separator'
+                                    )
+                                    .forEach(
+                                        function( separator ) {
+                                            separator.style.display = 'none';
+                                        }
+                                    );
+                            }
+                        );
+
+                        groupedConditionsContainer
+                            .querySelectorAll(
+                                ':scope > .woosmart-group-or-separator'
+                            )
+                            .forEach(
+                                function( separator ) {
+                                    separator.style.display = 'none';
+                                }
+                            );
+                    }
+
+                    function renumberGroupedConditions(
+                        group
+                    ) {
+
+                        if (! group) {
+                            return;
+                        }
+
+                        const groupIndex =
+                            parseInt(
+                                group.getAttribute(
+                                    'data-group-index'
+                                ),
+                                10
+                            );
+
+                        const rows =
+                            Array.from(
+                                group.querySelectorAll(
+                                    '.woosmart-condition-row'
+                                )
+                            );
+
+                        rows.forEach(
+                            function(
+                                row,
+                                rowIndex
+                            ) {
+
+                                row.setAttribute(
+                                    'data-index',
+                                    rowIndex
+                                );
+
+                                const title =
+                                    row.querySelector(
+                                        'strong'
+                                    );
+
+                                if (title) {
+
+                                    title.textContent =
+                                        'شرط ' +
+                                        (
+                                            rowIndex +
+                                            1
+                                        );
+                                }
+
+                                row
+                                    .querySelectorAll(
+                                        '[name]'
+                                    )
+                                    .forEach(
+                                        function(
+                                            input
+                                        ) {
+
+                                            input.name =
+                                                input.name.replace(
+                                                    /condition_groups\[\d+\]\[conditions\]\[\d+\]/,
+                                                    'condition_groups[' +
+                                                    groupIndex +
+                                                    '][conditions][' +
+                                                    rowIndex +
+                                                    ']'
+                                                );
+                                        }
+                                    );
+
+                                const removeButton =
+                                    row.querySelector(
+                                        '.woosmart-remove-condition'
+                                    );
+
+                                if (removeButton) {
+
+                                    removeButton.disabled =
+                                        rows.length <= 1;
+                                }
+
+                                const moveUpButton =
+                                    row.querySelector(
+                                        '.woosmart-condition-move-up'
+                                    );
+
+                                const moveDownButton =
+                                    row.querySelector(
+                                        '.woosmart-condition-move-down'
+                                    );
+
+                                if (moveUpButton) {
+
+                                    moveUpButton.disabled =
+                                        rowIndex === 0;
+                                }
+
+                                if (moveDownButton) {
+
+                                    moveDownButton.disabled =
+                                        rowIndex === rows.length - 1;
+                                }
+                            }
+                        );
+                    }
+
+                    function renumberGroupedGroups() {
+
+                        if (! groupedConditionsContainer) {
+                            return;
+                        }
+
+                        const children =
+                            Array.from(
+                                groupedConditionsContainer.children
+                            );
+
+                        let groupIndex =
+                            0;
+
+                        children.forEach(
+                            function(
+                                child
+                            ) {
+
+                                if (
+                                    ! child.classList.contains(
+                                        'woosmart-condition-group'
+                                    )
+                                ) {
+                                    return;
+                                }
+
+                                child.setAttribute(
+                                    'data-group-index',
+                                    groupIndex
+                                );
+
+                                const title =
+                                    child.querySelector(
+                                        '.woosmart-condition-group-title'
+                                    );
+
+                                if (title) {
+
+                                    title.textContent =
+                                        'گروه ' +
+                                        (
+                                            groupIndex +
+                                            1
+                                        );
+                                }
+
+                                child
+                                    .querySelectorAll(
+                                        '[name]'
+                                    )
+                                    .forEach(
+                                        function(
+                                            input
+                                        ) {
+
+                                            input.name =
+                                                input.name.replace(
+                                                    /condition_groups\[\d+\]\[conditions\]\[\d+\]/,
+                                                    'condition_groups[' +
+                                                    groupIndex +
+                                                    '][conditions][0]'
+                                                );
+                                        }
+                                    );
+
+                                renumberGroupedConditions(
+                                    child
+                                );
+
+                                const removeGroupButton =
+                                    child.querySelector(
+                                        '.woosmart-remove-group'
+                                    );
+
+                                if (removeGroupButton) {
+
+                                    const groupCount =
+                                        groupedConditionsContainer.querySelectorAll(
+                                            ':scope > .woosmart-condition-group'
+                                        ).length;
+
+                                    removeGroupButton.disabled =
+                                        groupCount <= 1;
+                                }
+
+                                const moveUpButton =
+                                    child.querySelector(
+                                        '.woosmart-group-move-up'
+                                    );
+
+                                const moveDownButton =
+                                    child.querySelector(
+                                        '.woosmart-group-move-down'
+                                    );
+
+                                const groupCount =
+                                    groupedConditionsContainer.querySelectorAll(
+                                        ':scope > .woosmart-condition-group'
+                                    ).length;
+
+                                if (moveUpButton) {
+
+                                    moveUpButton.disabled =
+                                        groupIndex === 0;
+                                }
+
+                                if (moveDownButton) {
+
+                                    moveDownButton.disabled =
+                                        groupIndex === groupCount - 1;
+                                }
+
+                                groupIndex++;
+                            }
+                        );
+
+                        rebuildGroupedAndSeparators();
+                    }
+
+                    function clearClonedConditionRow(
+                        row
+                    ) {
+
+                        if (! row) {
+                            return;
+                        }
+
+                        const fieldSelect =
+                            row.querySelector(
+                                '.woosmart-condition-field'
+                            );
+
+                        const operatorSelect =
+                            row.querySelector(
+                                '.woosmart-condition-operator'
+                            );
+
+                        const valueDisplay =
+                            row.querySelector(
+                                '.woosmart-condition-value-display'
+                            );
+
+                        const minDisplay =
+                            row.querySelector(
+                                '.woosmart-condition-min-display'
+                            );
+
+                        const maxDisplay =
+                            row.querySelector(
+                                '.woosmart-condition-max-display'
+                            );
+
+                        const textInput =
+                            row.querySelector(
+                                '.woosmart-condition-text'
+                            );
+
+                        const valueHidden =
+                            row.querySelector(
+                                '.woosmart-condition-value'
+                            );
+
+                        const minHidden =
+                            row.querySelector(
+                                '.woosmart-condition-min'
+                            );
+
+                        const maxHidden =
+                            row.querySelector(
+                                '.woosmart-condition-max'
+                            );
+
+                        if (fieldSelect) {
+
+                            fieldSelect.value =
+                                Object.keys(
+                                    conditionDefinitions
+                                )[0] ||
+                                'order_total';
+                        }
+
+                        if (operatorSelect) {
+
+                            operatorSelect.innerHTML =
+                                buildOperatorOptions(
+                                    fieldSelect
+                                        ? fieldSelect.value
+                                        : 'order_total',
+                                    getFirstOperator(
+                                        fieldSelect
+                                            ? fieldSelect.value
+                                            : 'order_total'
+                                    )
+                                );
+                        }
+
+                        if (valueDisplay) {
+                            valueDisplay.value = '';
+                        }
+
+                        if (minDisplay) {
+                            minDisplay.value = '';
+                        }
+
+                        if (maxDisplay) {
+                            maxDisplay.value = '';
+                        }
+
+                        if (textInput) {
+                            textInput.value = '';
+                        }
+
+                        if (valueHidden) {
+                            valueHidden.value = '';
+                        }
+
+                        if (minHidden) {
+                            minHidden.value = '';
+                        }
+
+                        if (maxHidden) {
+                            maxHidden.value = '';
+                        }
+
+                        updateConditionRowOperators(
+                            row,
+                            operatorSelect
+                                ? operatorSelect.value
+                                : ''
+                        );
+
+                        updateConditionRowValueUI(
+                            row
+                        );
+                    }
+
+                    function bindGroupedConditionRow(
+                        row
+                    ) {
+
+                        if (! row) {
+                            return;
+                        }
+
+                        const group =
+                            row.closest(
+                                '.woosmart-condition-group'
+                            );
+
+                        const fieldSelect =
+                            row.querySelector(
+                                '.woosmart-condition-field'
+                            );
+
+                        const operatorSelect =
+                            row.querySelector(
+                                '.woosmart-condition-operator'
+                            );
+
+                        const valueDisplay =
+                            row.querySelector(
+                                '.woosmart-condition-value-display'
+                            );
+
+                        const minDisplay =
+                            row.querySelector(
+                                '.woosmart-condition-min-display'
+                            );
+
+                        const maxDisplay =
+                            row.querySelector(
+                                '.woosmart-condition-max-display'
+                            );
+
+                        const textInput =
+                            row.querySelector(
+                                '.woosmart-condition-text'
+                            );
+
+                        const removeButton =
+                            row.querySelector(
+                                '.woosmart-remove-condition'
+                            );
+
+                        const moveUpButton =
+                            row.querySelector(
+                                '.woosmart-condition-move-up'
+                            );
+
+                        const moveDownButton =
+                            row.querySelector(
+                                '.woosmart-condition-move-down'
+                            );
+
+                        if (fieldSelect) {
+
+                            fieldSelect.addEventListener(
+                                'change',
+                                function() {
+
+                                    updateConditionRowOperators(
+                                        row,
+                                        ''
+                                    );
+
+                                    syncConditionRow(
+                                        row
+                                    );
+                                }
+                            );
+                        }
+
+                        if (operatorSelect) {
+
+                            operatorSelect.addEventListener(
+                                'change',
+                                function() {
+
+                                    updateConditionRowValueUI(
+                                        row
+                                    );
+
+                                    syncConditionRow(
+                                        row
+                                    );
+                                }
+                            );
+                        }
+
+                        bindNumericInput(
+                            valueDisplay
+                        );
+
+                        bindNumericInput(
+                            minDisplay
+                        );
+
+                        bindNumericInput(
+                            maxDisplay
+                        );
+
+                        if (textInput) {
+
+                            textInput.addEventListener(
+                                'input',
+                                function() {
+
+                                    syncConditionRow(
+                                        row
+                                    );
+                                }
+                            );
+                        }
+
+                        if (removeButton) {
+
+                            removeButton.addEventListener(
+                                'click',
+                                function() {
+
+                                    if (! group) {
+                                        return;
+                                    }
+
+                                    const rows =
+                                        group.querySelectorAll(
+                                            '.woosmart-condition-row'
+                                        );
+
+                                    if (rows.length <= 1) {
+
+                                        alert(
+                                            'هر گروه حداقل باید یک شرط داشته باشد.'
+                                        );
+
+                                        return;
+                                    }
+
+                                    row.remove();
+
+                                    renumberGroupedConditions(
+                                        group
+                                    );
+
+                                    rebuildGroupedAndSeparators();
+                                }
+                            );
+                        }
+
+                        if (moveUpButton) {
+
+                            moveUpButton.addEventListener(
+                                'click',
+                                function() {
+
+                                    if (! row || ! row.previousElementSibling) {
+                                        return;
+                                    }
+
+                                    let previousRow =
+                                        row.previousElementSibling;
+
+                                    while (
+                                        previousRow &&
+                                        ! previousRow.classList.contains(
+                                            'woosmart-condition-row'
+                                        )
+                                    ) {
+                                        previousRow =
+                                            previousRow.previousElementSibling;
+                                    }
+
+                                    if (! previousRow) {
+                                        return;
+                                    }
+
+                                    group
+                                        .querySelector(
+                                            '.woosmart-group-conditions-container'
+                                        )
+                                        .insertBefore(
+                                            row,
+                                            previousRow
+                                        );
+
+                                    renumberGroupedConditions(
+                                        group
+                                    );
+
+                                    rebuildGroupedAndSeparators();
+                                }
+                            );
+                        }
+
+                        if (moveDownButton) {
+
+                            moveDownButton.addEventListener(
+                                'click',
+                                function() {
+
+                                    let nextRow =
+                                        row.nextElementSibling;
+
+                                    while (
+                                        nextRow &&
+                                        ! nextRow.classList.contains(
+                                            'woosmart-condition-row'
+                                        )
+                                    ) {
+                                        nextRow =
+                                            nextRow.nextElementSibling;
+                                    }
+
+                                    if (! nextRow) {
+                                        return;
+                                    }
+
+                                    group
+                                        .querySelector(
+                                            '.woosmart-group-conditions-container'
+                                        )
+                                        .insertBefore(
+                                            nextRow,
+                                            row
+                                        );
+
+                                    renumberGroupedConditions(
+                                        group
+                                    );
+
+                                    rebuildGroupedAndSeparators();
+                                }
+                            );
+                        }
+
+                        updateConditionRowOperators(
+                            row,
+                            operatorSelect
+                                ? operatorSelect.value
+                                : ''
+                        );
+
+                        updateConditionRowValueUI(
+                            row
+                        );
+                    }
+
+                    function rebuildGroupedOrSeparators() {
+                        rebuildGroupedAndSeparators();
+                    }
+
+                    function reorderGroupedGroups(
+                        orderedGroups
+                    ) {
+
+                        if (
+                            ! groupedConditionsContainer ||
+                            ! Array.isArray( orderedGroups )
+                        ) {
+                            return;
+                        }
+
+                        groupedConditionsContainer
+                            .querySelectorAll(
+                                ':scope > .woosmart-group-or-separator'
+                            )
+                            .forEach(
+                                function( separator ) {
+                                    separator.remove();
+                                }
+                            );
+
+                        orderedGroups.forEach(
+                            function( currentGroup ) {
+
+                                groupedConditionsContainer.appendChild(
+                                    currentGroup
+                                );
+                            }
+                        );
+
+                        rebuildGroupedAndSeparators();
+                        renumberGroupedGroups();
+                    }
+
+                    function bindGroupedGroup(
+                        group
+                    ) {
+
+                        if (! group) {
+                            return;
+                        }
+
+                        group
+                            .querySelectorAll(
+                                '.woosmart-condition-row'
+                            )
+                            .forEach(
+                                function(
+                                    row
+                                ) {
+
+                                    bindGroupedConditionRow(
+                                        row
+                                    );
+                                }
+                            );
+
+                        const addConditionButton =
+                            group.querySelector(
+                                '.woosmart-add-condition-to-group'
+                            );
+
+                        const removeGroupButton =
+                            group.querySelector(
+                                '.woosmart-remove-group'
+                            );
+
+                        const moveUpButton =
+                            group.querySelector(
+                                '.woosmart-group-move-up'
+                            );
+
+                        const moveDownButton =
+                            group.querySelector(
+                                '.woosmart-group-move-down'
+                            );
+
+                        if (addConditionButton) {
+
+                            addConditionButton.addEventListener(
+                                'click',
+                                function() {
+
+                                    const rowsContainer =
+                                        group.querySelector(
+                                            '.woosmart-group-conditions-container'
+                                        );
+
+                                    const sourceRow =
+                                        rowsContainer
+                                            ? rowsContainer.querySelector(
+                                                '.woosmart-condition-row:last-of-type'
+                                            )
+                                            : null;
+
+                                    if (! rowsContainer || ! sourceRow) {
+                                        return;
+                                    }
+
+                                    const newRow =
+                                        sourceRow.cloneNode(
+                                            true
+                                        );
+
+                                    clearClonedConditionRow(
+                                        newRow
+                                    );
+
+                                    const staleBindingMarker =
+                                        newRow.getAttribute(
+                                            'data-bound'
+                                        );
+
+                                    if (staleBindingMarker) {
+                                        newRow.removeAttribute(
+                                            'data-bound'
+                                        );
+                                    }
+
+                                    const oldSeparators =
+                                        rowsContainer.querySelectorAll(
+                                            '.woosmart-group-and-separator'
+                                        );
+
+                                    oldSeparators.forEach(
+                                        function(
+                                            separator
+                                        ) {
+                                            separator.remove();
+                                        }
+                                    );
+
+                                    const separator =
+                                        document.createElement(
+                                            'div'
+                                        );
+
+                                    separator.className =
+                                        'woosmart-group-and-separator';
+
+                                    separator.style.cssText =
+                                        'text-align:center;' +
+                                        'margin:-5px 0 12px 0;' +
+                                        'color:#50575e;' +
+                                        'font-weight:700;';
+
+                                    separator.textContent =
+                                        'AND';
+
+                                    rowsContainer.appendChild(
+                                        separator
+                                    );
+
+                                    rowsContainer.appendChild(
+                                        newRow
+                                    );
+
+                                    bindGroupedConditionRow(
+                                        newRow
+                                    );
+
+                                    renumberGroupedConditions(
+                                        group
+                                    );
+
+                                    rebuildGroupedAndSeparators();
+                                }
+                            );
+                        }
+
+                        if (removeGroupButton) {
+
+                            removeGroupButton.addEventListener(
+                                'click',
+                                function() {
+
+                                    if (! groupedConditionsContainer) {
+                                        return;
+                                    }
+
+                                    const groups =
+                                        groupedConditionsContainer.querySelectorAll(
+                                            ':scope > .woosmart-condition-group'
+                                        );
+
+                                    if (groups.length <= 1) {
+
+                                        alert(
+                                            'حداقل یک گروه باید وجود داشته باشد.'
+                                        );
+
+                                        return;
+                                    }
+
+                                    const orSeparator =
+                                        group.nextElementSibling;
+
+                                    if (
+                                        orSeparator &&
+                                        orSeparator.classList.contains(
+                                            'woosmart-group-or-separator'
+                                        )
+                                    ) {
+                                        orSeparator.remove();
+                                    } else if (
+                                        group.previousElementSibling &&
+                                        group.previousElementSibling.classList.contains(
+                                            'woosmart-group-or-separator'
+                                        )
+                                    ) {
+                                        group.previousElementSibling.remove();
+                                    }
+
+                                    group.remove();
+
+                                    groupedConditionsContainer
+                                        .querySelectorAll(
+                                            ':scope > .woosmart-condition-group'
+                                        )
+                                        .forEach(
+                                            function(
+                                                currentGroup
+                                            ) {
+
+                                                renumberGroupedConditions(
+                                                    currentGroup
+                                                );
+                                            }
+                                        );
+
+                                    rebuildGroupedAndSeparators();
+                                    renumberGroupedGroups();
+                                }
+                            );
+                        }
+
+                        if (moveUpButton) {
+
+                            moveUpButton.addEventListener(
+                                'click',
+                                function() {
+
+                                    if ( ! groupedConditionsContainer ) {
+                                        return;
+                                    }
+
+                                    const groups =
+                                        Array.from(
+                                            groupedConditionsContainer.querySelectorAll(
+                                                ':scope > .woosmart-condition-group'
+                                            )
+                                        );
+
+                                    const currentIndex =
+                                        groups.indexOf( group );
+
+                                    if ( currentIndex <= 0 ) {
+                                        return;
+                                    }
+
+                                    const reorderedGroups =
+                                        groups.slice();
+
+                                    reorderedGroups.splice(
+                                        currentIndex,
+                                        1
+                                    );
+
+                                    reorderedGroups.splice(
+                                        currentIndex - 1,
+                                        0,
+                                        group
+                                    );
+
+                                    reorderGroupedGroups(
+                                        reorderedGroups
+                                    );
+                                }
+                            );
+                        }
+
+                        if (moveDownButton) {
+
+                            moveDownButton.addEventListener(
+                                'click',
+                                function() {
+
+                                    if ( ! groupedConditionsContainer ) {
+                                        return;
+                                    }
+
+                                    const groups =
+                                        Array.from(
+                                            groupedConditionsContainer.querySelectorAll(
+                                                ':scope > .woosmart-condition-group'
+                                            )
+                                        );
+
+                                    const currentIndex =
+                                        groups.indexOf( group );
+
+                                    if (
+                                        currentIndex === -1 ||
+                                        currentIndex >= groups.length - 1
+                                    ) {
+                                        return;
+                                    }
+
+                                    const reorderedGroups =
+                                        groups.slice();
+
+                                    const movedGroup =
+                                        reorderedGroups.splice(
+                                            currentIndex,
+                                            1
+                                        )[0];
+
+                                    reorderedGroups.splice(
+                                        currentIndex + 1,
+                                        0,
+                                        movedGroup
+                                    );
+
+                                    reorderGroupedGroups(
+                                        reorderedGroups
+                                    );
+                                }
+                            );
+                        }
+                    }
+
+                    function cloneConditionGroup() {
+
+                        if (! groupedConditionsContainer) {
+                            return null;
+                        }
+
+                        const groups =
+                            groupedConditionsContainer.querySelectorAll(
+                                ':scope > .woosmart-condition-group'
+                            );
+
+                        if (! groups.length) {
+                            return null;
+                        }
+
+                        const newGroup =
+                            groups[groups.length - 1]
+                                .cloneNode(true);
+
+                        newGroup
+                            .querySelectorAll(
+                                '.woosmart-group-or-separator'
+                            )
+                            .forEach(
+                                function(
+                                    separator
+                                ) {
+                                    separator.remove();
+                                }
+                            );
+
+                        newGroup
+                            .querySelectorAll(
+                                '.woosmart-condition-row'
+                            )
+                            .forEach(
+                                function(
+                                    row
+                                ) {
+
+                                    clearClonedConditionRow(
+                                        row
+                                    );
+                                }
+                            );
+
+                        return newGroup;
+                    }
+
+                    function enableGroupedModeFromLegacy() {
+
+                        if (
+                            ! groupedConditionsUI ||
+                            ! groupedConditionsContainer
+                        ) {
+                            return;
+                        }
+
+                        if (
+                            ! window.confirm(
+                                'شرط‌های فعلی به‌عنوان گروه اول منتقل می‌شوند. بعد از ذخیره، ساختار گروهی AND / OR استفاده خواهد شد. ادامه می‌دهید؟'
+                            )
+                        ) {
+                            return;
+                        }
+
+                        const legacyRows =
+                            conditionsContainer
+                                ? Array.from(
+                                    conditionsContainer.querySelectorAll(
+                                        '.woosmart-condition-row'
+                                    )
+                                )
+                                : [];
+
+                        const firstGroup =
+                            groupedConditionsContainer.querySelector(
+                                ':scope > .woosmart-condition-group'
+                            );
+
+                        const firstGroupRowsContainer =
+                            firstGroup
+                                ? firstGroup.querySelector(
+                                    '.woosmart-group-conditions-container'
+                                )
+                                : null;
+
+                        if (
+                            firstGroupRowsContainer &&
+                            legacyRows.length
+                        ) {
+
+                            firstGroupRowsContainer.innerHTML =
+                                '';
+
+                            legacyRows.forEach(
+                                function(
+                                    legacyRow,
+                                    rowIndex
+                                ) {
+
+                                    const clonedRow =
+                                        legacyRow.cloneNode(
+                                            true
+                                        );
+
+                                    clonedRow
+                                        .querySelectorAll(
+                                            '[disabled]'
+                                        )
+                                        .forEach(
+                                            function(
+                                                element
+                                            ) {
+                                                element.disabled =
+                                                    false;
+                                            }
+                                        );
+
+                                    firstGroupRowsContainer.appendChild(
+                                        clonedRow
+                                    );
+
+                                    if (
+                                        rowIndex <
+                                        legacyRows.length - 1
+                                    ) {
+
+                                        const separator =
+                                            document.createElement(
+                                                'div'
+                                            );
+
+                                        separator.className =
+                                            'woosmart-group-and-separator';
+
+                                        separator.style.cssText =
+                                            'text-align:center;' +
+                                            'margin:-5px 0 12px 0;' +
+                                            'color:#50575e;' +
+                                            'font-weight:700;';
+
+                                        separator.textContent =
+                                            'AND';
+
+                                        firstGroupRowsContainer.appendChild(
+                                            separator
+                                        );
+                                    }
+                                }
+                            );
+                        }
+
+                        groupedConditionsContainer
+                            .querySelectorAll(
+                                '.woosmart-condition-row'
+                            )
+                            .forEach(
+                                function(
+                                    row
+                                ) {
+                                    bindGroupedConditionRow(
+                                        row
+                                    );
+                                }
+                            );
+
+                        renumberGroupedGroups();
+
+                        setContainerInputsDisabled(
+                            conditionsContainer,
+                            true
+                        );
+
+                        setContainerInputsDisabled(
+                            groupedConditionsUI,
+                            false
+                        );
+
+                        groupedConditionsUI.style.display =
+                            '';
+
+                        if (
+                            conditionsContainer
+                        ) {
+                            conditionsContainer.style.display =
+                                'none';
+                        }
+
+                        if (
+                            addConditionButton
+                        ) {
+                            addConditionButton.style.display =
+                                'none';
+                        }
+
+                        if (
+                            enableGroupedConditionsButton
+                        ) {
+                            enableGroupedConditionsButton.style.display =
+                                'none';
+                        }
+                    }
+
+                    if (
+                        groupedConditionsContainer
+                    ) {
+
+                        groupedConditionsContainer
+                            .querySelectorAll(
+                                ':scope > .woosmart-condition-group'
+                            )
+                            .forEach(
+                                function(
+                                    group
+                                ) {
+                                    bindGroupedGroup(
+                                        group
+                                    );
+                                }
+                            );
+
+                        rebuildGroupedAndSeparators();
+                        renumberGroupedGroups();
+
+                        if (
+                            'groups' !==
+                            <?php echo wp_json_encode( $condition_mode ); ?>
+                        ) {
+                            setContainerInputsDisabled(
+                                groupedConditionsUI,
+                                true
+                            );
+                        }
+                    }
+
+                    if (
+                        enableGroupedConditionsButton
+                    ) {
+
+                        enableGroupedConditionsButton.addEventListener(
+                            'click',
+                            enableGroupedModeFromLegacy
+                        );
+                    }
+
+                    if (
+                        'groups' ===
+                        <?php echo wp_json_encode( $condition_mode ); ?>
+                    ) {
+
+                        setContainerInputsDisabled(
+                            conditionsContainer,
+                            true
+                        );
+
+                        if (conditionsContainer) {
+                            conditionsContainer.style.display =
+                                'none';
+                        }
+
+                        if (addConditionButton) {
+                            addConditionButton.style.display =
+                                'none';
+                        }
+                    }
+
+                    if (
+                        groupedConditionsContainer
+                    ) {
+
+                        const addGroupButton =
+                            document.getElementById(
+                                'woosmart-add-condition-group'
+                            );
+
+                        if (addGroupButton) {
+
+                            addGroupButton.addEventListener(
+                                'click',
+                                function() {
+
+                                    const newGroup =
+                                        cloneConditionGroup();
+
+                                    if (! newGroup) {
+                                        return;
+                                    }
+
+                                    groupedConditionsContainer.appendChild(
+                                        newGroup
+                                    );
+
+                                    bindGroupedGroup(
+                                        newGroup
+                                    );
+
+                                    rebuildGroupedAndSeparators();
+                                    renumberGroupedGroups();
+                                }
+                            );
+                        }
+
+                        const groupedForm =
+                            groupedConditionsContainer.closest(
+                                'form'
+                            );
+
+                        if (groupedForm) {
+
+                            groupedForm.addEventListener(
+                                'submit',
+                                function() {
+
+                                    groupedConditionsContainer
+                                        .querySelectorAll(
+                                            '.woosmart-condition-row'
+                                        )
+                                        .forEach(
+                                            function(
+                                                row
+                                            ) {
+
+                                                syncConditionRow(
+                                                    row
+                                                );
+                                            }
+                                        );
+
+                                    renumberGroupedGroups();
+                                }
+                            );
+                        }
+                    }
+
                     const actionsContainer =
                         document.getElementById(
                             'woosmart-actions-container'
@@ -4087,7 +5733,8 @@ class WooSmart_Admin {
         $index,
         $condition,
         $condition_definitions,
-        $currency_unit
+        $currency_unit,
+        $name_prefix = 'conditions'
     ) {
 
         $condition_field =
@@ -4363,7 +6010,7 @@ class WooSmart_Admin {
 
                         <select
                             class="woosmart-condition-field"
-                            name="conditions[<?php echo esc_attr( $index ); ?>][field]"
+                            name="<?php echo esc_attr( $name_prefix ); ?>[<?php echo esc_attr( $index ); ?>][field]"
                             style="min-width:300px;"
                         >
 
@@ -4418,7 +6065,7 @@ class WooSmart_Admin {
 
                         <select
                             class="woosmart-condition-operator"
-                            name="conditions[<?php echo esc_attr( $index ); ?>][operator]"
+                            name="<?php echo esc_attr( $name_prefix ); ?>[<?php echo esc_attr( $index ); ?>][operator]"
                             style="min-width:300px;"
                         >
 
@@ -4699,21 +6346,21 @@ class WooSmart_Admin {
                         <input
                             type="hidden"
                             class="woosmart-condition-value"
-                            name="conditions[<?php echo esc_attr( $index ); ?>][value]"
+                            name="<?php echo esc_attr( $name_prefix ); ?>[<?php echo esc_attr( $index ); ?>][value]"
                             value="<?php echo esc_attr( $condition_value_scalar ); ?>"
                         >
 
                         <input
                             type="hidden"
                             class="woosmart-condition-min"
-                            name="conditions[<?php echo esc_attr( $index ); ?>][min]"
+                            name="<?php echo esc_attr( $name_prefix ); ?>[<?php echo esc_attr( $index ); ?>][min]"
                             value="<?php echo esc_attr( $condition_min ); ?>"
                         >
 
                         <input
                             type="hidden"
                             class="woosmart-condition-max"
-                            name="conditions[<?php echo esc_attr( $index ); ?>][max]"
+                            name="<?php echo esc_attr( $name_prefix ); ?>[<?php echo esc_attr( $index ); ?>][max]"
                             value="<?php echo esc_attr( $condition_max ); ?>"
                         >
 
@@ -4755,6 +6402,189 @@ class WooSmart_Admin {
             </table>
 
         </div>
+
+        <?php
+    }
+
+    /**
+     * Render one condition group.
+     *
+     * Conditions inside a group use AND logic. Groups are combined with OR.
+     *
+     * @param int   $group_index           Group index.
+     * @param array $group                 Group configuration.
+     * @param array $condition_definitions Condition definitions.
+     * @param string $currency_unit        Currency display unit.
+     *
+     * @return void
+     */
+    private function render_condition_group(
+        $group_index,
+        $group,
+        $condition_definitions,
+        $currency_unit
+    ) {
+
+        $group_conditions =
+            isset(
+                $group['conditions']
+            ) &&
+            is_array(
+                $group['conditions']
+            )
+                ? $group['conditions']
+                : array();
+
+        if (
+            empty(
+                $group_conditions
+            )
+        ) {
+            $group_conditions =
+                array(
+                    array(
+                        'field' => 'order_total',
+                        'operator' => 'greater_than',
+                        'value' => '',
+                    ),
+                );
+        }
+
+        $name_prefix =
+            'condition_groups[' .
+            $group_index .
+            '][conditions]';
+        ?>
+
+        <div
+            class="woosmart-condition-group"
+            data-group-index="<?php echo esc_attr( $group_index ); ?>"
+            style="
+                margin-bottom:18px;
+                padding:18px;
+                border:1px solid #8c8f94;
+                background:#f6f7f7;
+                position:relative;
+            "
+        >
+
+            <div
+                style="
+                    display:flex;
+                    justify-content:space-between;
+                    align-items:center;
+                    margin-bottom:14px;
+                    gap:12px;
+                    flex-wrap:wrap;
+                "
+            >
+
+                <strong
+                    class="woosmart-condition-group-title"
+                >
+                    گروه <?php echo esc_html( $group_index + 1 ); ?>
+                </strong>
+
+                <div
+                    style="
+                        display:flex;
+                        align-items:center;
+                        gap:6px;
+                        flex-wrap:wrap;
+                    "
+                >
+                    <button
+                        type="button"
+                        class="button woosmart-group-move-up"
+                    >
+                        ↑ گروه بالا
+                    </button>
+
+                    <button
+                        type="button"
+                        class="button woosmart-group-move-down"
+                    >
+                        ↓ گروه پایین
+                    </button>
+
+                    <button
+                        type="button"
+                        class="button-link-delete woosmart-remove-group"
+                    >
+                        حذف گروه
+                    </button>
+                </div>
+
+            </div>
+
+            <div class="woosmart-group-conditions-container">
+
+                <?php foreach (
+                    $group_conditions
+                    as $condition_index =>
+                    $condition
+                ) : ?>
+
+                    <?php
+                    $this->render_condition_row(
+                        $condition_index,
+                        $condition,
+                        $condition_definitions,
+                        $currency_unit,
+                        $name_prefix
+                    );
+                    ?>
+
+                    <?php if (
+                        $condition_index <
+                        count( $group_conditions ) - 1
+                    ) : ?>
+
+                        <div
+                            class="woosmart-group-and-separator"
+                            style="
+                                text-align:center;
+                                margin:-5px 0 12px 0;
+                                color:#50575e;
+                                font-weight:700;
+                            "
+                        >
+                            AND
+                        </div>
+
+                    <?php endif; ?>
+
+                <?php endforeach; ?>
+
+            </div>
+
+            <p style="margin:12px 0 0 0;">
+                <button
+                    type="button"
+                    class="button woosmart-add-condition-to-group"
+                >
+                    + افزودن شرط به این گروه
+                </button>
+            </p>
+
+        </div>
+
+        <?php if ( $group_index > 0 ) : ?>
+
+            <div
+                class="woosmart-group-or-separator"
+                style="
+                    text-align:center;
+                    margin:-8px 0 16px 0;
+                    color:#2271b1;
+                    font-size:15px;
+                    font-weight:700;
+                "
+            >
+                OR
+            </div>
+
+        <?php endif; ?>
 
         <?php
     }
@@ -5090,202 +6920,264 @@ class WooSmart_Admin {
             return;
         }
 
+        if (
+            is_array( $conditions ) &&
+            array_key_exists( 'groups', $conditions )
+        ) {
+
+            $groups =
+                isset(
+                    $conditions['groups']
+                ) &&
+                is_array(
+                    $conditions['groups']
+                )
+                    ? $conditions['groups']
+                    : array();
+
+            if ( empty( $groups ) ) {
+                echo '<span>گروه بدون شرط</span>';
+                return;
+            }
+
+            foreach ( $groups as $group_index => $group ) {
+
+                $group_conditions =
+                    isset(
+                        $group['conditions']
+                    ) &&
+                    is_array(
+                        $group['conditions']
+                    )
+                        ? $group['conditions']
+                        : array();
+
+                echo '<div style="margin-bottom:8px; padding:7px 9px; border:1px solid #e2e4e7; background:#f6f7f7;">';
+                echo '<strong>گروه ' . esc_html( $group_index + 1 ) . '</strong>';
+
+                if ( empty( $group_conditions ) ) {
+                    echo '<div>بدون شرط</div>';
+                } else {
+
+                    foreach ( $group_conditions as $condition_index => $group_condition ) {
+
+                        if ( ! is_array( $group_condition ) ) {
+                            continue;
+                        }
+
+                        $this->render_condition_summary_item(
+                            $group_condition
+                        );
+
+                        if (
+                            $condition_index < count( $group_conditions ) - 1
+                        ) {
+                            echo '<div style="text-align:center; margin:3px 0; font-weight:700; color:#50575e;">AND</div>';
+                        }
+                    }
+                }
+
+                echo '</div>';
+
+                if (
+                    $group_index < count( $groups ) - 1
+                ) {
+                    echo '<div style="text-align:center; margin:4px 0 8px 0; font-weight:700; color:#2271b1;">OR</div>';
+                }
+            }
+
+            return;
+        }
+
         foreach (
             $conditions
             as $condition
         ) {
 
-            if (
-                ! is_array(
-                    $condition
-                )
-            ) {
+            $this->render_condition_summary_item(
+                $condition
+            );
+        }
+    }
 
-                continue;
-            }
+    /**
+     * Render one condition summary item.
+     *
+     * @param array $condition Condition configuration.
+     *
+     * @return void
+     */
+    private function render_condition_summary_item(
+        $condition
+    ) {
 
-            $field =
-                isset(
+        if (
+            ! is_array( $condition )
+        ) {
+            return;
+        }
+
+        $field =
+            isset(
+                $condition['field']
+            )
+                ? sanitize_key(
                     $condition['field']
                 )
-                    ? sanitize_key(
-                        $condition['field']
-                    )
-                    : '';
+                : '';
 
-            $operator =
-                isset(
+        $operator =
+            isset(
+                $condition['operator']
+            )
+                ? sanitize_key(
                     $condition['operator']
                 )
-                    ? sanitize_key(
-                        $condition['operator']
-                    )
-                    : '';
+                : '';
 
-            $value =
+        $value =
+            isset(
+                $condition['value']
+            )
+                ? $condition['value']
+                : '';
+
+        $definition =
+            $this->condition_registry->get(
+                $field
+            );
+
+        $value_type =
+            (
+                is_array(
+                    $definition
+                ) &&
                 isset(
-                    $condition['value']
+                    $definition['value_type']
                 )
-                    ? $condition['value']
-                    : '';
-
-            $definition =
-                $this->condition_registry->get(
-                    $field
-                );
-
-            $value_type =
-                (
-                    is_array(
-                        $definition
-                    ) &&
-                    isset(
-                        $definition['value_type']
-                    )
+            )
+                ? sanitize_key(
+                    $definition[
+                        'value_type'
+                    ]
                 )
-                    ? sanitize_key(
-                        $definition[
-                            'value_type'
-                        ]
-                    )
-                    : 'text';
+                : 'text';
+        ?>
 
-            ?>
+        <div
+            style="margin:4px 0;"
+        >
 
-            <div
-                style="
-                    margin-bottom:6px;
-                "
-            >
-
-                <strong>
-                    <?php
-                    echo esc_html(
-                        $this->get_condition_field_label(
-                            $field
-                        )
-                    );
-                    ?>
-                </strong>
-
+            <strong>
                 <?php
                 echo esc_html(
-                    $this->get_operator_label(
-                        $operator,
+                    $this->get_condition_field_label(
                         $field
                     )
                 );
                 ?>
+            </strong>
+
+            <?php
+            echo esc_html(
+                $this->get_operator_label(
+                    $operator,
+                    $field
+                )
+            );
+            ?>
+
+            <?php if (
+                'between' ===
+                $operator &&
+                is_array(
+                    $value
+                )
+            ) : ?>
+
+                <?php
+                $minimum =
+                    isset(
+                        $value['min']
+                    )
+                        ? $value['min']
+                        : '';
+
+                $maximum =
+                    isset(
+                        $value['max']
+                    )
+                        ? $value['max']
+                        : '';
+                ?>
 
                 <?php if (
-                    'between' ===
-                    $operator &&
-                    is_array(
-                        $value
-                    )
+                    'number' ===
+                    $value_type
                 ) : ?>
 
                     <?php
-
-                    $minimum =
-                        isset(
-                            $value['min']
+                    echo wp_kses_post(
+                        $this->format_currency_value(
+                            $minimum
                         )
-                            ? $value['min']
-                            : '';
-
-                    $maximum =
-                        isset(
-                            $value['max']
-                        )
-                            ? $value['max']
-                            : '';
-
+                    );
                     ?>
 
-                    <?php if (
-                        'number' ===
-                        $value_type
-                    ) : ?>
+                    <span>تا</span>
 
-                        <?php
-                        echo wp_kses_post(
-                            $this->format_currency_value(
-                                $minimum
-                            )
-                        );
-                        ?>
-
-                        <span>
-                            تا
-                        </span>
-
-                        <?php
-                        echo wp_kses_post(
-                            $this->format_currency_value(
-                                $maximum
-                            )
-                        );
-                        ?>
-
-                    <?php else : ?>
-
-                        <span>
-                            <?php
-                            echo esc_html(
-                                (string)
-                                $minimum
-                            );
-                            ?>
-                        </span>
-
-                        <span>
-                            تا
-                        </span>
-
-                        <span>
-                            <?php
-                            echo esc_html(
-                                (string)
-                                $maximum
-                            );
-                            ?>
-                        </span>
-
-                    <?php endif; ?>
+                    <?php
+                    echo wp_kses_post(
+                        $this->format_currency_value(
+                            $maximum
+                        )
+                    );
+                    ?>
 
                 <?php else : ?>
 
-                    <?php if (
-                        'number' ===
-                        $value_type
-                    ) : ?>
+                    <span>
+                        <?php echo esc_html( (string) $minimum ); ?>
+                    </span>
 
-                        <?php
-                        echo wp_kses_post(
-                            $this->format_currency_value(
-                                $value
-                            )
-                        );
-                        ?>
+                    <span>تا</span>
 
-                    <?php else : ?>
-
-                        <?php
-                        echo esc_html(
-                            (string)
-                            $value
-                        );
-                        ?>
-
-                    <?php endif; ?>
+                    <span>
+                        <?php echo esc_html( (string) $maximum ); ?>
+                    </span>
 
                 <?php endif; ?>
 
-            </div>
+            <?php else : ?>
+
+                <?php if (
+                    'number' ===
+                    $value_type
+                ) : ?>
+
+                    <?php
+                    echo wp_kses_post(
+                        $this->format_currency_value(
+                            $value
+                        )
+                    );
+                    ?>
+
+                <?php else : ?>
+
+                    <?php
+                    echo esc_html(
+                        (string) $value
+                    );
+                    ?>
+
+                <?php endif; ?>
+
+            <?php endif; ?>
+
+        </div>
 
         <?php
-        }
     }
 
     /**
