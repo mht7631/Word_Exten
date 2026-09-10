@@ -1238,6 +1238,15 @@ class WooSmart_Execution_Admin {
 
                         </div>
 
+                    <?php elseif ( $this->is_grouped_conditions( $conditions ) ) : ?>
+
+                        <?php
+                        $this->render_grouped_condition_history(
+                            $conditions,
+                            $condition_results
+                        );
+                        ?>
+
                     <?php else : ?>
 
                         <?php foreach ( $conditions as $index => $condition ) : ?>
@@ -1268,143 +1277,14 @@ class WooSmart_Execution_Admin {
                                     ? $condition['value']
                                     : '';
 
-                            /*
-                             * Determine the individual condition result.
-                             *
-                             * Priority:
-                             *
-                             * 1. Explicit condition_results snapshot.
-                             * 2. Legacy condition_result array.
-                             * 3. Legacy scalar condition_result, but only
-                             *    for a single-condition execution.
-                             * 4. Current execution model fallback:
-                             *    an execution with status running/completed/
-                             *    failed has already passed ALL AND conditions.
-                             *
-                             * IMPORTANT:
-                             * A null condition_result must NOT block the
-                             * multi-condition fallback.
-                             */
                             $condition_passed =
-                                null;
-
-                            if (
-                                array_key_exists(
+                                $this->resolve_legacy_condition_result(
                                     $index,
-                                    $condition_results
-                                )
-                            ) {
-
-                                $condition_result =
-                                    $condition_results[
-                                        $index
-                                    ];
-
-                                if (
-                                    is_array(
-                                        $condition_result
-                                    ) &&
-                                    array_key_exists(
-                                        'passed',
-                                        $condition_result
-                                    )
-                                ) {
-
-                                    $condition_passed =
-                                        (bool)
-                                        $condition_result['passed'];
-
-                                } elseif (
-                                    is_array(
-                                        $condition_result
-                                    ) &&
-                                    array_key_exists(
-                                        'success',
-                                        $condition_result
-                                    )
-                                ) {
-
-                                    $condition_passed =
-                                        (bool)
-                                        $condition_result['success'];
-
-                                } elseif (
-                                    null !==
-                                    $condition_result
-                                ) {
-
-                                    $condition_passed =
-                                        (bool)
-                                        $condition_result;
-                                }
-
-                            } elseif (
-                                isset(
-                                    $execution['condition_result']
-                                ) &&
-                                is_array(
-                                    $execution['condition_result']
-                                ) &&
-                                array_key_exists(
-                                    $index,
-                                    $execution['condition_result']
-                                )
-                            ) {
-
-                                $condition_passed =
-                                    (bool)
-                                    $execution['condition_result'][
-                                        $index
-                                    ];
-
-                            } elseif (
-                                1 === count(
-                                    $conditions
-                                ) &&
-                                array_key_exists(
-                                    'condition_result',
-                                    $execution
-                                ) &&
-                                ! is_array(
-                                    $execution['condition_result']
-                                ) &&
-                                null !==
-                                $execution['condition_result']
-                            ) {
-
-                                /*
-                                 * Backward compatibility for historical
-                                 * executions that stored one aggregate
-                                 * scalar result.
-                                 */
-                                $condition_passed =
-                                    (bool)
-                                    $execution['condition_result'];
-
-                            } elseif (
-                                in_array(
-                                    $execution_status,
-                                    array(
-                                        'running',
-                                        'completed',
-                                        'failed',
-                                    ),
-                                    true
-                                )
-                            ) {
-
-                                /*
-                                 * Current execution model:
-                                 * execution history is created only after
-                                 * all AND conditions have matched.
-                                 *
-                                 * Therefore every condition is known to have
-                                 * passed for an execution that reached the
-                                 * execution stage.
-                                 */
-                                $condition_passed =
-                                    true;
-                            }
+                                    $conditions,
+                                    $condition_results,
+                                    $execution,
+                                    $execution_status
+                                );
                             ?>
 
                             <div
@@ -1778,6 +1658,609 @@ class WooSmart_Execution_Admin {
     }
 
     /**
+     * Check whether the condition snapshot uses grouped conditions.
+     *
+     * @param array $conditions Condition snapshot.
+     *
+     * @return bool
+     */
+    private function is_grouped_conditions( $conditions ) {
+
+        return (
+            is_array( $conditions ) &&
+            isset( $conditions['groups'] ) &&
+            is_array( $conditions['groups'] )
+        );
+    }
+
+    /**
+     * Render grouped condition history.
+     *
+     * Conditions inside a group are AND-connected and groups are OR-connected.
+     * Detailed per-condition results are shown only when they are actually
+     * present in the stored execution result snapshot.
+     *
+     * @param array $conditions        Grouped condition snapshot.
+     * @param array $condition_results  Stored condition result snapshot.
+     *
+     * @return void
+     */
+    private function render_grouped_condition_history(
+        $conditions,
+        $condition_results
+    ) {
+
+        $groups =
+            isset( $conditions['groups'] ) &&
+            is_array( $conditions['groups'] )
+                ? $conditions['groups']
+                : array();
+
+        foreach ( $groups as $group_index => $group ) {
+
+            if ( $group_index > 0 ) {
+
+                $this->render_logic_separator_badge(
+                    'OR'
+                );
+            }
+
+            $group_conditions =
+                isset( $group['conditions'] ) &&
+                is_array( $group['conditions'] )
+                    ? $group['conditions']
+                    : array();
+
+            $group_result =
+                $this->resolve_group_result(
+                    $group_index,
+                    $group_conditions,
+                    $condition_results
+                );
+            ?>
+
+            <div
+                style="
+                    margin-bottom:15px;
+                    padding:16px;
+                    border:1px solid #c7d7e3;
+                    background:#f8fbfd;
+                    border-radius:4px;
+                "
+            >
+
+                <div
+                    style="
+                        display:flex;
+                        justify-content:space-between;
+                        align-items:center;
+                        gap:15px;
+                        margin-bottom:12px;
+                    "
+                >
+
+                    <strong
+                        style="
+                            font-size:15px;
+                        "
+                    >
+                        گروه <?php echo esc_html( $group_index + 1 ); ?>
+                    </strong>
+
+                    <div>
+                        <?php
+                        $this->render_result_badge(
+                            $group_result
+                        );
+                        ?>
+                    </div>
+
+                </div>
+
+                <?php if ( empty( $group_conditions ) ) : ?>
+
+                    <div class="notice notice-warning inline">
+                        <p>
+                            این گروه شرطی ندارد.
+                        </p>
+                    </div>
+
+                <?php else : ?>
+
+                    <?php foreach ( $group_conditions as $condition_index => $condition ) : ?>
+
+                        <?php if ( $condition_index > 0 ) : ?>
+
+                            <?php
+                            $this->render_logic_separator_badge(
+                                'AND'
+                            );
+                            ?>
+
+                        <?php endif; ?>
+
+                        <?php
+                        $field =
+                            isset( $condition['field'] )
+                                ? sanitize_key(
+                                    $condition['field']
+                                )
+                                : '';
+
+                        $operator =
+                            isset( $condition['operator'] )
+                                ? sanitize_key(
+                                    $condition['operator']
+                                )
+                                : '';
+
+                        $value =
+                            isset( $condition['value'] )
+                                ? $condition['value']
+                                : '';
+
+                        $condition_passed =
+                            $this->get_group_condition_result(
+                                $group_index,
+                                $condition_index,
+                                $condition_results
+                            );
+                        ?>
+
+                        <div
+                            style="
+                                margin-bottom:0;
+                                padding:14px;
+                                border:1px solid #e2e4e7;
+                                background:#fff;
+                            "
+                        >
+
+                            <div
+                                style="
+                                    display:flex;
+                                    align-items:center;
+                                    justify-content:space-between;
+                                    gap:15px;
+                                "
+                            >
+
+                                <div>
+
+                                    <strong>
+                                        شرط <?php echo esc_html( $condition_index + 1 ); ?>
+                                    </strong>
+
+                                    <div
+                                        style="
+                                            margin-top:6px;
+                                        "
+                                    >
+
+                                        <?php
+                                        echo esc_html(
+                                            $this->get_condition_display(
+                                                $field,
+                                                $operator,
+                                                $value
+                                            )
+                                        );
+                                        ?>
+
+                                    </div>
+
+                                </div>
+
+                                <?php
+                                $this->render_result_badge(
+                                    $condition_passed
+                                );
+                                ?>
+
+                            </div>
+
+                        </div>
+
+                    <?php endforeach; ?>
+
+                <?php endif; ?>
+
+            </div>
+
+        <?php }
+
+    }
+
+    /**
+     * Resolve a legacy flat condition result.
+     *
+     * @param int   $index             Condition index.
+     * @param array $conditions        Flat condition snapshot.
+     * @param array $condition_results Explicit result snapshot.
+     * @param array $execution         Execution record.
+     * @param string $execution_status Execution status.
+     *
+     * @return bool|null
+     */
+    private function resolve_legacy_condition_result(
+        $index,
+        $conditions,
+        $condition_results,
+        $execution,
+        $execution_status
+    ) {
+
+        $condition_passed =
+            null;
+
+        if (
+            array_key_exists(
+                $index,
+                $condition_results
+            )
+        ) {
+
+            $condition_result =
+                $condition_results[
+                    $index
+                ];
+
+            $condition_passed =
+                $this->normalize_result_value(
+                    $condition_result
+                );
+
+        } elseif (
+            isset(
+                $execution['condition_result']
+            ) &&
+            is_array(
+                $execution['condition_result']
+            ) &&
+            array_key_exists(
+                $index,
+                $execution['condition_result']
+            )
+        ) {
+
+            $condition_passed =
+                (bool)
+                $execution['condition_result'][
+                    $index
+                ];
+
+        } elseif (
+            1 === count(
+                $conditions
+            ) &&
+            array_key_exists(
+                'condition_result',
+                $execution
+            ) &&
+            ! is_array(
+                $execution['condition_result']
+            ) &&
+            null !==
+            $execution['condition_result']
+        ) {
+
+            $condition_passed =
+                (bool)
+                $execution['condition_result'];
+
+        } elseif (
+            in_array(
+                $execution_status,
+                array(
+                    'running',
+                    'completed',
+                    'failed',
+                ),
+                true
+            )
+        ) {
+
+            $condition_passed =
+                true;
+        }
+
+        return $condition_passed;
+    }
+
+    /**
+     * Resolve a stored group result, when present.
+     *
+     * @param int   $group_index        Group index.
+     * @param array $group_conditions   Conditions inside the group.
+     * @param array $condition_results  Stored result snapshot.
+     *
+     * @return bool|null
+     */
+    private function resolve_group_result(
+        $group_index,
+        $group_conditions,
+        $condition_results
+    ) {
+
+        $group_results =
+            $this->extract_group_evaluation_results(
+                $condition_results
+            );
+
+        if (
+            array_key_exists(
+                $group_index,
+                $group_results
+            )
+        ) {
+
+            return $this->normalize_result_value(
+                $group_results[
+                    $group_index
+                ]
+            );
+        }
+
+        if (
+            isset(
+                $group_results['groups']
+            ) &&
+            is_array(
+                $group_results['groups']
+            ) &&
+            array_key_exists(
+                $group_index,
+                $group_results['groups']
+            )
+        ) {
+
+            $group_result =
+                $group_results['groups'][
+                    $group_index
+                ];
+
+            if ( is_array( $group_result ) ) {
+
+                if ( array_key_exists( 'matched', $group_result ) ) {
+                    return (bool) $group_result['matched'];
+                }
+
+                if ( array_key_exists( 'passed', $group_result ) ) {
+                    return (bool) $group_result['passed'];
+                }
+
+                if ( array_key_exists( 'success', $group_result ) ) {
+                    return (bool) $group_result['success'];
+                }
+            }
+
+            return $this->normalize_result_value(
+                $group_result
+            );
+        }
+
+        return null;
+    }
+
+    /**
+     * Get one condition result from grouped result data, when present.
+     *
+     * @param int   $group_index       Group index.
+     * @param int   $condition_index   Condition index.
+     * @param array $condition_results Stored result snapshot.
+     *
+     * @return bool|null
+     */
+    private function get_group_condition_result(
+        $group_index,
+        $condition_index,
+        $condition_results
+    ) {
+
+        $groups =
+            $this->extract_group_evaluation_results(
+                $condition_results
+            );
+
+        if (
+            isset( $groups['groups'] ) &&
+            is_array( $groups['groups'] ) &&
+            isset( $groups['groups'][ $group_index ] )
+        ) {
+
+            $group =
+                $groups['groups'][
+                    $group_index
+                ];
+
+            if (
+                is_array( $group ) &&
+                isset( $group['conditions'] ) &&
+                is_array( $group['conditions'] ) &&
+                array_key_exists(
+                    $condition_index,
+                    $group['conditions']
+                )
+            ) {
+
+                return $this->normalize_result_value(
+                    $group['conditions'][
+                        $condition_index
+                    ]
+                );
+            }
+        }
+
+        if (
+            isset( $groups[ $group_index ] ) &&
+            is_array( $groups[ $group_index ] )
+        ) {
+
+            $group =
+                $groups[
+                    $group_index
+                ];
+
+            if (
+                isset( $group['conditions'] ) &&
+                is_array( $group['conditions'] ) &&
+                array_key_exists(
+                    $condition_index,
+                    $group['conditions']
+                )
+            ) {
+
+                return $this->normalize_result_value(
+                    $group['conditions'][
+                        $condition_index
+                    ]
+                );
+            }
+
+            if (
+                array_key_exists(
+                    $condition_index,
+                    $group
+                )
+            ) {
+
+                return $this->normalize_result_value(
+                    $group[
+                        $condition_index
+                    ]
+                );
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Extract possible grouped evaluation results from a stored snapshot.
+     *
+     * @param array $condition_results Result snapshot.
+     *
+     * @return array
+     */
+    private function extract_group_evaluation_results(
+        $condition_results
+    ) {
+
+        if ( ! is_array( $condition_results ) ) {
+            return array();
+        }
+
+        if (
+            isset(
+                $condition_results['groups']
+            ) &&
+            is_array(
+                $condition_results['groups']
+            )
+        ) {
+
+            return $condition_results;
+        }
+
+        if (
+            isset(
+                $condition_results['condition_evaluation']
+            ) &&
+            is_array(
+                $condition_results['condition_evaluation']
+            )
+        ) {
+
+            $evaluation =
+                $condition_results[
+                    'condition_evaluation'
+                ];
+
+            if (
+                isset( $evaluation['groups'] ) &&
+                is_array( $evaluation['groups'] )
+            ) {
+                return $evaluation;
+            }
+        }
+
+        return array();
+    }
+
+    /**
+     * Normalize an arbitrary stored result value to bool/null.
+     *
+     * @param mixed $value Result value.
+     *
+     * @return bool|null
+     */
+    private function normalize_result_value( $value ) {
+
+        if ( is_array( $value ) ) {
+
+            if ( array_key_exists( 'matched', $value ) ) {
+                return (bool) $value['matched'];
+            }
+
+            if ( array_key_exists( 'passed', $value ) ) {
+                return (bool) $value['passed'];
+            }
+
+            if ( array_key_exists( 'success', $value ) ) {
+                return (bool) $value['success'];
+            }
+
+            return null;
+        }
+
+        if ( null === $value ) {
+            return null;
+        }
+
+        return (bool) $value;
+    }
+
+    /**
+     * Render a logic separator badge.
+     *
+     * @param string $logic Logic token.
+     *
+     * @return void
+     */
+    private function render_logic_separator_badge( $logic ) {
+        ?>
+
+        <div
+            style="
+                display:flex;
+                justify-content:center;
+                align-items:center;
+                margin:10px 0;
+            "
+        >
+
+            <span
+                style="
+                    display:inline-block;
+                    min-width:55px;
+                    text-align:center;
+                    padding:4px 10px;
+                    border:1px solid #a7aaad;
+                    background:#f6f7f7;
+                    color:#50575e;
+                    font-weight:700;
+                    border-radius:3px;
+                "
+            >
+                <?php echo esc_html( $logic ); ?>
+            </span>
+
+        </div>
+
+        <?php
+    }
+
+    /**
      * Get condition display text.
      *
      * Supports scalar values and range values.
@@ -1850,23 +2333,6 @@ class WooSmart_Execution_Admin {
                 ]
                 : $operator;
 
-        /*
-         * Range values may arrive as:
-         *
-         * array(
-         *     'min' => 100000,
-         *     'max' => 500000,
-         * )
-         *
-         * or:
-         *
-         * array(
-         *     0 => 100000,
-         *     1 => 500000,
-         * )
-         *
-         * or as a simple "min,max" string.
-         */
         if (
             is_array(
                 $value
@@ -2013,10 +2479,6 @@ class WooSmart_Execution_Admin {
             );
         }
 
-        /*
-         * Also support a serialized/JSON-like textual range:
-         * "100000,500000"
-         */
         if (
             is_string(
                 $value
