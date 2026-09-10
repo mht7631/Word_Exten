@@ -116,6 +116,18 @@ class WooSmart_Execution_Engine {
         /*
          * Build a formal execution plan before
          * any Action is executed.
+         *
+         * The plan contains:
+         *
+         * - ordered Automations
+         * - Priority
+         * - Conditions
+         * - Condition result
+         * - Actions
+         * - Execution Policy
+         *
+         * Action side effects are not performed while
+         * the plan is being built.
          */
         $execution_plan =
             $this->build_execution_plan(
@@ -125,6 +137,10 @@ class WooSmart_Execution_Engine {
                 $execution_policy
             );
 
+        /*
+         * Log the complete planning result before
+         * executing the selected Automation path.
+         */
         $this->logger->log(
             'execution_plan',
             'برنامه اجرای اتوماسیون‌ها قبل از اجرا ساخته شد.',
@@ -144,7 +160,8 @@ class WooSmart_Execution_Engine {
         );
 
         /*
-         * The existing scan log remains available.
+         * The existing scan log remains available for
+         * technical diagnostics and backward compatibility.
          */
         $automation_ids =
             array();
@@ -220,10 +237,147 @@ class WooSmart_Execution_Engine {
             )
         );
 
+        /*
+         * Execute only the Automations selected by the
+         * formal plan.
+         */
         foreach (
             $execution_plan['automations']
             as $planned_automation
         ) {
+
+            /*
+             * Condition failures can be decided entirely during
+             * planning. They do not reach execute_automation(),
+             * so create and finish a History record here as well.
+             */
+            if (
+                empty(
+                    $planned_automation['should_execute']
+                ) &&
+                isset(
+                    $planned_automation['planning_status']
+                ) &&
+                'conditions_failed' ===
+                $planned_automation['planning_status']
+            ) {
+
+                $planned_automation_id =
+                    isset(
+                        $planned_automation['automation_id']
+                    )
+                        ? absint(
+                            $planned_automation['automation_id']
+                        )
+                        : 0;
+
+                $planned_order_id =
+                    isset(
+                        $context['order_id']
+                    )
+                        ? absint(
+                            $context['order_id']
+                        )
+                        : 0;
+
+                $planned_conditions =
+                    isset(
+                        $planned_automation['conditions']
+                    ) &&
+                    is_array(
+                        $planned_automation['conditions']
+                    )
+                        ? $planned_automation['conditions']
+                        : array();
+
+                $planned_actions =
+                    get_post_meta(
+                        $planned_automation_id,
+                        '_woosmart_actions',
+                        true
+                    );
+
+                if (
+                    ! is_array(
+                        $planned_actions
+                    )
+                ) {
+                    $planned_actions =
+                        array();
+                }
+
+                $planned_actions =
+                    array_values(
+                        $planned_actions
+                    );
+
+                $planned_condition_evaluation =
+                    isset(
+                        $planned_automation['condition_evaluation']
+                    ) &&
+                    is_array(
+                        $planned_automation['condition_evaluation']
+                    )
+                        ? $planned_automation['condition_evaluation']
+                        : array();
+
+                if (
+                    $planned_automation_id
+                ) {
+
+                    $planned_execution_id =
+                        $this->execution_history->start_execution(
+                            $planned_automation_id,
+                            $planned_order_id,
+                            $trigger,
+                            $execution_policy,
+                            $context,
+                            isset(
+                                $planned_automation['automation_title']
+                            )
+                                ? $planned_automation['automation_title']
+                                : '',
+                            $planned_conditions,
+                            $planned_actions
+                        );
+
+                    if (
+                        $planned_execution_id
+                    ) {
+
+                        $this->logger->log(
+                            'automation_conditions_failed',
+                            'شرایط اتوماسیون برقرار نبود.',
+                            array(
+                                'automation_id' =>
+                                    $planned_automation_id,
+
+                                'trigger' =>
+                                    $trigger,
+
+                                'context' =>
+                                    $context,
+
+                                'condition_evaluation' =>
+                                    $planned_condition_evaluation,
+                            )
+                        );
+
+                        $this->execution_history->finish_execution(
+                            $planned_execution_id,
+                            'conditions_failed',
+                            0,
+                            false,
+                            'شرایط اتوماسیون برقرار نبود.',
+                            false,
+                            array(),
+                            $planned_condition_evaluation
+                        );
+                    }
+                }
+
+                continue;
+            }
 
             if (
                 empty(
@@ -256,6 +410,13 @@ class WooSmart_Execution_Engine {
                     $execution_policy
                 );
 
+            /*
+             * The plan already determined the relevant
+             * Automations according to the current policy.
+             *
+             * The runtime result is still evaluated because
+             * first_success depends on complete Action success.
+             */
             if (
                 'first_match' ===
                 $execution_policy &&
@@ -306,6 +467,11 @@ class WooSmart_Execution_Engine {
                 'posts_per_page' =>
                     -1,
 
+                /*
+                 * Initial deterministic order.
+                 * Priority is normalized and applied
+                 * explicitly below.
+                 */
                 'orderby' =>
                     'date',
 
@@ -362,6 +528,9 @@ class WooSmart_Execution_Engine {
             return array();
         }
 
+        /*
+         * Collect explicit priorities.
+         */
         $explicit_priorities =
             array();
 
@@ -412,6 +581,10 @@ class WooSmart_Execution_Engine {
             }
         }
 
+        /*
+         * Automations without explicit Priority are
+         * placed after all explicit priorities.
+         */
         $fallback_priority_base =
             $max_explicit_priority +
             10;
@@ -467,6 +640,13 @@ class WooSmart_Execution_Engine {
                 10;
         }
 
+        /*
+         * Deterministic sorting:
+         *
+         * 1. Lower Priority first.
+         * 2. Newer creation date first.
+         * 3. Higher Automation ID first when timestamps match.
+         */
         usort(
             $automations,
             function(
@@ -576,9 +756,13 @@ class WooSmart_Execution_Engine {
     /**
      * Build the formal execution plan.
      *
+     * Planning evaluates Conditions and determines which
+     * Automations are eligible to execute. It never performs
+     * Action side effects.
+     *
      * @param array  $automations      Ordered Automations.
-     * @param string $trigger          Trigger name.
-     * @param array  $context          Trigger context.
+     * @param string $trigger           Trigger name.
+     * @param array  $context           Trigger context.
      * @param string $execution_policy Execution Policy.
      *
      * @return array
@@ -685,6 +869,15 @@ class WooSmart_Execution_Engine {
                     $automations
                 );
 
+            /*
+             * Condition evaluation during planning is safe
+             * because it does not execute Actions.
+             *
+             * Planning must not create duplicate condition
+             * result logs because the selected Automation
+             * evaluates its Conditions again immediately
+             * before Action execution.
+             */
             $matched =
                 (bool)
                 $this->condition_engine->evaluate(
@@ -692,6 +885,20 @@ class WooSmart_Execution_Engine {
                     $context,
                     false
                 );
+
+            $condition_evaluation =
+                array();
+
+            if (
+                ! $matched
+            ) {
+                $condition_evaluation =
+                    $this->condition_engine->evaluate_with_results(
+                        $conditions,
+                        $context,
+                        true
+                    );
+            }
 
             $plan_entry = array(
                 'automation_id' =>
@@ -708,6 +915,9 @@ class WooSmart_Execution_Engine {
 
                 'conditions' =>
                     $conditions,
+
+                'condition_evaluation' =>
+                    $condition_evaluation,
 
                 'matched' =>
                     $matched,
@@ -733,6 +943,10 @@ class WooSmart_Execution_Engine {
                 $plan['matched_count'] +=
                     1;
 
+                /*
+                 * ALL:
+                 * Every matched Automation is planned.
+                 */
                 if (
                     'all' ===
                     $execution_policy
@@ -754,6 +968,11 @@ class WooSmart_Execution_Engine {
                         1;
                 }
 
+                /*
+                 * FIRST_MATCH:
+                 * First matching Automation is planned,
+                 * all later Automations remain unplanned.
+                 */
                 elseif (
                     'first_match' ===
                     $execution_policy
@@ -790,6 +1009,16 @@ class WooSmart_Execution_Engine {
                     }
                 }
 
+                /*
+                 * FIRST_SUCCESS:
+                 *
+                 * The planner cannot know whether Actions will
+                 * succeed without executing them.
+                 *
+                 * Therefore every matching Automation remains
+                 * eligible in Priority order and runtime execution
+                 * stops after the first complete success.
+                 */
                 elseif (
                     'first_success' ===
                     $execution_policy
@@ -813,6 +1042,12 @@ class WooSmart_Execution_Engine {
                             'planned_count'
                         ] +=
                             1;
+
+                        /*
+                         * Do not set a final stop marker here.
+                         * Additional matches may still be needed
+                         * if the current Automation later fails.
+                         */
                     }
                 }
             }
@@ -823,6 +1058,13 @@ class WooSmart_Execution_Engine {
                 $plan_entry;
         }
 
+        /*
+         * For FIRST_SUCCESS all matching Automations must remain
+         * runtime-eligible because success is only known after
+         * Action execution.
+         *
+         * Rewrite the entries accordingly.
+         */
         if (
             'first_success' ===
             $execution_policy
@@ -953,6 +1195,8 @@ class WooSmart_Execution_Engine {
 
     /**
      * Get normalized runtime Priority for one Automation.
+     *
+     * This uses the same deterministic rules as the main sort.
      *
      * @param int   $automation_id Automation ID.
      * @param array $automations   Ordered candidate Automations.
@@ -1274,7 +1518,8 @@ class WooSmart_Execution_Engine {
                     false,
                     'شرایط اتوماسیون برقرار نبود.',
                     false,
-                    array()
+                    array(),
+                    $condition_evaluation
                 );
             }
 
@@ -1399,7 +1644,8 @@ class WooSmart_Execution_Engine {
                     ? 'تمام عملیات اتوماسیون با موفقیت اجرا شدند.'
                     : 'حداقل یکی از عملیات اتوماسیون با شکست مواجه شد.',
                 true,
-                $action_results
+                $action_results,
+                $condition_evaluation
             );
         }
 
