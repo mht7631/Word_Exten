@@ -116,18 +116,6 @@ class WooSmart_Execution_Engine {
         /*
          * Build a formal execution plan before
          * any Action is executed.
-         *
-         * The plan contains:
-         *
-         * - ordered Automations
-         * - Priority
-         * - Conditions
-         * - Condition result
-         * - Actions
-         * - Execution Policy
-         *
-         * Action side effects are not performed while
-         * the plan is being built.
          */
         $execution_plan =
             $this->build_execution_plan(
@@ -137,10 +125,6 @@ class WooSmart_Execution_Engine {
                 $execution_policy
             );
 
-        /*
-         * Log the complete planning result before
-         * executing the selected Automation path.
-         */
         $this->logger->log(
             'execution_plan',
             'برنامه اجرای اتوماسیون‌ها قبل از اجرا ساخته شد.',
@@ -160,8 +144,7 @@ class WooSmart_Execution_Engine {
         );
 
         /*
-         * The existing scan log remains available for
-         * technical diagnostics and backward compatibility.
+         * The existing scan log remains available.
          */
         $automation_ids =
             array();
@@ -237,10 +220,6 @@ class WooSmart_Execution_Engine {
             )
         );
 
-        /*
-         * Execute only the Automations selected by the
-         * formal plan.
-         */
         foreach (
             $execution_plan['automations']
             as $planned_automation
@@ -277,13 +256,6 @@ class WooSmart_Execution_Engine {
                     $execution_policy
                 );
 
-            /*
-             * The plan already determined the relevant
-             * Automations according to the current policy.
-             *
-             * The runtime result is still evaluated because
-             * first_success depends on complete Action success.
-             */
             if (
                 'first_match' ===
                 $execution_policy &&
@@ -334,11 +306,6 @@ class WooSmart_Execution_Engine {
                 'posts_per_page' =>
                     -1,
 
-                /*
-                 * Initial deterministic order.
-                 * Priority is normalized and applied
-                 * explicitly below.
-                 */
                 'orderby' =>
                     'date',
 
@@ -395,9 +362,6 @@ class WooSmart_Execution_Engine {
             return array();
         }
 
-        /*
-         * Collect explicit priorities.
-         */
         $explicit_priorities =
             array();
 
@@ -448,10 +412,6 @@ class WooSmart_Execution_Engine {
             }
         }
 
-        /*
-         * Automations without explicit Priority are
-         * placed after all explicit priorities.
-         */
         $fallback_priority_base =
             $max_explicit_priority +
             10;
@@ -507,13 +467,6 @@ class WooSmart_Execution_Engine {
                 10;
         }
 
-        /*
-         * Deterministic sorting:
-         *
-         * 1. Lower Priority first.
-         * 2. Newer creation date first.
-         * 3. Higher Automation ID first when timestamps match.
-         */
         usort(
             $automations,
             function(
@@ -623,13 +576,9 @@ class WooSmart_Execution_Engine {
     /**
      * Build the formal execution plan.
      *
-     * Planning evaluates Conditions and determines which
-     * Automations are eligible to execute. It never performs
-     * Action side effects.
-     *
      * @param array  $automations      Ordered Automations.
-     * @param string $trigger           Trigger name.
-     * @param array  $context           Trigger context.
+     * @param string $trigger          Trigger name.
+     * @param array  $context          Trigger context.
      * @param string $execution_policy Execution Policy.
      *
      * @return array
@@ -736,15 +685,6 @@ class WooSmart_Execution_Engine {
                     $automations
                 );
 
-            /*
-             * Condition evaluation during planning is safe
-             * because it does not execute Actions.
-             *
-             * Planning must not create duplicate condition
-             * result logs because the selected Automation
-             * evaluates its Conditions again immediately
-             * before Action execution.
-             */
             $matched =
                 (bool)
                 $this->condition_engine->evaluate(
@@ -793,10 +733,6 @@ class WooSmart_Execution_Engine {
                 $plan['matched_count'] +=
                     1;
 
-                /*
-                 * ALL:
-                 * Every matched Automation is planned.
-                 */
                 if (
                     'all' ===
                     $execution_policy
@@ -818,11 +754,6 @@ class WooSmart_Execution_Engine {
                         1;
                 }
 
-                /*
-                 * FIRST_MATCH:
-                 * First matching Automation is planned,
-                 * all later Automations remain unplanned.
-                 */
                 elseif (
                     'first_match' ===
                     $execution_policy
@@ -859,16 +790,6 @@ class WooSmart_Execution_Engine {
                     }
                 }
 
-                /*
-                 * FIRST_SUCCESS:
-                 *
-                 * The planner cannot know whether Actions will
-                 * succeed without executing them.
-                 *
-                 * Therefore every matching Automation remains
-                 * eligible in Priority order and runtime execution
-                 * stops after the first complete success.
-                 */
                 elseif (
                     'first_success' ===
                     $execution_policy
@@ -892,12 +813,6 @@ class WooSmart_Execution_Engine {
                             'planned_count'
                         ] +=
                             1;
-
-                        /*
-                         * Do not set a final stop marker here.
-                         * Additional matches may still be needed
-                         * if the current Automation later fails.
-                         */
                     }
                 }
             }
@@ -908,13 +823,6 @@ class WooSmart_Execution_Engine {
                 $plan_entry;
         }
 
-        /*
-         * For FIRST_SUCCESS all matching Automations must remain
-         * runtime-eligible because success is only known after
-         * Action execution.
-         *
-         * Rewrite the entries accordingly.
-         */
         if (
             'first_success' ===
             $execution_policy
@@ -1045,8 +953,6 @@ class WooSmart_Execution_Engine {
 
     /**
      * Get normalized runtime Priority for one Automation.
-     *
-     * This uses the same deterministic rules as the main sort.
      *
      * @param int   $automation_id Automation ID.
      * @param array $automations   Ordered candidate Automations.
@@ -1258,9 +1164,6 @@ class WooSmart_Execution_Engine {
                 ? $automation->post_title
                 : '';
 
-        /*
-         * Load current Conditions.
-         */
         $conditions =
             get_post_meta(
                 $automation_id,
@@ -1278,20 +1181,11 @@ class WooSmart_Execution_Engine {
                 array();
         }
 
-        /*
-         * Normalize only for runtime compatibility.
-         *
-         * This method is read-only and preserves
-         * all valid Conditions.
-         */
         $conditions =
             $this->normalize_conditions_for_current_mvp(
                 $conditions
             );
 
-        /*
-         * Load Actions.
-         */
         $actions =
             get_post_meta(
                 $automation_id,
@@ -1309,9 +1203,6 @@ class WooSmart_Execution_Engine {
                 array();
         }
 
-        /*
-         * Normalize action indexes.
-         */
         $actions =
             array_values(
                 $actions
@@ -1326,10 +1217,6 @@ class WooSmart_Execution_Engine {
                 )
                 : 0;
 
-        /*
-         * Start immutable execution snapshot before
-         * Action execution.
-         */
         $execution_id =
             $this->execution_history->start_execution(
                 $automation_id,
@@ -1342,18 +1229,16 @@ class WooSmart_Execution_Engine {
                 $actions
             );
 
-        /*
-         * Evaluate Conditions again at execution time.
-         *
-         * This preserves the existing runtime safety behavior:
-         * the actual Automation execution always validates its
-         * current runtime conditions immediately before Actions.
-         */
-        $conditions_passed =
-            $this->condition_engine->evaluate(
+        $condition_evaluation =
+            $this->condition_engine->evaluate_with_results(
                 $conditions,
                 $context,
                 true
+            );
+
+        $conditions_passed =
+            ! empty(
+                $condition_evaluation['matched']
             );
 
         if (
@@ -1372,6 +1257,9 @@ class WooSmart_Execution_Engine {
 
                     'context' =>
                         $context,
+
+                    'condition_evaluation' =>
+                        $condition_evaluation,
                 )
             );
 
@@ -1398,9 +1286,6 @@ class WooSmart_Execution_Engine {
         ] =
             true;
 
-        /*
-         * Execute Actions.
-         */
         $action_execution =
             $this->action_engine->execute_with_results(
                 $actions,
@@ -1433,9 +1318,6 @@ class WooSmart_Execution_Engine {
                 ? $action_execution['actions']
                 : array();
 
-        /*
-         * Keep Action result indexes stable.
-         */
         $action_results =
             array_values(
                 $action_results
@@ -1472,6 +1354,9 @@ class WooSmart_Execution_Engine {
 
                     'actions_successful' =>
                         true,
+
+                    'condition_evaluation' =>
+                        $condition_evaluation,
                 )
             );
 
@@ -1492,6 +1377,9 @@ class WooSmart_Execution_Engine {
 
                     'actions_successful' =>
                         false,
+
+                    'condition_evaluation' =>
+                        $condition_evaluation,
                 )
             );
         }
@@ -1521,13 +1409,27 @@ class WooSmart_Execution_Engine {
     /**
      * Normalize Conditions for current runtime.
      *
-     * The current Multiple Conditions implementation
-     * supports all valid Conditions in one Automation.
+     * Supports both:
+     *
+     * 1. Legacy flat conditions.
+     * 2. Grouped conditions using:
+     *
+     *    [
+     *        'version' => 1,
+     *        'groups' => [
+     *            [
+     *                'conditions' => [...]
+     *            ]
+     *        ]
+     *    ]
      *
      * IMPORTANT:
-     * This method is intentionally read-only.
      *
-     * @param array $conditions Stored Conditions.
+     * - Legacy flat conditions remain unchanged in meaning.
+     * - Grouped conditions are preserved and are not flattened.
+     * - This method is read-only.
+     *
+     * @param array $conditions Stored condition configuration.
      *
      * @return array
      */
@@ -1538,7 +1440,178 @@ class WooSmart_Execution_Engine {
         if (
             ! is_array(
                 $conditions
-            ) ||
+            )
+        ) {
+            return array();
+        }
+
+        /*
+         * Explicit Grouped structure.
+         */
+        if (
+            array_key_exists(
+                'groups',
+                $conditions
+            )
+        ) {
+
+            $normalized_groups =
+                array();
+
+            if (
+                ! isset(
+                    $conditions['groups']
+                ) ||
+                ! is_array(
+                    $conditions['groups']
+                )
+            ) {
+
+                return array(
+                    'version' =>
+                        isset(
+                            $conditions['version']
+                        )
+                            ? absint(
+                                $conditions['version']
+                            )
+                            : 1,
+
+                    'groups' =>
+                        array(),
+                );
+            }
+
+            foreach (
+                $conditions['groups'] as $group
+            ) {
+
+                if (
+                    ! is_array(
+                        $group
+                    )
+                ) {
+                    continue;
+                }
+
+                $group_conditions =
+                    isset(
+                        $group['conditions']
+                    ) &&
+                    is_array(
+                        $group['conditions']
+                    )
+                        ? $group['conditions']
+                        : array();
+
+                $normalized_conditions =
+                    array();
+
+                foreach (
+                    $group_conditions as $condition
+                ) {
+
+                    if (
+                        ! is_array(
+                            $condition
+                        )
+                    ) {
+                        continue;
+                    }
+
+                    $field =
+                        isset(
+                            $condition['field']
+                        )
+                            ? sanitize_key(
+                                $condition['field']
+                            )
+                            : '';
+
+                    $operator =
+                        isset(
+                            $condition['operator']
+                        )
+                            ? sanitize_key(
+                                $condition['operator']
+                            )
+                            : '';
+
+                    if (
+                        empty(
+                            $field
+                        ) ||
+                        empty(
+                            $operator
+                        )
+                    ) {
+                        continue;
+                    }
+
+                    $normalized_condition =
+                        $condition;
+
+                    $normalized_condition[
+                        'field'
+                    ] =
+                        $field;
+
+                    $normalized_condition[
+                        'operator'
+                    ] =
+                        $operator;
+
+                    if (
+                        ! array_key_exists(
+                            'value',
+                            $normalized_condition
+                        )
+                    ) {
+
+                        $normalized_condition[
+                            'value'
+                        ] =
+                            '';
+                    }
+
+                    $normalized_conditions[] =
+                        $normalized_condition;
+                }
+
+                $normalized_groups[] =
+                    array(
+                        'conditions' =>
+                            array_values(
+                                $normalized_conditions
+                            ),
+                    );
+            }
+
+            return array(
+                'version' =>
+                    isset(
+                        $conditions['version']
+                    )
+                        ? absint(
+                            $conditions['version']
+                        )
+                        : 1,
+
+                'groups' =>
+                    array_values(
+                        $normalized_groups
+                    ),
+            );
+        }
+
+        /*
+         * Legacy flat structure.
+         *
+         * Preserve the existing behavior exactly:
+         * every valid condition remains in its original order
+         * and Condition Engine evaluates them with AND.
+         */
+        if (
             empty(
                 $conditions
             )
@@ -1546,10 +1619,6 @@ class WooSmart_Execution_Engine {
             return array();
         }
 
-        /*
-         * Remove malformed entries while preserving
-         * the original order of all valid Conditions.
-         */
         $valid_conditions =
             array();
 
@@ -1624,14 +1693,6 @@ class WooSmart_Execution_Engine {
             return array();
         }
 
-        /*
-         * Multiple Conditions:
-         *
-         * Preserve every valid Condition in its original order.
-         *
-         * Condition Engine is responsible for evaluating them
-         * using its existing AND behavior.
-         */
         return array_values(
             $valid_conditions
         );
