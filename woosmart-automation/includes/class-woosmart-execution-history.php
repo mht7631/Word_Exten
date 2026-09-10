@@ -79,6 +79,7 @@ class WooSmart_Execution_History {
             actions_total int(11) unsigned NOT NULL DEFAULT 0,
             actions_successful tinyint(1) NOT NULL DEFAULT 0,
             condition_result tinyint(1) NULL DEFAULT NULL,
+            condition_evaluation_json longtext NULL,
             conditions_json longtext NULL,
             actions_json longtext NULL,
             action_results_json longtext NULL,
@@ -99,27 +100,27 @@ class WooSmart_Execution_History {
         if (
             version_compare(
                 $installed_version,
-                '1.2.0',
+                '1.3.0',
                 '<'
             )
         ) {
 
             update_option(
                 'woosmart_execution_history_db_version',
-                '1.2.0'
+                '1.3.0'
             );
 
             return;
         }
 
         if (
-            '1.2.0' !==
+            '1.3.0' !==
             $installed_version
         ) {
 
             update_option(
                 'woosmart_execution_history_db_version',
-                '1.2.0'
+                '1.3.0'
             );
         }
     }
@@ -197,6 +198,13 @@ class WooSmart_Execution_History {
                     'condition_result' =>
                         null,
 
+                    'condition_evaluation_json' =>
+                        wp_json_encode(
+                            array(),
+                            JSON_UNESCAPED_UNICODE |
+                            JSON_UNESCAPED_SLASHES
+                        ),
+
                     'conditions_json' =>
                         wp_json_encode(
                             $conditions,
@@ -241,6 +249,9 @@ class WooSmart_Execution_History {
                     '%s',
                     '%s',
                     '%s',
+                    '%s',
+                    '%s',
+                    '%s',
                 )
             );
 
@@ -281,7 +292,8 @@ class WooSmart_Execution_History {
      * @param bool       $actions_successful Whether all Actions succeeded.
      * @param string     $message            Human-readable message.
      * @param bool|null  $condition_result   Overall Condition result.
-     * @param array      $action_results     Per-Action results.
+     * @param array      $action_results       Per-Action results.
+     * @param array      $condition_evaluation Detailed Condition evaluation snapshot.
      *
      * @return void
      */
@@ -292,7 +304,8 @@ class WooSmart_Execution_History {
         $actions_successful,
         $message,
         $condition_result = null,
-        $action_results = array()
+        $action_results = array(),
+        $condition_evaluation = array()
     ) {
 
         global $wpdb;
@@ -436,6 +449,17 @@ class WooSmart_Execution_History {
                 JSON_UNESCAPED_SLASHES
             );
 
+        $condition_evaluation_json =
+            wp_json_encode(
+                is_array(
+                    $condition_evaluation
+                )
+                    ? $condition_evaluation
+                    : array(),
+                JSON_UNESCAPED_UNICODE |
+                JSON_UNESCAPED_SLASHES
+            );
+
         $condition_result_value =
             null;
 
@@ -477,6 +501,9 @@ class WooSmart_Execution_History {
                 'condition_result' =>
                     $condition_result_value,
 
+                'condition_evaluation_json' =>
+                    $condition_evaluation_json,
+
                 'action_results_json' =>
                     $action_results_json,
 
@@ -496,6 +523,7 @@ class WooSmart_Execution_History {
                 '%d',
                 '%d',
                 '%d',
+                '%s',
                 '%s',
                 '%s',
             ),
@@ -589,6 +617,17 @@ class WooSmart_Execution_History {
                     $execution['context_json']
                 )
                     ? $execution['context_json']
+                    : ''
+            );
+
+        $execution[
+            'condition_evaluation'
+        ] =
+            $this->decode_json_array(
+                isset(
+                    $execution['condition_evaluation_json']
+                )
+                    ? $execution['condition_evaluation_json']
                     : ''
             );
 
