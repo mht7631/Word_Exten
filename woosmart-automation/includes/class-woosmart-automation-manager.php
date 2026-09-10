@@ -740,40 +740,186 @@ class WooSmart_Automation_Manager {
      *
      * Supports:
      *
-     * 1. Multiple conditions:
+     * 1. Current Legacy multiple-condition structure:
      *
      *    conditions[0][field]
      *    conditions[0][operator]
      *    conditions[0][value]
      *
-     * 2. Range condition:
+     * 2. Grouped Condition structure:
      *
-     *    conditions[0][field]
-     *    conditions[0][operator] = between
-     *    conditions[0][min]
-     *    conditions[0][max]
+     *    condition_groups[0][conditions][0][field]
+     *    condition_groups[0][conditions][0][operator]
+     *    condition_groups[0][conditions][0][value]
      *
-     * 3. Previous single-condition form for backward compatibility:
+     *    condition_groups[1][conditions][0][field]
+     *    ...
      *
-     *    condition_field
-     *    condition_operator
-     *    condition_value
+     *    Stored as:
      *
-     * Range values are stored as:
+     *    array(
+     *        'version' => 1,
+     *        'groups'  => array(
+     *            array(
+     *                'conditions' => array(
+     *                    ...
+     *                ),
+     *            ),
+     *        ),
+     *    )
      *
-     * array(
-     *     'min' => '1000000',
-     *     'max' => '5000000',
-     * )
+     * 3. Previous single-condition form for backward compatibility.
      *
      * @return array
      */
     private function get_conditions_from_request() {
 
-        $conditions = array();
+        /*
+         * New Grouped Condition structure.
+         *
+         * The UI for this structure is introduced in a later
+         * milestone. The Manager supports it now so that storage
+         * and validation are ready before the UI changes.
+         */
+        if (
+            isset( $_POST['condition_groups'] ) &&
+            is_array( $_POST['condition_groups'] )
+        ) {
+
+            $submitted_groups =
+                wp_unslash(
+                    $_POST['condition_groups']
+                );
+
+            $groups =
+                array();
+
+            foreach (
+                $submitted_groups as $submitted_group
+            ) {
+
+                if (
+                    ! is_array(
+                        $submitted_group
+                    )
+                ) {
+                    continue;
+                }
+
+                $group_conditions =
+                    isset(
+                        $submitted_group['conditions']
+                    ) &&
+                    is_array(
+                        $submitted_group['conditions']
+                    )
+                        ? $submitted_group['conditions']
+                        : array();
+
+                $conditions =
+                    $this->normalize_submitted_condition_list(
+                        $group_conditions
+                    );
+
+                /*
+                 * Keep Group entries even when empty so validation
+                 * can explicitly reject an incomplete Group.
+                 */
+                $groups[] =
+                    array(
+                        'conditions' =>
+                            $conditions,
+                    );
+            }
+
+            return array(
+                'version' =>
+                    1,
+
+                'groups' =>
+                    array_values(
+                        $groups
+                    ),
+            );
+        }
 
         /*
-         * New multiple-condition structure.
+         * Optional direct grouped payload.
+         *
+         * This is useful for future form/API clients that submit:
+         *
+         * conditions[groups][0][conditions][0][field]
+         *
+         * instead of condition_groups[...] .
+         */
+        if (
+            isset( $_POST['conditions'] ) &&
+            is_array( $_POST['conditions'] ) &&
+            isset( $_POST['conditions']['groups'] ) &&
+            is_array( $_POST['conditions']['groups'] )
+        ) {
+
+            $submitted_groups =
+                wp_unslash(
+                    $_POST['conditions']['groups']
+                );
+
+            $groups =
+                array();
+
+            foreach (
+                $submitted_groups as $submitted_group
+            ) {
+
+                if (
+                    ! is_array(
+                        $submitted_group
+                    )
+                ) {
+                    continue;
+                }
+
+                $group_conditions =
+                    isset(
+                        $submitted_group['conditions']
+                    ) &&
+                    is_array(
+                        $submitted_group['conditions']
+                    )
+                        ? $submitted_group['conditions']
+                        : array();
+
+                $conditions =
+                    $this->normalize_submitted_condition_list(
+                        $group_conditions
+                    );
+
+                $groups[] =
+                    array(
+                        'conditions' =>
+                            $conditions,
+                    );
+            }
+
+            return array(
+                'version' =>
+                    isset(
+                        $_POST['conditions']['version']
+                    )
+                        ? absint(
+                            $_POST['conditions']['version']
+                        )
+                        : 1,
+
+                'groups' =>
+                    array_values(
+                        $groups
+                    ),
+            );
+        }
+
+        /*
+         * Current multiple-condition Legacy structure.
          */
         if (
             isset( $_POST['conditions'] ) &&
@@ -785,144 +931,29 @@ class WooSmart_Automation_Manager {
                     $_POST['conditions']
                 );
 
-            foreach (
-                $submitted_conditions as $submitted_condition
+            /*
+             * If conditions was accidentally submitted using
+             * a grouped structure but with an unexpected shape,
+             * do not reinterpret it as Legacy Conditions.
+             */
+            if (
+                isset(
+                    $submitted_conditions['groups']
+                )
             ) {
 
-                if (
-                    ! is_array(
-                        $submitted_condition
-                    )
-                ) {
-                    continue;
-                }
+                return array(
+                    'version' =>
+                        1,
 
-                $field = isset(
-                    $submitted_condition['field']
-                )
-                    ? sanitize_key(
-                        $submitted_condition['field']
-                    )
-                    : '';
-
-                $operator = isset(
-                    $submitted_condition['operator']
-                )
-                    ? sanitize_key(
-                        $submitted_condition['operator']
-                    )
-                    : '';
-
-                if (
-                    empty( $field ) ||
-                    empty( $operator )
-                ) {
-                    continue;
-                }
-
-                /*
-                 * Range condition.
-                 */
-                if (
-                    'between' ===
-                    $operator
-                ) {
-
-                    $minimum =
-                        isset(
-                            $submitted_condition['min']
-                        )
-                            ? sanitize_text_field(
-                                $submitted_condition['min']
-                            )
-                            : '';
-
-                    $maximum =
-                        isset(
-                            $submitted_condition['max']
-                        )
-                            ? sanitize_text_field(
-                                $submitted_condition['max']
-                            )
-                            : '';
-
-                    $minimum =
-                        $this->normalize_numeric_input(
-                            $minimum
-                        );
-
-                    $maximum =
-                        $this->normalize_numeric_input(
-                            $maximum
-                        );
-
-                    /*
-                     * Do not add a completely empty range.
-                     * Validation is still responsible for validating
-                     * an intentionally incomplete submitted condition.
-                     */
-                    if (
-                        '' === $minimum &&
-                        '' === $maximum
-                    ) {
-                        continue;
-                    }
-
-                    $conditions[] = array(
-                        'field'    => $field,
-                        'operator' => $operator,
-                        'value'    => array(
-                            'min' =>
-                                $minimum,
-
-                            'max' =>
-                                $maximum,
-                        ),
-                    );
-
-                    continue;
-                }
-
-                /*
-                 * Scalar condition.
-                 */
-                if (
-                    ! isset(
-                        $submitted_condition['value']
-                    )
-                ) {
-                    continue;
-                }
-
-                $value =
-                    sanitize_text_field(
-                        $submitted_condition['value']
-                    );
-
-                $value =
-                    $this->normalize_numeric_input_for_condition(
-                        $field,
-                        $value
-                    );
-
-                if (
-                    '' ===
-                    trim(
-                        (string)
-                        $value
-                    )
-                ) {
-                    continue;
-                }
-
-                $conditions[] = array(
-                    'field'    => $field,
-                    'operator' => $operator,
-                    'value'    => $value,
+                    'groups' =>
+                        array(),
                 );
             }
 
-            return $conditions;
+            return $this->normalize_submitted_condition_list(
+                $submitted_conditions
+            );
         }
 
         /*
@@ -934,7 +965,7 @@ class WooSmart_Automation_Manager {
             ! isset( $_POST['condition_operator'] )
         ) {
 
-            return $conditions;
+            return array();
         }
 
         $field = sanitize_key(
@@ -954,7 +985,7 @@ class WooSmart_Automation_Manager {
             empty( $operator )
         ) {
 
-            return $conditions;
+            return array();
         }
 
         /*
@@ -1002,20 +1033,22 @@ class WooSmart_Automation_Manager {
                 '' !== $maximum
             ) {
 
-                $conditions[] = array(
-                    'field'    => $field,
-                    'operator' => $operator,
-                    'value'    => array(
-                        'min' =>
-                            $minimum,
+                return array(
+                    array(
+                        'field'    => $field,
+                        'operator' => $operator,
+                        'value'    => array(
+                            'min' =>
+                                $minimum,
 
-                        'max' =>
-                            $maximum,
+                            'max' =>
+                                $maximum,
+                        ),
                     ),
                 );
             }
 
-            return $conditions;
+            return array();
         }
 
         /*
@@ -1027,7 +1060,7 @@ class WooSmart_Automation_Manager {
             )
         ) {
 
-            return $conditions;
+            return array();
         }
 
         $value = sanitize_text_field(
@@ -1046,11 +1079,180 @@ class WooSmart_Automation_Manager {
             '' !== $value
         ) {
 
-            $conditions[] = array(
-                'field'    => $field,
-                'operator' => $operator,
-                'value'    => $value,
+            return array(
+                array(
+                    'field'    => $field,
+                    'operator' => $operator,
+                    'value'    => $value,
+                ),
             );
+        }
+
+        return array();
+    }
+
+    /**
+     * Normalize a submitted list of atomic Conditions.
+     *
+     * @param array $submitted_conditions Submitted Conditions.
+     *
+     * @return array
+     */
+    private function normalize_submitted_condition_list(
+        $submitted_conditions
+    ) {
+
+        $conditions =
+            array();
+
+        if (
+            ! is_array(
+                $submitted_conditions
+            )
+        ) {
+
+            return $conditions;
+        }
+
+        foreach (
+            $submitted_conditions as $submitted_condition
+        ) {
+
+            if (
+                ! is_array(
+                    $submitted_condition
+                )
+            ) {
+                continue;
+            }
+
+            $field =
+                isset(
+                    $submitted_condition['field']
+                )
+                    ? sanitize_key(
+                        $submitted_condition['field']
+                    )
+                    : '';
+
+            $operator =
+                isset(
+                    $submitted_condition['operator']
+                )
+                    ? sanitize_key(
+                        $submitted_condition['operator']
+                    )
+                    : '';
+
+            if (
+                empty( $field ) ||
+                empty( $operator )
+            ) {
+                continue;
+            }
+
+            /*
+             * Range condition.
+             */
+            if (
+                'between' ===
+                $operator
+            ) {
+
+                $minimum =
+                    isset(
+                        $submitted_condition['min']
+                    )
+                        ? sanitize_text_field(
+                            $submitted_condition['min']
+                        )
+                        : '';
+
+                $maximum =
+                    isset(
+                        $submitted_condition['max']
+                    )
+                        ? sanitize_text_field(
+                            $submitted_condition['max']
+                        )
+                        : '';
+
+                $minimum =
+                    $this->normalize_numeric_input(
+                        $minimum
+                    );
+
+                $maximum =
+                    $this->normalize_numeric_input(
+                        $maximum
+                    );
+
+                /*
+                 * Do not add a completely empty range.
+                 * Validation remains responsible for rejecting
+                 * an intentionally incomplete range once it exists.
+                 */
+                if (
+                    '' === $minimum &&
+                    '' === $maximum
+                ) {
+                    continue;
+                }
+
+                $conditions[] =
+                    array(
+                        'field'    => $field,
+                        'operator' => $operator,
+                        'value'    => array(
+                            'min' =>
+                                $minimum,
+
+                            'max' =>
+                                $maximum,
+                        ),
+                    );
+
+                continue;
+            }
+
+            /*
+             * Scalar condition.
+             */
+            if (
+                ! isset(
+                    $submitted_condition['value']
+                )
+            ) {
+                continue;
+            }
+
+            $value =
+                sanitize_text_field(
+                    $submitted_condition['value']
+                );
+
+            $value =
+                $this->normalize_numeric_input_for_condition(
+                    $field,
+                    $value
+                );
+
+            if (
+                '' ===
+                trim(
+                    (string)
+                    $value
+                )
+            ) {
+                continue;
+            }
+
+            $conditions[] =
+                array(
+                    'field'    => $field,
+                    'operator' => $operator,
+                    'value'    => $value,
+                );
         }
 
         return $conditions;
@@ -1374,10 +1576,30 @@ class WooSmart_Automation_Manager {
     }
 
     /**
-     * Validate conditions.
+     * Validate Conditions.
      *
-     * Condition definitions and operators are resolved
-     * through the Condition Registry.
+     * Supports:
+     *
+     * 1. Legacy flat Conditions:
+     *
+     *    A AND B AND C
+     *
+     * 2. Grouped Conditions:
+     *
+     *    (A AND B) OR (C AND D)
+     *
+     * Grouped storage format:
+     *
+     * array(
+     *     'version' => 1,
+     *     'groups' => array(
+     *         array(
+     *             'conditions' => array(
+     *                 ...
+     *             ),
+     *         ),
+     *     ),
+     * )
      *
      * @param array $conditions Conditions.
      *
@@ -1387,7 +1609,11 @@ class WooSmart_Automation_Manager {
         $conditions
     ) {
 
-        if ( ! is_array( $conditions ) ) {
+        if (
+            ! is_array(
+                $conditions
+            )
+        ) {
             return new WP_Error(
                 'invalid_conditions',
                 'ساختار شرایط نامعتبر است.'
@@ -1398,221 +1624,423 @@ class WooSmart_Automation_Manager {
             return true;
         }
 
-        foreach ( $conditions as $condition ) {
+        /*
+         * Detect Grouped Conditions.
+         */
+        if (
+            array_key_exists(
+                'groups',
+                $conditions
+            )
+        ) {
 
-            if ( ! is_array( $condition ) ) {
+            return $this->validate_condition_groups(
+                $conditions
+            );
+        }
+
+        /*
+         * Legacy flat Conditions.
+         */
+        foreach (
+            $conditions as $condition
+        ) {
+
+            $error =
+                $this->validate_single_condition(
+                    $condition
+                );
+
+            if (
+                is_wp_error(
+                    $error
+                )
+            ) {
+                return $error;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Validate Grouped Conditions.
+     *
+     * Rules:
+     *
+     * - version must currently be 1 or omitted.
+     * - at least one Group is required.
+     * - every Group must contain at least one Condition.
+     * - all Conditions inside a Group use AND semantics.
+     * - Groups themselves use OR semantics.
+     *
+     * @param array $configuration Grouped configuration.
+     *
+     * @return true|WP_Error
+     */
+    private function validate_condition_groups(
+        $configuration
+    ) {
+
+        if (
+            ! isset(
+                $configuration['groups']
+            ) ||
+            ! is_array(
+                $configuration['groups']
+            )
+        ) {
+            return new WP_Error(
+                'invalid_condition_groups',
+                'ساختار گروه‌های شرایط نامعتبر است.'
+            );
+        }
+
+        $version =
+            isset(
+                $configuration['version']
+            )
+                ? absint(
+                    $configuration['version']
+                )
+                : 1;
+
+        if (
+            1 !==
+            $version
+        ) {
+            return new WP_Error(
+                'unsupported_condition_group_version',
+                'نسخه ساختار گروه‌های شرایط پشتیبانی نمی‌شود.'
+            );
+        }
+
+        if (
+            empty(
+                $configuration['groups']
+            )
+        ) {
+            return new WP_Error(
+                'missing_condition_group',
+                'ساختار گروه‌های شرایط باید حداقل یک گروه داشته باشد.'
+            );
+        }
+
+        foreach (
+            $configuration['groups'] as $group_index =>
+            $group
+        ) {
+
+            if (
+                ! is_array(
+                    $group
+                )
+            ) {
                 return new WP_Error(
-                    'invalid_condition',
-                    'یکی از شرایط ساختار نامعتبر دارد.'
+                    'invalid_condition_group',
+                    sprintf(
+                        'گروه شماره %d ساختار نامعتبر دارد.',
+                        $group_index + 1
+                    )
                 );
             }
 
-            $field = isset(
+            if (
+                ! isset(
+                    $group['conditions']
+                ) ||
+                ! is_array(
+                    $group['conditions']
+                )
+            ) {
+                return new WP_Error(
+                    'invalid_condition_group_conditions',
+                    sprintf(
+                        'شرایط گروه شماره %d ساختار نامعتبر دارند.',
+                        $group_index + 1
+                    )
+                );
+            }
+
+            if (
+                empty(
+                    $group['conditions']
+                )
+            ) {
+                return new WP_Error(
+                    'empty_condition_group',
+                    sprintf(
+                        'گروه شماره %d باید حداقل یک شرط داشته باشد.',
+                        $group_index + 1
+                    )
+                );
+            }
+
+            foreach (
+                $group['conditions'] as $condition
+            ) {
+
+                $error =
+                    $this->validate_single_condition(
+                        $condition
+                    );
+
+                if (
+                    is_wp_error(
+                        $error
+                    )
+                ) {
+                    return $error;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Validate one atomic Condition.
+     *
+     * Condition definitions and operators are resolved
+     * through the Condition Registry.
+     *
+     * @param array $condition Condition configuration.
+     *
+     * @return true|WP_Error
+     */
+    private function validate_single_condition(
+        $condition
+    ) {
+
+        if (
+            ! is_array(
+                $condition
+            )
+        ) {
+            return new WP_Error(
+                'invalid_condition',
+                'یکی از شرایط ساختار نامعتبر دارد.'
+            );
+        }
+
+        $field = isset(
+            $condition['field']
+        )
+            ? sanitize_key(
                 $condition['field']
             )
-                ? sanitize_key(
-                    $condition['field']
-                )
-                : '';
+            : '';
 
-            $operator = isset(
+        $operator = isset(
+            $condition['operator']
+        )
+            ? sanitize_key(
                 $condition['operator']
             )
-                ? sanitize_key(
-                    $condition['operator']
-                )
-                : '';
+            : '';
 
-            $value = isset(
-                $condition['value']
+        $value = isset(
+            $condition['value']
+        )
+            ? $condition['value']
+            : '';
+
+        /*
+         * Condition must exist in the Registry.
+         */
+        if (
+            empty( $field ) ||
+            ! $this->condition_registry->has(
+                $field
             )
-                ? $condition['value']
-                : '';
+        ) {
+            return new WP_Error(
+                'invalid_condition_field',
+                'فیلد شرط انتخاب‌شده معتبر نیست.'
+            );
+        }
 
-            /*
-             * Condition must exist in the Registry.
-             */
-            if (
-                empty( $field ) ||
-                ! $this->condition_registry->has(
-                    $field
-                )
-            ) {
-                return new WP_Error(
-                    'invalid_condition_field',
-                    'فیلد شرط انتخاب‌شده معتبر نیست.'
-                );
-            }
+        /*
+         * Operator must exist for the selected condition.
+         */
+        $operators =
+            $this->condition_registry->get_operators(
+                $field
+            );
 
-            /*
-             * Operator must exist for the selected condition.
-             */
-            $operators =
-                $this->condition_registry->get_operators(
-                    $field
-                );
+        if (
+            empty( $operator ) ||
+            ! isset( $operators[ $operator ] )
+        ) {
+            return new WP_Error(
+                'invalid_condition_operator',
+                'عملگر شرط انتخاب‌شده معتبر نیست.'
+            );
+        }
 
-            if (
-                empty( $operator ) ||
-                ! isset( $operators[ $operator ] )
-            ) {
-                return new WP_Error(
-                    'invalid_condition_operator',
-                    'عملگر شرط انتخاب‌شده معتبر نیست.'
-                );
-            }
+        /*
+         * Read condition metadata from the Registry.
+         */
+        $definition =
+            $this->condition_registry->get(
+                $field
+            );
 
-            /*
-             * Read condition metadata from the Registry.
-             */
-            $definition =
-                $this->condition_registry->get(
-                    $field
-                );
+        if ( ! is_array( $definition ) ) {
+            return new WP_Error(
+                'invalid_condition_definition',
+                'تعریف شرط انتخاب‌شده معتبر نیست.'
+            );
+        }
 
-            if ( ! is_array( $definition ) ) {
-                return new WP_Error(
-                    'invalid_condition_definition',
-                    'تعریف شرط انتخاب‌شده معتبر نیست.'
-                );
-            }
-
-            /*
-             * Validate the value according to the
-             * registered condition value type.
-             */
-            $value_type = isset(
+        /*
+         * Validate the value according to the
+         * registered condition value type.
+         */
+        $value_type = isset(
+            $definition['value_type']
+        )
+            ? sanitize_key(
                 $definition['value_type']
             )
-                ? sanitize_key(
-                    $definition['value_type']
+            : 'text';
+
+        if ( 'between' === $operator ) {
+
+            /*
+             * Range conditions require an array:
+             *
+             * min
+             * max
+             */
+            if (
+                ! is_array(
+                    $value
                 )
-                : 'text';
+            ) {
 
-            if ( 'between' === $operator ) {
-
-                /*
-                 * Range conditions require an array:
-                 *
-                 * min
-                 * max
-                 */
-                if (
-                    ! is_array(
-                        $value
-                    )
-                ) {
-
-                    return new WP_Error(
-                        'invalid_condition_range',
-                        'ساختار بازه شرط نامعتبر است.'
-                    );
-                }
-
-                $minimum =
-                    isset(
-                        $value['min']
-                    )
-                        ? $this->normalize_numeric_input(
-                            $value['min']
-                        )
-                        : '';
-
-                $maximum =
-                    isset(
-                        $value['max']
-                    )
-                        ? $this->normalize_numeric_input(
-                            $value['max']
-                        )
-                        : '';
-
-                if (
-                    '' === $minimum ||
-                    '' === $maximum
-                ) {
-
-                    return new WP_Error(
-                        'incomplete_condition_range',
-                        'حداقل و حداکثر بازه باید مشخص شوند.'
-                    );
-                }
-
-                if (
-                    ! is_numeric(
-                        $minimum
-                    ) ||
-                    ! is_numeric(
-                        $maximum
-                    )
-                ) {
-
-                    return new WP_Error(
-                        'invalid_condition_range_value',
-                        'مقادیر حداقل و حداکثر باید عدد معتبر باشند.'
-                    );
-                }
-
-                if ( (float) $minimum < 0 ||
-                    (float) $maximum < 0
-                ) {
-
-                    return new WP_Error(
-                        'negative_condition_range_value',
-                        'مقادیر بازه نمی‌توانند منفی باشند.'
-                    );
-                }
-
-                if (
-                    (float) $minimum >
-                    (float) $maximum
-                ) {
-
-                    return new WP_Error(
-                        'invalid_condition_range_order',
-                        'مقدار حداقل نمی‌تواند از مقدار حداکثر بیشتر باشد.'
-                    );
-                }
-
-                continue;
+                return new WP_Error(
+                    'invalid_condition_range',
+                    'ساختار بازه شرط نامعتبر است.'
+                );
             }
 
-            if ( 'number' === $value_type ) {
+            $minimum =
+                isset(
+                    $value['min']
+                )
+                    ? $this->normalize_numeric_input(
+                        $value['min']
+                    )
+                    : '';
 
-                $value = str_replace(
+            $maximum =
+                isset(
+                    $value['max']
+                )
+                    ? $this->normalize_numeric_input(
+                        $value['max']
+                    )
+                    : '';
+
+            if (
+                '' === $minimum ||
+                '' === $maximum
+            ) {
+
+                return new WP_Error(
+                    'incomplete_condition_range',
+                    'حداقل و حداکثر بازه باید مشخص شوند.'
+                );
+            }
+
+            if (
+                ! is_numeric(
+                    $minimum
+                ) ||
+                ! is_numeric(
+                    $maximum
+                )
+            ) {
+
+                return new WP_Error(
+                    'invalid_condition_range_value',
+                    'مقادیر حداقل و حداکثر باید عدد معتبر باشند.'
+                );
+            }
+
+            if (
+                (float) $minimum < 0 ||
+                (float) $maximum < 0
+            ) {
+
+                return new WP_Error(
+                    'negative_condition_range_value',
+                    'مقادیر بازه نمی‌توانند منفی باشند.'
+                );
+            }
+
+            if (
+                (float) $minimum >
+                (float) $maximum
+            ) {
+
+                return new WP_Error(
+                    'invalid_condition_range_order',
+                    'مقدار حداقل نمی‌تواند از مقدار حداکثر بیشتر باشد.'
+                );
+            }
+
+            return true;
+        }
+
+        if (
+            'number' ===
+            $value_type
+        ) {
+
+            $value =
+                str_replace(
                     ',',
                     '',
                     (string) $value
                 );
 
-                if (
-                    '' === $value ||
-                    ! is_numeric( $value )
-                ) {
-                    return new WP_Error(
-                        'invalid_condition_value',
-                        'مقدار شرط باید یک عدد معتبر باشد.'
-                    );
-                }
+            if (
+                '' === $value ||
+                ! is_numeric(
+                    $value
+                )
+            ) {
+                return new WP_Error(
+                    'invalid_condition_value',
+                    'مقدار شرط باید یک عدد معتبر باشد.'
+                );
+            }
 
-                if ( (float) $value < 0 ) {
-                    return new WP_Error(
-                        'negative_condition_value',
-                        'مقدار شرط نمی‌تواند منفی باشد.'
-                    );
-                }
-            } else {
+            if (
+                (float) $value < 0
+            ) {
+                return new WP_Error(
+                    'negative_condition_value',
+                    'مقدار شرط نمی‌تواند منفی باشد.'
+                );
+            }
+        } else {
 
-                $value = trim(
+            $value =
+                trim(
                     (string) $value
                 );
 
-                if ( '' === $value ) {
-                    return new WP_Error(
-                        'invalid_condition_value',
-                        'مقدار شرط نمی‌تواند خالی باشد.'
-                    );
-                }
+            if (
+                '' ===
+                $value
+            ) {
+                return new WP_Error(
+                    'invalid_condition_value',
+                    'مقدار شرط نمی‌تواند خالی باشد.'
+                );
             }
         }
 
