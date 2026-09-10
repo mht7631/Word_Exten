@@ -1637,6 +1637,18 @@ class WooSmart_Admin {
                         );
                         ?>;
 
+                    const conditionValueOptions =
+                        <?php
+                        echo wp_json_encode(
+                            array(
+                                'order_status' =>
+                                    $order_statuses,
+                            ),
+                            JSON_UNESCAPED_UNICODE |
+                            JSON_UNESCAPED_SLASHES
+                        );
+                        ?>;
+
                     const currencyUnit =
                         <?php
                         echo wp_json_encode(
@@ -1776,6 +1788,91 @@ class WooSmart_Admin {
                             definition.value_type ===
                                 'number'
                         );
+                    }
+
+                    function isSelectField(
+                        field
+                    ) {
+
+                        const definition =
+                            getDefinition(
+                                field
+                            );
+
+                        return (
+                            definition &&
+                            (
+                                definition.value_type ===
+                                    'select' ||
+                                definition.value_options_source ===
+                                    'woocommerce_order_statuses'
+                            )
+                        );
+                    }
+
+                    function getConditionValueOptions(
+                        field
+                    ) {
+
+                        if (
+                            ! conditionValueOptions ||
+                            ! conditionValueOptions[field]
+                        ) {
+
+                            return {};
+                        }
+
+                        return conditionValueOptions[field];
+                    }
+
+                    function buildConditionValueOptions(
+                        field,
+                        selectedValue
+                    ) {
+
+                        const options =
+                            getConditionValueOptions(
+                                field
+                            );
+
+                        let html =
+                            '';
+
+                        Object.keys(
+                            options
+                        ).forEach(
+                            function(
+                                optionKey
+                            ) {
+
+                                html +=
+                                    '<option value="' +
+                                    escapeHtml(
+                                        optionKey
+                                    ) +
+                                    '"' +
+                                    (
+                                        String(
+                                            optionKey
+                                        ) ===
+                                        String(
+                                            selectedValue ||
+                                            ''
+                                        )
+                                            ? ' selected'
+                                            : ''
+                                    ) +
+                                    '>' +
+                                    escapeHtml(
+                                        options[
+                                            optionKey
+                                        ]
+                                    ) +
+                                    '</option>';
+                            }
+                        );
+
+                        return html;
                     }
 
                     function buildOperatorOptions(
@@ -2010,7 +2107,23 @@ class WooSmart_Admin {
                         let value =
                             '';
 
+                        const valueSelect =
+                            row.querySelector(
+                                '.woosmart-condition-select'
+                            );
+
                         if (
+                            isSelectField(
+                                field
+                            )
+                        ) {
+
+                            value =
+                                valueSelect
+                                    ? valueSelect.value
+                                    : '';
+
+                        } else if (
                             isNumberField(
                                 field
                             )
@@ -2102,6 +2215,16 @@ class WooSmart_Admin {
                                 '.woosmart-condition-text-wrapper'
                             );
 
+                        const selectWrapper =
+                            row.querySelector(
+                                '.woosmart-condition-select-wrapper'
+                            );
+
+                        const valueSelect =
+                            row.querySelector(
+                                '.woosmart-condition-select'
+                            );
+
                         const valueUnit =
                             row.querySelector(
                                 '.woosmart-condition-unit'
@@ -2128,6 +2251,11 @@ class WooSmart_Admin {
 
                         const numberField =
                             isNumberField(
+                                field
+                            );
+
+                        const selectField =
+                            isSelectField(
                                 field
                             );
 
@@ -2164,9 +2292,46 @@ class WooSmart_Admin {
                         ) {
 
                             textWrapper.style.display =
-                                numberField
+                                (
+                                    numberField ||
+                                    selectField
+                                )
                                     ? 'none'
                                     : 'block';
+                        }
+
+                        if (
+                            selectWrapper
+                        ) {
+
+                            selectWrapper.style.display =
+                                selectField
+                                    ? 'block'
+                                    : 'none';
+
+                            if (
+                                selectField &&
+                                valueSelect
+                            ) {
+
+                                const currentValue =
+                                    valueSelect.value;
+
+                                valueSelect.innerHTML =
+                                    '<option value="">انتخاب کنید...</option>' +
+                                    buildConditionValueOptions(
+                                        field,
+                                        currentValue
+                                    );
+
+                                if (
+                                    currentValue
+                                ) {
+
+                                    valueSelect.value =
+                                        currentValue;
+                                }
+                            }
                         }
 
                         if (
@@ -2182,6 +2347,13 @@ class WooSmart_Admin {
                         ) {
 
                             if (
+                                selectField
+                            ) {
+
+                                description.textContent =
+                                    'وضعیت سفارش را از فهرست انتخاب کنید.';
+
+                            } else if (
                                 ! numberField
                             ) {
 
@@ -2378,6 +2550,11 @@ class WooSmart_Admin {
                                 '.woosmart-condition-text'
                             );
 
+                        const valueSelect =
+                            row.querySelector(
+                                '.woosmart-condition-select'
+                            );
+
                         const removeButton =
                             row.querySelector(
                                 '.woosmart-remove-condition'
@@ -2450,6 +2627,21 @@ class WooSmart_Admin {
 
                             textInput.addEventListener(
                                 'input',
+                                function() {
+
+                                    syncConditionRow(
+                                        row
+                                    );
+                                }
+                            );
+                        }
+
+                        if (
+                            valueSelect
+                        ) {
+
+                            valueSelect.addEventListener(
+                                'change',
                                 function() {
 
                                     syncConditionRow(
@@ -2944,6 +3136,25 @@ class WooSmart_Admin {
                                                 </span>
 
                                             </div>
+
+                                        </div>
+
+                                        <div
+                                            class="woosmart-condition-select-wrapper"
+                                            style="
+                                                display:none;
+                                                max-width:420px;
+                                            "
+                                        >
+
+                                            <select
+                                                class="woosmart-condition-select"
+                                                style="
+                                                    min-width:300px;
+                                                "
+                                            >
+                                                <option value="">انتخاب کنید...</option>
+                                            </select>
 
                                         </div>
 
@@ -5849,6 +6060,76 @@ class WooSmart_Admin {
                 )
                 : 'text';
 
+        $condition_value_options =
+            array();
+
+        if (
+            'select' ===
+            $value_type &&
+            isset(
+                $condition_definition['value_options_source']
+            ) &&
+            'woocommerce_order_statuses' ===
+            $condition_definition['value_options_source'] &&
+            function_exists(
+                'wc_get_order_statuses'
+            )
+        ) {
+
+            foreach (
+                wc_get_order_statuses() as $status_key => $status_label
+            ) {
+
+                $status_slug =
+                    str_replace(
+                        'wc-',
+                        '',
+                        $status_key
+                    );
+
+                $condition_value_options[
+                    $status_slug
+                ] =
+                    $this->get_order_status_label(
+                        $status_slug,
+                        $status_label
+                    );
+            }
+        }
+
+        if (
+            'select' ===
+            $value_type &&
+            empty(
+                $condition_value_options
+            )
+        ) {
+
+            $condition_value_options =
+                array(
+                    'pending' =>
+                        'در انتظار پرداخت',
+
+                    'processing' =>
+                        'در حال پردازش',
+
+                    'on-hold' =>
+                        'در انتظار',
+
+                    'completed' =>
+                        'تکمیل‌شده',
+
+                    'cancelled' =>
+                        'لغوشده',
+
+                    'refunded' =>
+                        'مستردشده',
+
+                    'failed' =>
+                        'ناموفق',
+                );
+        }
+
         $condition_value_scalar =
             '';
 
@@ -6320,6 +6601,59 @@ class WooSmart_Admin {
                         </div>
 
                         <div
+                            class="woosmart-condition-select-wrapper"
+                            style="
+                                display:
+                                <?php
+                                echo (
+                                    'select' ===
+                                    $value_type
+                                )
+                                    ? 'block'
+                                    : 'none';
+                                ?>;
+                                max-width:420px;
+                            "
+                        >
+
+                            <select
+                                class="woosmart-condition-select"
+                                style="
+                                    min-width:300px;
+                                "
+                            >
+
+                                <option value="">
+                                    انتخاب کنید...
+                                </option>
+
+                                <?php foreach (
+                                    $condition_value_options
+                                    as $option_value =>
+                                    $option_label
+                                ) : ?>
+
+                                    <option
+                                        value="<?php echo esc_attr( $option_value ); ?>"
+                                        <?php selected(
+                                            $condition_value_scalar,
+                                            $option_value
+                                        ); ?>
+                                    >
+                                        <?php
+                                        echo esc_html(
+                                            $option_label
+                                        );
+                                        ?>
+                                    </option>
+
+                                <?php endforeach; ?>
+
+                            </select>
+
+                        </div>
+
+                        <div
                             class="woosmart-condition-text-wrapper"
                             style="
                                 display:
@@ -6369,6 +6703,15 @@ class WooSmart_Admin {
                         >
                             <?php
                             if (
+                                'select' ===
+                                $value_type
+                            ) {
+
+                                echo esc_html(
+                                    'وضعیت سفارش را از فهرست انتخاب کنید.'
+                                );
+
+                            } elseif (
                                 'number' !==
                                 $value_type
                             ) {
@@ -7166,9 +7509,23 @@ class WooSmart_Admin {
                 <?php else : ?>
 
                     <?php
-                    echo esc_html(
-                        (string) $value
-                    );
+                    if (
+                        'order_status' ===
+                        $field
+                    ) {
+
+                        echo esc_html(
+                            $this->get_order_status_label(
+                                $value
+                            )
+                        );
+
+                    } else {
+
+                        echo esc_html(
+                            (string) $value
+                        );
+                    }
                     ?>
 
                 <?php endif; ?>
