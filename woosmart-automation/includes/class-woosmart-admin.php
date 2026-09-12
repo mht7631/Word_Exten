@@ -1393,6 +1393,16 @@ class WooSmart_Admin {
                                     ایجاد سفارش
                                 </option>
 
+                                <option
+                                    value="order_status_changed"
+                                    <?php selected(
+                                        $trigger,
+                                        'order_status_changed'
+                                    ); ?>
+                                >
+                                    تغییر وضعیت سفارش
+                                </option>
+
                             </select>
 
                         </td>
@@ -7709,6 +7719,9 @@ class WooSmart_Admin {
             array(
                 'order_created' =>
                     'ایجاد سفارش',
+
+                'order_status_changed' =>
+                    'تغییر وضعیت سفارش',
             );
 
         return isset(
