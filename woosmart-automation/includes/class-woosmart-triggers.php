@@ -52,6 +52,13 @@ class WooSmart_Triggers {
             10,
             1
         );
+
+        add_action(
+            'woocommerce_order_status_changed',
+            array( $this, 'order_status_changed' ),
+            10,
+            4
+        );
     }
 
     /**
@@ -81,6 +88,63 @@ class WooSmart_Triggers {
 
         $this->engine->execute(
             'order_created',
+            $context
+        );
+    }
+
+    /**
+     * Handle WooCommerce order status changes.
+     *
+     * @param int        $order_id   WooCommerce order ID.
+     * @param string     $old_status Previous order status slug.
+     * @param string     $new_status New order status slug.
+     * @param WC_Order   $order      WooCommerce order object.
+     *
+     * @return void
+     */
+    public function order_status_changed(
+        $order_id,
+        $old_status,
+        $new_status,
+        $order
+    ) {
+
+        $order_id = absint( $order_id );
+
+        if ( ! $order_id ) {
+            return;
+        }
+
+        $old_status = sanitize_key( $old_status );
+        $new_status = sanitize_key( $new_status );
+
+        if ( empty( $new_status ) ) {
+            return;
+        }
+
+        if ( ! is_object( $order ) || ! method_exists( $order, 'get_id' ) ) {
+            $order = wc_get_order( $order_id );
+        }
+
+        if ( ! $order ) {
+            return;
+        }
+
+        $context = array(
+            'order'      => $order,
+            'order_id'   => $order_id,
+            'old_status' => $old_status,
+            'new_status' => $new_status,
+        );
+
+        $this->logger->log(
+            'order_status_changed',
+            'WooCommerce order status was changed.',
+            $context
+        );
+
+        $this->engine->execute(
+            'order_status_changed',
             $context
         );
     }
