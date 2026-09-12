@@ -1557,6 +1557,7 @@ class WooSmart_Automation_Manager {
 
         $allowed_triggers = array(
             'order_created',
+            'order_status_changed',
         );
 
         if (
